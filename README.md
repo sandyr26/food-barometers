@@ -1,0 +1,189 @@
+# FOOD BAROMETERS
+
+Un'application mobile pour le suivi de l'alimentation avec support multilingue.
+
+## Ì∫Ä Aper√ßu du Projet
+
+**FOOD BAROMETERS** est une application web mobile construite avec React qui aide les utilisateurs √† suivre leur consommation alimentaire et √† surveiller leur sant√© nutritionnelle.
+
+### ‚ú® Fonctionnalit√©s Principales
+
+- Ìæ® **√âcran de d√©marrage** avec branding de l'application
+- Ì¥ê **Authentification sociale** (simulation Facebook/Google)
+- Ì≥ù **Questionnaire d'inscription** en plusieurs √©tapes
+- Ì≥ä **Tableau de bord** avec graphiques de progression IMC
+- Ì≥Ö **Calendrier hebdomadaire** d'apport alimentaire
+- Ìæ§ **Enregistrement alimentaire** par voix et texte
+- Ì¥î **Syst√®me de notifications** push
+- Ì±§ **Gestion de profil**
+
+### Ìºç Support Multilingue
+
+- **Fran√ßais** (par d√©faut)
+- **Anglais**
+- **Cr√©ole Mauricien**
+- **Cr√©ole R√©unionnais**
+
+## Ìª†Ô∏è Stack Technique
+
+- **React 18+** avec TypeScript
+- **Vite** pour les outils de build
+- **React Router** pour la navigation
+- **Context API** pour la gestion d'√©tat
+- **react-i18next** pour l'internationalisation
+- **React Hook Form** pour la gestion des formulaires
+- **Design responsive** mobile-first
+
+## Ì∫Ä D√©marrage Rapide
+
+### Pr√©requis
+
+- Node.js 20.19+ ou 22.12+
+- npm ou yarn
+
+### Installation
+
+1. **Cloner le repository**
+   ```bash
+   git clone <repository-url>
+   cd food-barometers
+   ```
+
+2. **Installer les d√©pendances**
+   ```bash
+   npm install
+   ```
+
+3. **D√©marrer le serveur de d√©veloppement**
+   ```bash
+   npm run dev
+   ```
+
+4. **Ouvrir dans le navigateur**
+   - Acc√©dez √† `http://localhost:5173`
+
+### Scripts Disponibles
+
+- `npm run dev` - D√©marre le serveur de d√©veloppement
+- `npm run build` - Construit l'application pour la production
+- `npm run preview` - Pr√©visualise le build de production
+- `npm run lint` - Ex√©cute ESLint
+
+## Ì≥± Structure de l'Application
+
+```
+src/
+‚îú‚îÄ‚îÄ components/          # Composants r√©utilisables
+‚îú‚îÄ‚îÄ pages/              # Pages principales
+‚îÇ   ‚îú‚îÄ‚îÄ SplashScreen.tsx
+‚îÇ   ‚îú‚îÄ‚îÄ AuthPage.tsx
+‚îÇ   ‚îú‚îÄ‚îÄ Registration/
+‚îÇ   ‚îú‚îÄ‚îÄ Home.tsx
+‚îÇ   ‚îî‚îÄ‚îÄ Profile.tsx
+‚îú‚îÄ‚îÄ contexts/           # Contextes React
+‚îÇ   ‚îî‚îÄ‚îÄ AuthContext.tsx
+‚îú‚îÄ‚îÄ locales/           # Fichiers de traduction
+‚îÇ   ‚îú‚îÄ‚îÄ fr.ts
+‚îÇ   ‚îú‚îÄ‚îÄ en.ts
+‚îÇ   ‚îî‚îÄ‚îÄ index.ts
+‚îú‚îÄ‚îÄ types/             # D√©finitions TypeScript
+‚îî‚îÄ‚îÄ utils/             # Fonctions utilitaires
+```
+
+## Ì¥ß Configuration
+
+### Variables d'Environnement
+
+Cr√©ez un fichier `.env.local` pour les variables d'environnement :
+
+```env
+VITE_API_BASE_URL=https://api.foodbarometers.com
+VITE_FACEBOOK_APP_ID=your_facebook_app_id
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
+```
+
+### Progressive Web App (PWA)
+
+L'application est configur√©e pour √™tre installable en tant que PWA sur les appareils mobiles.
+
+## Ì≥ä Questionnaire d'Inscription
+
+Le questionnaire comprend 13 questions couvrant :
+
+- Informations d√©mographiques
+- Situation professionnelle
+- Niveau d'√©ducation
+- Situation conjugale
+- Revenus du foyer
+- Composition du m√©nage
+
+## ÌΩΩÔ∏è Enregistrement Alimentaire
+
+Les utilisateurs peuvent enregistrer leurs repas via :
+
+- **Saisie manuelle** avec formulaire d√©taill√©
+- **Enregistrement vocal** avec transcription automatique
+
+### Donn√©es Captur√©es
+
+- Heure de consommation
+- D√©nomination de la prise
+- Composition des aliments
+- Mode de pr√©paration
+- Lieu de consommation
+- Contexte social
+- Modalit√©s de consommation
+- Dur√©e du repas
+- Diff√©rences par rapport aux habitudes
+
+## Ì¥î Notifications
+
+- Rappels quotidiens pour l'enregistrement des repas
+- Notifications de progression
+- Alertes sant√© personnalis√©es
+
+## Ì∫Ä D√©ploiement
+
+### Build de Production
+
+```bash
+npm run build
+```
+
+### D√©ploiement sur Vercel
+
+```bash
+npm install -g vercel
+vercel --prod
+```
+
+### D√©ploiement sur Netlify
+
+```bash
+npm run build
+# D√©ployez le dossier `dist/`
+```
+
+## Ì¥ù Contribution
+
+1. Fork le projet
+2. Cr√©ez votre branche feature (`git checkout -b feature/AmazingFeature`)
+3. Committez vos changements (`git commit -m 'Add some AmazingFeature'`)
+4. Push vers la branche (`git push origin feature/AmazingFeature`)
+5. Ouvrez une Pull Request
+
+## Ì≥ù Licence
+
+Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de d√©tails.
+
+## Ì∂ò Support
+
+Pour toute question ou probl√®me :
+
+- Ouvrez une issue sur GitHub
+- Contactez l'√©quipe de d√©veloppement
+- Consultez la documentation API
+
+---
+
+**FOOD BAROMETERS** - Suivez votre alimentation, am√©liorez votre sant√© ÌµóÌ≥±
