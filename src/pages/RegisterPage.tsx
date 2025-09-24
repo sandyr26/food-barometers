@@ -6,6 +6,7 @@ interface RegisterPageProps {
   onBack: () => void;
   onComplete: () => void;
   language: Language;
+  onLanguageChange?: (lang: Language) => void;
 }
 
 interface RegistrationData {
@@ -762,13 +763,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
   };
 
   return (
-    <div className="form-container">
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
-        <button onClick={handlePrevious} style={{ background: 'none', border: 'none', fontSize: '1.5rem' }}>
+    <>
+      <div className="app-header">
+        <button onClick={handlePrevious} className="header-icon">
           ←
         </button>
-        <h2 style={{ margin: '0 auto' }}>{t.register}</h2>
+        <h1 className="app-header-title">{t.register}</h1>
+        <div></div>
       </div>
+      <div className="page-content-full">
       
       <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
         <p style={{ color: '#667eea', fontWeight: '600', fontSize: '1.1rem' }}>
@@ -811,7 +814,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
           {currentQuestion === 13 ? t.finish : t.next}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

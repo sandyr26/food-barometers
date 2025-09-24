@@ -1,346 +1,205 @@
-import React, { useState } from 'react';
+import React from "react";
 
-type Language = 'fr' | 'en' | 'mfe' | 'rcf';
+type Language = "fr" | "en" | "mfe" | "rcf";
+type Page = "splash" | "auth" | "register" | "home" | "addMeal" | "profile" | "notifications" | "supplies";
 
 interface NotificationsPageProps {
   language: Language;
   onBack: () => void;
+  onNavigate: (page: Page) => void;
 }
 
 const translations = {
   fr: {
     notifications: "Notifications",
-    markAllRead: "Tout marquer comme lu",
-    clear: "Effacer",
     today: "Aujourd'hui",
-    yesterday: "Hier",
+    yesterday: "Hier", 
     thisWeek: "Cette semaine",
-    mealReminder: "Rappel de repas",
-    waterReminder: "Rappel d'hydratation",
-    goalAchieved: "Objectif atteint",
-    weeklyReport: "Rapport hebdomadaire",
-    newTip: "Nouveau conseil",
-    mealReminderText: "Il est temps de prendre votre déjeuner !",
-    waterReminderText: "N'oubliez pas de boire de l'eau",
-    goalAchievedText: "Félicitations ! Vous avez atteint votre objectif calorique",
-    weeklyReportText: "Votre rapport hebdomadaire est disponible",
-    newTipText: "Nouveau conseil nutrition : Mangez des légumes colorés",
-    noNotifications: "Aucune notification",
-    time: {
-      "12:30": "12h30",
-      "10:15": "10h15", 
-      "18:45": "18h45",
-      "09:00": "09h00",
-      "14:20": "14h20"
-    }
+    mealReminder: "Rappel d'ajout de repas",
+    addMealToday: "Il est temps d'ajouter votre repas d'hier",
+    addMealYesterday: "Il est temps d'ajouter votre repas d'hier",
+    supplies: "Approvisionnements",
+    suppliesDescription: "Participer à l'enquête sur vos habitudes d'achat alimentaire",
+    noNotifications: "Aucune notification pour le moment"
   },
   en: {
     notifications: "Notifications",
-    markAllRead: "Mark all as read",
-    clear: "Clear",
     today: "Today",
-    yesterday: "Yesterday", 
-    thisWeek: "This week",
+    yesterday: "Yesterday",
+    thisWeek: "This week", 
     mealReminder: "Meal reminder",
-    waterReminder: "Water reminder",
-    goalAchieved: "Goal achieved",
-    weeklyReport: "Weekly report",
-    newTip: "New tip",
-    mealReminderText: "Time for your lunch!",
-    waterReminderText: "Don't forget to drink water",
-    goalAchievedText: "Congratulations! You reached your calorie goal",
-    weeklyReportText: "Your weekly report is available", 
-    newTipText: "New nutrition tip: Eat colorful vegetables",
-    noNotifications: "No notifications",
-    time: {
-      "12:30": "12:30",
-      "10:15": "10:15",
-      "18:45": "18:45", 
-      "09:00": "09:00",
-      "14:20": "14:20"
-    }
+    addMealToday: "It's time to add your meal for yesterday",
+    addMealYesterday: "It's time to add your meal for yesterday",
+    supplies: "Supplies",
+    suppliesDescription: "Participate in the survey about your food shopping habits",
+    noNotifications: "No notifications at the moment"
   },
   mfe: {
     notifications: "Notifikasyon",
-    markAllRead: "Mark tou kouma li",
-    clear: "Efas",
     today: "Zordi",
     yesterday: "Yer",
-    thisWeek: "Sa lasemen",
-    mealReminder: "Rapel manze",
-    waterReminder: "Rapel dilo",
-    goalAchieved: "Objetif arive",
-    weeklyReport: "Rapor lasemen",
-    newTip: "Nouvo konsey",
-    mealReminderText: "Li letan pou ou dine!",
-    waterReminderText: "Bliye pa bwar dilo",
-    goalAchievedText: "Bravo! Ou finn arive ou objetif kalori",
-    weeklyReportText: "Ou rapor lasemen pe kouma",
-    newTipText: "Nouvo konsey nitrisyon: Manze legim koulèr",
-    noNotifications: "Pa ena notifikasyon",
-    time: {
-      "12:30": "12h30",
-      "10:15": "10h15",
-      "18:45": "18h45",
-      "09:00": "09h00", 
-      "14:20": "14h20"
-    }
+    thisWeek: "Lasmen sa",
+    mealReminder: "Rapel azout manze",
+    addMealToday: "Letan pou azout to manze yer",
+    addMealYesterday: "Letan pou azout to manze yer",
+    supplies: "Aprovizyon",
+    suppliesDescription: "Partisip dan lenket lor to fason aste manze",
+    noNotifications: "Pa ena notifikasyon pou lomoment"
   },
   rcf: {
     notifications: "Notifikasyon",
-    markAllRead: "Mark tou koma li",
-    clear: "Èfas",
     today: "Zordi",
-    yesterday: "Yèr",
-    thisWeek: "Sa lasmèn",
-    mealReminder: "Rapèl manzé",
-    waterReminder: "Rapèl dilo",
-    goalAchieved: "Objetif arivé",
-    weeklyReport: "Rapor lasmèn",
-    newTip: "Nouvo konsèy",
-    mealReminderText: "Li lètan pou ou diné!",
-    waterReminderText: "Bliyé pa bwar dilo",
-    goalAchievedText: "Bravo! Ou finn arivé aou objetif kalori",
-    weeklyReportText: "Aou rapor lasmèn pé koma",
-    newTipText: "Nouvo konsèy nitrisyon: Manzé légim koulèr",
-    noNotifications: "Pa èna notifikasyon",
-    time: {
-      "12:30": "12h30",
-      "10:15": "10h15",
-      "18:45": "18h45",
-      "09:00": "09h00",
-      "14:20": "14h20"
-    }
+    yesterday: "Yèr", 
+    thisWeek: "Lasmèn-la",
+    mealReminder: "Rapèl azout manzé",
+    addMealToday: "Lètan pou azout ou manzé yèr",
+    addMealYesterday: "Lètan pou azout ou manzé yèr", 
+    supplies: "Aprovizyon",
+    suppliesDescription: "Partisipé dan lenquèt lor ou fason astè manzé",
+    noNotifications: "Pa éna notifikasyon pou lomoment"
   }
 };
 
-const NotificationsPage: React.FC<NotificationsPageProps> = ({ language, onBack }) => {
+// Helper function to get date strings
+const getDateString = (daysAgo: number): string => {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+const NotificationsPage: React.FC<NotificationsPageProps> = ({
+  language,
+  onBack,
+  onNavigate,
+}) => {
   const t = translations[language];
   
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'meal',
-      title: t.mealReminder,
-      message: t.mealReminderText,
-      time: '12:30',
-      date: 'today',
-      read: false,
-      icon: '🍽️'
-    },
-    {
-      id: 2,
-      type: 'water',
-      title: t.waterReminder,
-      message: t.waterReminderText,
-      time: '10:15',
-      date: 'today',
-      read: false,
-      icon: '💧'
-    },
-    {
-      id: 3,
-      type: 'goal',
-      title: t.goalAchieved,
-      message: t.goalAchievedText,
-      time: '18:45',
-      date: 'yesterday',
-      read: true,
-      icon: '🎯'
-    },
-    {
-      id: 4,
-      type: 'report',
-      title: t.weeklyReport,
-      message: t.weeklyReportText,
-      time: '09:00',
-      date: 'yesterday',
-      read: false,
-      icon: '📊'
-    },
-    {
-      id: 5,
-      type: 'tip',
-      title: t.newTip,
-      message: t.newTipText,
-      time: '14:20',
-      date: 'thisWeek',
-      read: true,
-      icon: '💡'
-    }
-  ]);
+  const yesterdayDate = getDateString(1);
+  const dayBeforeYesterdayDate = getDateString(2);
 
-  const markAsRead = (id: number) => {
-    setNotifications(notifications.map(notif => 
-      notif.id === id ? { ...notif, read: true } : notif
-    ));
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(notif => ({ ...notif, read: true })));
-  };
-
-  const clearNotification = (id: number) => {
-    setNotifications(notifications.filter(notif => notif.id !== id));
-  };
-
-  const groupedNotifications = {
-    today: notifications.filter(n => n.date === 'today'),
-    yesterday: notifications.filter(n => n.date === 'yesterday'),
-    thisWeek: notifications.filter(n => n.date === 'thisWeek')
-  };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  return (
-    <div className="page-content">
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: '1.5rem' }}>
-          ←
-        </button>
-        <h1 style={{ margin: '0 auto', fontSize: '1.5rem', color: '#667eea' }}>
-          {t.notifications}
-          {unreadCount > 0 && (
-            <span className="notification-badge">{unreadCount}</span>
-          )}
-        </h1>
+  const NotificationItem = ({ 
+    icon, 
+    title, 
+    description, 
+    onClick 
+  }: { 
+    icon: string; 
+    title: string; 
+    description: string; 
+    onClick?: () => void;
+  }) => (
+    <div 
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '1rem',
+        padding: '1rem',
+        background: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        border: '1px solid #f0f0f0',
+        marginBottom: '0.75rem',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'all 0.3s ease'
+      }}
+    >
+      <div style={{
+        fontSize: '1.5rem',
+        padding: '0.5rem',
+        background: '#f8f9fa',
+        borderRadius: '8px',
+        minWidth: '50px',
+        textAlign: 'center'
+      }}>
+        {icon}
       </div>
-
-      {/* Actions */}
-      {notifications.length > 0 && (
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-          <button 
-            onClick={markAllAsRead}
-            className="btn btn-secondary btn-sm"
-            disabled={unreadCount === 0}
-          >
-            ✓ {t.markAllRead}
-          </button>
-        </div>
-      )}
-
-      {/* Notifications */}
-      {notifications.length === 0 ? (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '3rem 1rem',
-          color: '#666' 
+      <div style={{ flex: 1 }}>
+        <h4 style={{ 
+          margin: '0 0 0.25rem 0', 
+          color: '#333', 
+          fontSize: '1rem',
+          fontWeight: '600' 
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔔</div>
-          <p>{t.noNotifications}</p>
+          {title}
+        </h4>
+        <p style={{ 
+          margin: 0, 
+          color: '#666', 
+          fontSize: '0.9rem',
+          lineHeight: '1.4'
+        }}>
+          {description}
+        </p>
+      </div>
+      {onClick && (
+        <div style={{
+          color: '#667eea',
+          fontSize: '1.2rem'
+        }}>
+          →
         </div>
-      ) : (
-        <>
-          {/* Today */}
-          {groupedNotifications.today.length > 0 && (
-            <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#333', marginBottom: '1rem' }}>
-                {t.today}
-              </h3>
-              {groupedNotifications.today.map((notification) => (
-                <div 
-                  key={notification.id} 
-                  className={`notification-item ${!notification.read ? 'unread' : ''}`}
-                  onClick={() => markAsRead(notification.id)}
-                >
-                  <div className="notification-icon">
-                    {notification.icon}
-                  </div>
-                  <div className="notification-content">
-                    <h4>{notification.title}</h4>
-                    <p>{notification.message}</p>
-                    <span className="notification-time">
-                      {t.time[notification.time as keyof typeof t.time]}
-                    </span>
-                  </div>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearNotification(notification.id);
-                    }}
-                    className="notification-clear"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Yesterday */}
-          {groupedNotifications.yesterday.length > 0 && (
-            <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#333', marginBottom: '1rem' }}>
-                {t.yesterday}
-              </h3>
-              {groupedNotifications.yesterday.map((notification) => (
-                <div 
-                  key={notification.id} 
-                  className={`notification-item ${!notification.read ? 'unread' : ''}`}
-                  onClick={() => markAsRead(notification.id)}
-                >
-                  <div className="notification-icon">
-                    {notification.icon}
-                  </div>
-                  <div className="notification-content">
-                    <h4>{notification.title}</h4>
-                    <p>{notification.message}</p>
-                    <span className="notification-time">
-                      {t.time[notification.time as keyof typeof t.time]}
-                    </span>
-                  </div>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearNotification(notification.id);
-                    }}
-                    className="notification-clear"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* This week */}
-          {groupedNotifications.thisWeek.length > 0 && (
-            <div>
-              <h3 style={{ fontSize: '1.1rem', color: '#333', marginBottom: '1rem' }}>
-                {t.thisWeek}
-              </h3>
-              {groupedNotifications.thisWeek.map((notification) => (
-                <div 
-                  key={notification.id} 
-                  className={`notification-item ${!notification.read ? 'unread' : ''}`}
-                  onClick={() => markAsRead(notification.id)}
-                >
-                  <div className="notification-icon">
-                    {notification.icon}
-                  </div>
-                  <div className="notification-content">
-                    <h4>{notification.title}</h4>
-                    <p>{notification.message}</p>
-                    <span className="notification-time">
-                      {t.time[notification.time as keyof typeof t.time]}
-                    </span>
-                  </div>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearNotification(notification.id);
-                    }}
-                    className="notification-clear"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
       )}
     </div>
+  );
+
+  const SectionHeader = ({ title }: { title: string }) => (
+    <h3 style={{
+      margin: '2rem 0 1rem 0',
+      color: '#333',
+      fontSize: '1.2rem',
+      fontWeight: '600',
+      paddingLeft: '0.5rem',
+      borderLeft: '3px solid #667eea'
+    }}>
+      {title}
+    </h3>
+  );
+
+  return (
+    <>
+      <div className="app-header">
+        <button onClick={onBack} className="header-icon">
+          ←
+        </button>
+        <h1 className="app-header-title">
+          {t.notifications}
+        </h1>
+        <div></div>
+      </div>
+      
+      <div className="page-content-full">
+        {/* Today Section */}
+        <SectionHeader title={t.today} />
+        <NotificationItem
+          icon="🍽️"
+          title={t.mealReminder}
+          description={`${t.addMealToday}, ${yesterdayDate}`}
+        />
+
+        {/* Yesterday Section */}
+        <SectionHeader title={t.yesterday} />
+        <NotificationItem
+          icon="🍽️"
+          title={t.mealReminder}
+          description={`${t.addMealYesterday}, ${dayBeforeYesterdayDate}`}
+        />
+
+        {/* This Week Section */}
+        <SectionHeader title={t.thisWeek} />
+        <NotificationItem
+          icon="🛒"
+          title={t.supplies}
+          description={t.suppliesDescription}
+          onClick={() => onNavigate("supplies")}
+        />
+      </div>
+    </>
   );
 };
 
