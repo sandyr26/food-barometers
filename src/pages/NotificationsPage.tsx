@@ -14,7 +14,7 @@ const translations = {
     notifications: "Notifications",
     today: "Aujourd'hui",
     yesterday: "Hier", 
-    thisWeek: "Cette semaine",
+    thisWeek: "Quiz en attente",
     mealReminder: "Rappel d'ajout de repas",
     addMealToday: "Il est temps d'ajouter votre repas d'hier",
     addMealYesterday: "Il est temps d'ajouter votre repas d'hier",
@@ -26,7 +26,7 @@ const translations = {
     notifications: "Notifications",
     today: "Today",
     yesterday: "Yesterday",
-    thisWeek: "This week", 
+    thisWeek: "Pending Quiz", 
     mealReminder: "Meal reminder",
     addMealToday: "It's time to add your meal for yesterday",
     addMealYesterday: "It's time to add your meal for yesterday",
@@ -38,7 +38,7 @@ const translations = {
     notifications: "Notifikasyon",
     today: "Zordi",
     yesterday: "Yer",
-    thisWeek: "Lasmen sa",
+    thisWeek: "Quiz ki pe atann",
     mealReminder: "Rapel azout manze",
     addMealToday: "Letan pou azout to manze yer",
     addMealYesterday: "Letan pou azout to manze yer",
@@ -50,7 +50,7 @@ const translations = {
     notifications: "Notifikasyon",
     today: "Zordi",
     yesterday: "Yèr", 
-    thisWeek: "Lasmèn-la",
+    thisWeek: "Quiz ki ka atann",
     mealReminder: "Rapèl azout manzé",
     addMealToday: "Lètan pou azout ou manzé yèr",
     addMealYesterday: "Lètan pou azout ou manzé yèr", 
@@ -150,10 +150,12 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({
 
   const SectionHeader = ({ title }: { title: string }) => (
     <h3 style={{
-      margin: '2rem 0 1rem 0',
+      margin: '2rem auto 1rem auto',
       color: '#333',
       fontSize: '1.2rem',
       fontWeight: '600',
+      textAlign: 'left',
+      maxWidth: '600px',
       paddingLeft: '0.5rem',
       borderLeft: '3px solid #667eea'
     }}>

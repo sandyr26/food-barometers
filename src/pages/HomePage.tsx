@@ -32,7 +32,7 @@ const translations = {
   fr: {
     welcome: "Bienvenue sur FOOD BAROMETERS",
     welcomeUser: "Bienvenue",
-    todaysMeals: "Repas d'hier",
+    todaysMeals: "Repas d'aujourd'hui",
     addMeal: "Ajouter un repas",
     myStats: "Mes statistiques",
     recommendations: "Recommandations",
@@ -54,7 +54,7 @@ const translations = {
   en: {
     welcome: "Welcome to FOOD BAROMETERS",
     welcomeUser: "Welcome",
-    todaysMeals: "Yesterday's meal",
+    todaysMeals: "Today's meals",
     addMeal: "Add meal",
     myStats: "My statistics",
     recommendations: "Recommendations",
@@ -76,7 +76,7 @@ const translations = {
   mfe: {
     welcome: "Byenvini lor FOOD BAROMETERS",
     welcomeUser: "Byenvini",
-    todaysMeals: "Manze yer",
+    todaysMeals: "Manze zordi",
     addMeal: "Azout manze",
     myStats: "Mo statistik",
     recommendations: "Rekomandasyon",
@@ -98,7 +98,7 @@ const translations = {
   rcf: {
     welcome: "Byenvini lor FOOD BAROMETERS",
     welcomeUser: "Byenvini",
-    todaysMeals: "Manzé yèr",
+    todaysMeals: "Manzé zordi",
     addMeal: "Azout manzé",
     myStats: "Amonk statistik",
     recommendations: "Rèkomandasyon",
@@ -127,15 +127,24 @@ const HomePage: React.FC<HomePageProps> = ({
 }) => {
   const t = translations[language];
 
-  // Convert meals to display format
-  const todaysMeals = meals.map((meal, index) => ({
-    type: `Meal ${index + 1}`,
-    time: meal.time,
-    name: meal.name,
-    duration: meal.duration,
-    isVoice: meal.method === 'voice',
-    fullMeal: meal
-  }));
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().split('T')[0];
+
+  // Filter meals for today and convert to display format
+  const todaysMeals = meals
+    .filter(meal => meal.date === today)
+    .map(meal => ({
+      fullMeal: meal,
+      type: meal.name,
+      time: new Date(meal.time).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      }),
+      name: meal.answers[2] || meal.name, // Use food description from answers if available
+      duration: meal.duration,
+      isVoice: meal.method === 'voice'
+    }));
 
   // Sample weekly data - number of meals logged per day (0-5)
   // Friday morning scenario: Mon-Thu have meals, Fri-Sun have no meals yet

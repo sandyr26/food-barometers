@@ -411,14 +411,18 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal }
     }
     
     // Create meal data object
+    const timeString = finalAnswers[0] || '12:00'; // Time from first question
+    const dateString = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
+    const fullDateTime = `${dateString}T${timeString}:00`; // Create full datetime string
+    
     const mealData: MealData = {
       id: Date.now(), // Simple ID generation
-      time: finalAnswers[0] || '12:00', // Time from first question
+      time: fullDateTime, // Full datetime string
       name: finalAnswers[1] || `${t.addMeal} ${new Date().getHours()}:${new Date().getMinutes().toString().padStart(2, '0')}`, // Meal name from second question or default
       duration: finalAnswers[7] || '30 minutes', // Duration from eighth question
       answers: finalAnswers,
       method: inputMethod || 'text',
-      date: new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
+      date: dateString // Today's date in YYYY-MM-DD format
     };
     
     // Store meal data for later saving

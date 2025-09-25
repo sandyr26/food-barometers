@@ -154,47 +154,33 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack }) 
   };
 
   return (
-    <div className="calendar-page">
-      <style>
-        {`
-          .calendar-page {
-            padding: 10px;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            width: 100%;
-            overflow-x: hidden;
-            box-sizing: border-box;
-          }
+    <>
+      <div className="app-header">
+        <button onClick={onBack} className="header-icon">
+          ←
+        </button>
+        <h1 className="app-header-title">
+          {t.title}
+        </h1>
+        <div></div>
+      </div>
+      <div className="page-content-full">
+        <div className="calendar-page">
+          <style>
+            {`
+              .calendar-page {
+                padding: 10px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                width: 100%;
+                overflow-x: hidden;
+                box-sizing: border-box;
+                border-radius: 16px;
+                margin-bottom: 20px;
+              }
           
           .calendar-header {
             text-align: center;
-            margin-bottom: 30px;
-            position: relative;
-          }
-          
-          .back-button {
-            position: absolute;
-            left: 0;
-            top: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            padding: 10px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s ease;
-          }
-          
-          .back-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-          }
-          
-          .calendar-title {
-            font-size: 28px;
-            font-weight: bold;
             margin-bottom: 20px;
           }
           
@@ -231,14 +217,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack }) 
           .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
+            gap: 2px;
             width: 100%;
             margin: 0;
             background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 15px;
+            padding: 8px;
+            border-radius: 12px;
             backdrop-filter: blur(10px);
             box-sizing: border-box;
+            max-width: 100%;
+            overflow: hidden;
           }
           
           .day-header {
@@ -252,15 +240,18 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack }) 
           
           .calendar-day {
             aspect-ratio: 1;
-            border-radius: 8px;
-            padding: 8px;
+            border-radius: 6px;
+            padding: 4px;
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 80px;
+            min-height: 50px;
+            max-width: 100%;
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: transform 0.2s ease;
+            font-size: 12px;
+            box-sizing: border-box;
           }
           
           .calendar-day:hover:not(.empty) {
@@ -274,23 +265,25 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack }) 
           
           .day-number {
             font-weight: bold;
-            font-size: 16px;
+            font-size: 14px;
             color: #333;
           }
           
           .meal-count {
-            font-size: 11px;
+            font-size: 10px;
             color: #666;
-            margin-top: 5px;
-            line-height: 1.2;
+            margin-top: 2px;
+            line-height: 1.1;
           }
           
           .calendar-legend {
-            margin-top: 30px;
+            margin-top: 20px;
+            margin-bottom: 20px;
             width: 100%;
             margin-left: auto;
             margin-right: auto;
             box-sizing: border-box;
+            padding-bottom: 20px;
           }
           
           .legend-title {
@@ -328,46 +321,40 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack }) 
             @media (max-width: 768px) {
             .calendar-page {
               padding: 5px;
-            }            .calendar-title {
-              font-size: 24px;
             }
             
             .calendar-grid {
-              gap: 2px;
-              padding: 10px;
+              gap: 1px;
+              padding: 6px;
             }
             
             .calendar-day {
-              min-height: 60px;
-              padding: 4px;
-            }
-            
-            .day-number {
-              font-size: 14px;
-            }
-            
-            .meal-count {
+              min-height: 40px;
+              padding: 2px;
               font-size: 10px;
             }
             
+            .day-number {
+              font-size: 12px;
+            }
+            
+            .meal-count {
+              font-size: 9px;
+            }
+            
             .legend-items {
-              gap: 10px;
+              gap: 8px;
             }
             
             .legend-item {
-              font-size: 12px;
-              padding: 6px 10px;
+              font-size: 11px;
+              padding: 4px 8px;
             }
           }
         `}
       </style>
       
       <div className="calendar-header">
-        <button className="back-button" onClick={onBack}>
-          ← Back
-        </button>
-        <h1 className="calendar-title">{t.title}</h1>
-        
         <div className="calendar-navigation">
           <button className="nav-button" onClick={() => navigateMonth('prev')}>
             {t.prevMonth}
@@ -411,7 +398,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack }) 
           </div>
         </div>
       </div>
-    </div>
+        </div>
+      </div>
+    </>
   );
 };
 

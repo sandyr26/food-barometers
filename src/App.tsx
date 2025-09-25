@@ -60,7 +60,10 @@ const App: React.FC = () => {
     { id: 29, time: '2025-09-14T13:45:00', name: 'Lunch', duration: '32 min', answers: ['Ramen', 'Vegetables'], method: 'text', date: '2025-09-14' },
     { id: 30, time: '2025-09-14T19:20:00', name: 'Dinner', duration: '42 min', answers: ['Roast beef', 'Potatoes'], method: 'text', date: '2025-09-14' },
     { id: 31, time: '2025-09-15T08:25:00', name: 'Breakfast', duration: '15 min', answers: ['Muesli', 'Fruit'], method: 'text', date: '2025-09-15' },
-    { id: 32, time: '2025-09-15T12:15:00', name: 'Lunch', duration: '26 min', answers: ['Quinoa bowl', 'Avocado'], method: 'voice', date: '2025-09-15' }
+    { id: 32, time: '2025-09-15T12:15:00', name: 'Lunch', duration: '26 min', answers: ['Quinoa bowl', 'Avocado'], method: 'voice', date: '2025-09-15' },
+    // Today's meals (September 25, 2025) for testing
+    { id: 33, time: '2025-09-25T08:00:00', name: 'Croissant', duration: '12 min', answers: ['Coffee', 'Croissant', 'Fresh croissant with butter and jam'], method: 'text', date: '2025-09-25' },
+    { id: 34, time: '2025-09-25T12:30:00', name: 'Chicken salad', duration: '25 min', answers: ['Salad', 'Chicken salad', 'Mixed green salad with grilled chicken'], method: 'text', date: '2025-09-25' }
   ]);
 
   useEffect(() => {
@@ -216,31 +219,10 @@ const App: React.FC = () => {
       case 'calendar':
         return (
           <>
-            {/* Header with notification and profile icons */}
-            <div className="app-header">
-              <h1 className="app-header-title">FOOD BAROMETERS</h1>
-              <div className="header-icons">
-                <button 
-                  className="header-icon notification-btn"
-                  onClick={() => handleNavigate('notifications')}
-                >
-                  🔔
-                  {notificationCount > 0 && (
-                    <span className="notification-count">{notificationCount}</span>
-                  )}
-                </button>
-                <button 
-                  className="header-icon"
-                  onClick={() => handleNavigate('profile')}
-                >
-                  👤
-                </button>
-              </div>
-            </div>
             <CalendarPage 
               language={language}
-              onBack={() => handleNavigate('home')}
               meals={meals}
+              onBack={() => handleNavigate('home')}
             />
             <div className="navbar">
               <button 
