@@ -26,6 +26,7 @@ interface HomePageProps {
   onNavigate: (page: Page) => void;
   name?: string;
   meals: MealData[];
+  onMealSelect: (meal: MealData) => void;
 }
 
 const translations = {
@@ -124,6 +125,7 @@ const HomePage: React.FC<HomePageProps> = ({
   onNavigate,
   name = "User",
   meals = [],
+  onMealSelect,
 }) => {
   const t = translations[language];
 
@@ -188,7 +190,12 @@ const HomePage: React.FC<HomePageProps> = ({
           </div>
         ) : (
           todaysMeals.map((meal) => (
-            <div key={meal.fullMeal.id} className="meal-card">
+            <div 
+              key={meal.fullMeal.id} 
+              className="meal-card"
+              onClick={() => onMealSelect(meal.fullMeal)}
+              style={{ cursor: 'pointer' }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
                   {meal.isVoice ? (

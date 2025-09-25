@@ -9,9 +9,11 @@ import ProfilePage from './pages/ProfilePage';
 import NotificationsPage from './pages/NotificationsPage';
 import SuppliesPage from './pages/SuppliesPage';
 import CalendarPage from './pages/CalendarPage.tsx';
+import MealDetailPage from './pages/MealDetailPage';
+import DayMealsPage from './pages/DayMealsPage';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type Page = 'splash' | 'auth' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar';
+type Page = 'splash' | 'auth' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals';
 
 interface MealData {
   id: number;
@@ -27,6 +29,8 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('splash');
   const [language, setLanguage] = useState<Language>('fr');
   const [notificationCount] = useState(3);
+  const [selectedMeal, setSelectedMeal] = useState<MealData | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [meals, setMeals] = useState<MealData[]>([
     // Sample meals for September 1-15, 2025
     { id: 1, time: '2025-09-01T08:00:00', name: 'Breakfast', duration: '15 min', answers: ['Bread', 'Coffee'], method: 'text', date: '2025-09-01' },
@@ -100,6 +104,20 @@ const App: React.FC = () => {
     // Don't navigate immediately - let AddMealPage show success page first
   };
 
+  const handleMealSelect = (meal: MealData) => {
+    setSelectedMeal(meal);
+    setCurrentPage('mealDetail');
+  };
+
+  const handleDaySelect = (date: string) => {
+    setSelectedDate(date);
+    setCurrentPage('dayMeals');
+  };
+
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+  };
+
   const renderPage = () => {
     switch (currentPage) {
       case 'splash':
@@ -156,6 +174,7 @@ const App: React.FC = () => {
               onNavigate={handleNavigate}
               name="John"
               meals={meals}
+              onMealSelect={handleMealSelect}
             />
             <div className="navbar">
               <button 
@@ -223,6 +242,7 @@ const App: React.FC = () => {
               language={language}
               meals={meals}
               onBack={() => handleNavigate('home')}
+              onDaySelect={handleDaySelect}
             />
             <div className="navbar">
               <button 
@@ -246,6 +266,27 @@ const App: React.FC = () => {
             </div>
           </>
         );
+
+      case 'mealDetail':
+        return selectedMeal ? (
+          <MealDetailPage
+            language={language}
+            meal={selectedMeal}
+            onBack={() => setCurrentPage('home')}
+          />
+        ) : null;
+
+      case 'dayMeals':
+        return selectedDate ? (
+          <DayMealsPage
+            language={language}
+            selectedDate={selectedDate}
+            meals={meals}
+            onBack={() => setCurrentPage('calendar')}
+            onMealSelect={handleMealSelect}
+            onDateChange={handleDateChange}
+          />
+        ) : null;
 
       default:
         return null;

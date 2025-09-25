@@ -14,6 +14,7 @@ interface CalendarPageProps {
   language: Language;
   meals: MealData[];
   onBack: () => void;
+  onDaySelect: (date: string) => void;
 }
 
 const translations = {
@@ -63,7 +64,7 @@ const translations = {
   }
 };
 
-const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack }) => {
+const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack, onDaySelect }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const t = translations[language];
 
@@ -113,11 +114,19 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ language, meals, onBack }) 
     const dayMeals = getMealsForDay(day);
     const mealCount = dayMeals.length;
     
+    // Create the date string for this day
+    const dayDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    
     calendarDays.push(
       <div 
         key={day} 
         className="calendar-day"
-        style={{ backgroundColor: getActivityColor(mealCount) }}
+        style={{ 
+          backgroundColor: getActivityColor(mealCount),
+          cursor: 'pointer'
+        }}
+        onClick={() => onDaySelect(dayDate)}
+        title={`${day} - ${mealCount > 0 ? `${mealCount} ${t.mealsLogged}` : t.noMeals}`}
       >
         <div className="day-number">{day}</div>
         <div className="meal-count">
