@@ -24,9 +24,6 @@ interface MealData {
 interface HomePageProps {
   language: Language;
   onNavigate: (page: Page) => void;
-  name?: string;
-  meals: MealData[];
-  onMealSelect: (meal: MealData) => void;
 }
 
 const translations = {
@@ -55,9 +52,6 @@ const translations = {
 const HomePage: React.FC<HomePageProps> = ({
   language,
   onNavigate,
-  name = "User",
-  meals = [],
-  onMealSelect,
 }) => {
   const t = translations[language];
 
@@ -102,7 +96,7 @@ const HomePage: React.FC<HomePageProps> = ({
               fontSize: '3rem',
               filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
             }}>
-              ÌΩΩÔ∏è
+              ÔøΩÔøΩÔøΩÔ∏è
             </div>
           </div>
         </div>
