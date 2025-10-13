@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import SplashScreen from './pages/SplashScreen';
 import AuthPage from './pages/AuthPage';
@@ -70,14 +70,7 @@ const App: React.FC = () => {
     { id: 34, time: '2025-09-25T12:30:00', name: 'Chicken salad', duration: '25 min', answers: ['Salad', 'Chicken salad', 'Mixed green salad with grilled chicken'], method: 'text', date: '2025-09-25' }
   ]);
 
-  useEffect(() => {
-    if (currentPage === 'splash') {
-      const timer = setTimeout(() => {
-        setCurrentPage('auth');
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentPage]);
+
 
   const handleLogin = () => {
     setCurrentPage('home');
@@ -176,26 +169,6 @@ const App: React.FC = () => {
               meals={meals}
               onMealSelect={handleMealSelect}
             />
-            <div className="navbar">
-              <button 
-                className="nav-item active"
-                onClick={() => handleNavigate('home')}
-              >
-                🏠
-              </button>
-              <button 
-                className="nav-item"
-                onClick={() => handleNavigate('addMeal')}
-              >
-                ➕
-              </button>
-              <button 
-                className="nav-item"
-                onClick={() => handleNavigate('calendar')}
-              >
-                📅
-              </button>
-            </div>
           </>
         );
 

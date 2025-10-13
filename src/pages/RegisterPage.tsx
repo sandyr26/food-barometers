@@ -10,6 +10,9 @@ interface RegisterPageProps {
 }
 
 interface RegistrationData {
+  email: string;
+  password: string;
+  confirmPassword: string;
   gender: string;
   birthYear: string;
   height: string;
@@ -24,6 +27,7 @@ interface RegistrationData {
   spouseJob: string;
   spouseEducation: string;
   monthlyIncome: string;
+  householdCount: string;
   householdMembers: Array<{ age: string; relationship: string }>;
 }
 
@@ -35,6 +39,12 @@ const translations = {
     finish: "Terminer",
     question: "Question",
     of: "sur",
+    
+    // Account Information
+    accountInfo: "Informations de compte",
+    email: "Adresse email",
+    password: "Mot de passe",
+    confirmPassword: "Confirmer le mot de passe",
     
     // Questions
     q1: "Êtes-vous ?",
@@ -119,6 +129,19 @@ const translations = {
     addMember: "Ajouter une personne",
     age: "Âge",
     relationship: "Lien de parenté",
+    relationshipOptions: [
+      "Conjoint.e / partenaire",
+      "Enfant (fils, fille) (garde exclusive)",
+      "Enfant (en garde alternée)",
+      "Enfant du/de la conjoint.e (en garde alternée)",
+      "Parent (père, mère)",
+      "Beau-parent",
+      "Frère / sœur",
+      "Autre membre de la famille (oncle, tante, cousin, etc.)",
+      "Colocataire",
+      "Ami.e",
+      "Autre. Précisez"
+    ],
     remove: "Supprimer"
   },
   en: {
@@ -128,6 +151,12 @@ const translations = {
     finish: "Finish",
     question: "Question",
     of: "of",
+    
+    // Account Information
+    accountInfo: "Account Information",
+    email: "Email Address",
+    password: "Password",
+    confirmPassword: "Confirm Password",
     
     q1: "What is your gender?",
     q1Options: ["Male", "Female", "Other"],
@@ -211,6 +240,19 @@ const translations = {
     addMember: "Add person",
     age: "Age",
     relationship: "Relationship",
+    relationshipOptions: [
+      "Spouse / partner",
+      "Child (son, daughter) (exclusive custody)",
+      "Child (shared custody)",
+      "Partner's child (shared custody)",
+      "Parent (father, mother)",
+      "Step-parent",
+      "Brother / sister",
+      "Other family member (uncle, aunt, cousin, etc.)",
+      "Roommate",
+      "Friend",
+      "Other. Please specify"
+    ],
     remove: "Remove"
   },
   mfe: {
@@ -220,6 +262,12 @@ const translations = {
     finish: "Fini",
     question: "Kesyon",
     of: "lor",
+    
+    // Account Information
+    accountInfo: "Informasyon kont",
+    email: "Adres email",
+    password: "Mo de pas",
+    confirmPassword: "Konfirm mo de pas",
     
     q1: "Ki ou ete?",
     q1Options: ["Dimoun", "Fanm", "Lot"],
@@ -303,6 +351,19 @@ const translations = {
     addMember: "Azout dimoun",
     age: "Laz",
     relationship: "Ki li ete",
+    relationshipOptions: [
+      "Madame/Monsiè/Partner",
+      "Pitit (garson, fiy) (gard eksklizif)",
+      "Pitit (gard alterne)",
+      "Pitit Madame/Monsiè (gard alterne)",
+      "Parent (papa, mama)",
+      "Bo-parent",
+      "Frè/Sèr",
+      "Lot fami (tonton, tantinn, kozin, etc.)",
+      "Kolokater",
+      "Kamarad",
+      "Lot bagay. Dir sa"
+    ],
     remove: "Retire"
   },
   rcf: {
@@ -312,6 +373,12 @@ const translations = {
     finish: "Fini", 
     question: "Késyon",
     of: "lor",
+    
+    // Account Information
+    accountInfo: "Informasyon kont",
+    email: "Adres email",
+    password: "Mo de pas",
+    confirmPassword: "Konfirm mo de pas",
     
     q1: "Kosa ou lé?",
     q1Options: ["Nonm", "Fanm", "Ot"],
@@ -395,14 +462,30 @@ const translations = {
     addMember: "Azout dimoun", 
     age: "Laz",
     relationship: "Ki li lé",
+    relationshipOptions: [
+      "Madame/Monsiè/Partenèr",
+      "Pitit (garson, fiy) (gard ékskluzif)",
+      "Pitit (gard altèrné)",
+      "Pitit Madame/Monsiè (gard altèrné)",
+      "Parent (papa, mama)",
+      "Bo-parent",
+      "Frèr/Sèr",
+      "Lot fami (tonton, tantinn, kouzin, etc.)",
+      "Kolokatèr",
+      "Kamarad",
+      "Lot bagay. Dir sa"
+    ],
     remove: "Rétiré"
   }
 };
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, language }) => {
   const t = translations[language];
-  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
   const [formData, setFormData] = useState<RegistrationData>({
+    email: '',
+    password: '',
+    confirmPassword: '',
     gender: '',
     birthYear: '',
     height: '',
@@ -417,6 +500,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
     spouseJob: '',
     spouseEducation: '',
     monthlyIncome: '',
+    householdCount: '',
     householdMembers: []
   });
 
@@ -429,7 +513,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
   };
 
   const handlePrevious = () => {
-    if (currentQuestion > 1) {
+    if (currentQuestion > 0) {
       setCurrentQuestion(currentQuestion - 1);
     } else {
       onBack();
@@ -479,9 +563,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
               alignItems: 'center',
               padding: '1.25rem',
               borderRadius: '16px',
-              border: `2px solid ${selectedValue === option ? '#667eea' : '#e1e5e9'}`,
+              border: `2px solid ${selectedValue === option ? '#d97706' : '#e1e5e9'}`,
               background: selectedValue === option 
-                ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
                 : 'white',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
@@ -489,8 +573,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
             }}
             onMouseEnter={(e) => {
               if (selectedValue !== option) {
-                e.currentTarget.style.borderColor = '#667eea';
-                e.currentTarget.style.background = 'rgba(102, 126, 234, 0.02)';
+                e.currentTarget.style.borderColor = '#d97706';
+                e.currentTarget.style.background = 'rgba(217, 119, 6, 0.02)';
               }
             }}
             onMouseLeave={(e) => {
@@ -504,12 +588,12 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
               width: '24px',
               height: '24px',
               borderRadius: '50%',
-              border: `2px solid ${selectedValue === option ? '#667eea' : '#ccc'}`,
+              border: `2px solid ${selectedValue === option ? '#d97706' : '#ccc'}`,
               marginRight: '1rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: selectedValue === option ? '#667eea' : 'white',
+              background: selectedValue === option ? '#d97706' : 'white',
               transition: 'all 0.3s ease',
               flexShrink: 0
             }}>
@@ -533,7 +617,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
             <span style={{ 
               fontSize: '1rem',
               fontWeight: '500',
-              color: selectedValue === option ? '#667eea' : '#333',
+              color: selectedValue === option ? '#d97706' : '#333',
               lineHeight: '1.4',
               flex: 1
             }}>
@@ -542,7 +626,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
             {selectedValue === option && (
               <div style={{
                 marginLeft: '1rem',
-                color: '#667eea',
+                color: '#d97706',
                 fontSize: '1.2rem',
                 flexShrink: 0
               }}>
@@ -557,6 +641,109 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
 
   const renderQuestion = () => {
     switch (currentQuestion) {
+      case 0:
+        return (
+          <div>
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.accountInfo}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="email" 
+                  placeholder={t.email}
+                  value={formData.email}
+                  onChange={(e) => updateFormData('email', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+              
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="password" 
+                  placeholder={t.password}
+                  value={formData.password}
+                  onChange={(e) => updateFormData('password', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+              
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="password" 
+                  placeholder={t.confirmPassword}
+                  value={formData.confirmPassword}
+                  onChange={(e) => updateFormData('confirmPassword', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
       case 1:
         return (
           <div>
@@ -578,9 +765,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                     alignItems: 'center',
                     padding: '1.25rem',
                     borderRadius: '16px',
-                    border: `2px solid ${formData.gender === option ? '#667eea' : '#e1e5e9'}`,
+                    border: `2px solid ${formData.gender === option ? '#d97706' : '#e1e5e9'}`,
                     background: formData.gender === option 
-                      ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                      ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
                       : 'white',
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
@@ -588,8 +775,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   }}
                   onMouseEnter={(e) => {
                     if (formData.gender !== option) {
-                      e.currentTarget.style.borderColor = '#667eea';
-                      e.currentTarget.style.background = 'rgba(102, 126, 234, 0.02)';
+                      e.currentTarget.style.borderColor = '#d97706';
+                      e.currentTarget.style.background = 'rgba(217, 119, 6, 0.02)';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -603,12 +790,12 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                     width: '24px',
                     height: '24px',
                     borderRadius: '50%',
-                    border: `2px solid ${formData.gender === option ? '#667eea' : '#ccc'}`,
+                    border: `2px solid ${formData.gender === option ? '#d97706' : '#ccc'}`,
                     marginRight: '1rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: formData.gender === option ? '#667eea' : 'white',
+                    background: formData.gender === option ? '#d97706' : 'white',
                     transition: 'all 0.3s ease'
                   }}>
                     {formData.gender === option && (
@@ -631,14 +818,14 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   <span style={{ 
                     fontSize: '1.1rem',
                     fontWeight: '500',
-                    color: formData.gender === option ? '#667eea' : '#333'
+                    color: formData.gender === option ? '#d97706' : '#333'
                   }}>
                     {option}
                   </span>
                   {formData.gender === option && (
                     <div style={{
                       marginLeft: 'auto',
-                      color: '#667eea',
+                      color: '#d97706',
                       fontSize: '1.2rem'
                     }}>
                       ✓
@@ -683,8 +870,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#667eea';
-                  e.target.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.1)';
+                  e.target.style.borderColor = '#d97706';
+                  e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = '#e1e5e9';
@@ -740,8 +927,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                     boxSizing: 'border-box'
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#667eea';
-                    e.target.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.1)';
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = '#e1e5e9';
@@ -782,8 +969,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                     boxSizing: 'border-box'
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#667eea';
-                    e.target.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.1)';
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = '#e1e5e9';
@@ -840,8 +1027,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#667eea';
-                  e.target.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.1)';
+                  e.target.style.borderColor = '#d97706';
+                  e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = '#e1e5e9';
@@ -887,9 +1074,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                     alignItems: 'center',
                     padding: '1.25rem',
                     borderRadius: '16px',
-                    border: `2px solid ${formData.education === option ? '#667eea' : '#e1e5e9'}`,
+                    border: `2px solid ${formData.education === option ? '#d97706' : '#e1e5e9'}`,
                     background: formData.education === option 
-                      ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                      ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
                       : 'white',
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
@@ -897,8 +1084,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   }}
                   onMouseEnter={(e) => {
                     if (formData.education !== option) {
-                      e.currentTarget.style.borderColor = '#667eea';
-                      e.currentTarget.style.background = 'rgba(102, 126, 234, 0.02)';
+                      e.currentTarget.style.borderColor = '#d97706';
+                      e.currentTarget.style.background = 'rgba(217, 119, 6, 0.02)';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -912,12 +1099,12 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                     width: '24px',
                     height: '24px',
                     borderRadius: '50%',
-                    border: `2px solid ${formData.education === option ? '#667eea' : '#ccc'}`,
+                    border: `2px solid ${formData.education === option ? '#d97706' : '#ccc'}`,
                     marginRight: '1rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: formData.education === option ? '#667eea' : 'white',
+                    background: formData.education === option ? '#d97706' : 'white',
                     transition: 'all 0.3s ease',
                     flexShrink: 0
                   }}>
@@ -941,7 +1128,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   <span style={{ 
                     fontSize: '1rem',
                     fontWeight: '500',
-                    color: formData.education === option ? '#667eea' : '#333',
+                    color: formData.education === option ? '#d97706' : '#333',
                     lineHeight: '1.4',
                     flex: 1
                   }}>
@@ -950,7 +1137,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   {formData.education === option && (
                     <div style={{
                       marginLeft: '1rem',
-                      color: '#667eea',
+                      color: '#d97706',
                       fontSize: '1.2rem',
                       flexShrink: 0
                     }}>
@@ -981,8 +1168,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                     boxSizing: 'border-box'
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#667eea';
-                    e.target.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.1)';
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = '#e1e5e9';
@@ -1031,8 +1218,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#667eea';
-                  e.target.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.1)';
+                  e.target.style.borderColor = '#d97706';
+                  e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = '#e1e5e9';
@@ -1066,9 +1253,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
               <div style={{
                 textAlign: 'center',
                 padding: '2rem',
-                background: 'rgba(102, 126, 234, 0.02)',
+                background: 'rgba(217, 119, 6, 0.02)',
                 borderRadius: '16px',
-                border: '2px dashed rgba(102, 126, 234, 0.2)',
+                border: '2px dashed rgba(217, 119, 6, 0.2)',
                 marginBottom: '1.5rem'
               }}>
                 <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>👥</div>
@@ -1113,17 +1300,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                             boxSizing: 'border-box'
                           }}
                           onFocus={(e) => {
-                            e.target.style.borderColor = '#667eea';
-                            e.target.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.1)';
+                            e.target.style.borderColor = '#d97706';
+                            e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = '#e1e5e9';
                             e.target.style.boxShadow = 'none';
                           }}
                         />
-                        <input 
-                          type="text" 
-                          placeholder={t.relationship}
+                        <select 
                           value={member.relationship}
                           onChange={(e) => updateHouseholdMember(index, 'relationship', e.target.value)}
                           style={{
@@ -1136,17 +1321,23 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                             background: 'white',
                             transition: 'all 0.3s ease',
                             outline: 'none',
-                            boxSizing: 'border-box'
+                            boxSizing: 'border-box',
+                            cursor: 'pointer'
                           }}
                           onFocus={(e) => {
-                            e.target.style.borderColor = '#667eea';
-                            e.target.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.1)';
+                            e.target.style.borderColor = '#d97706';
+                            e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = '#e1e5e9';
                             e.target.style.boxShadow = 'none';
                           }}
-                        />
+                        >
+                          <option value="">{t.relationship}</option>
+                          {t.relationshipOptions.map((option, optionIndex) => (
+                            <option key={optionIndex} value={option}>{option}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                     <button 
@@ -1192,9 +1383,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                 width: '100%',
                 padding: '1.25rem',
                 borderRadius: '16px',
-                border: '2px dashed #667eea',
-                background: 'rgba(102, 126, 234, 0.05)',
-                color: '#667eea',
+                border: '2px dashed #d97706',
+                background: 'rgba(217, 119, 6, 0.05)',
+                color: '#d97706',
                 fontSize: '1rem',
                 fontWeight: '600',
                 cursor: 'pointer',
@@ -1205,12 +1396,12 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                 gap: '0.5rem'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(102, 126, 234, 0.1)';
-                e.currentTarget.style.borderColor = '#764ba2';
+                e.currentTarget.style.background = 'rgba(217, 119, 6, 0.1)';
+                e.currentTarget.style.borderColor = '#b45309';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(102, 126, 234, 0.05)';
-                e.currentTarget.style.borderColor = '#667eea';
+                e.currentTarget.style.background = 'rgba(217, 119, 6, 0.05)';
+                e.currentTarget.style.borderColor = '#d97706';
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>+</span>
@@ -1227,14 +1418,14 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      backgroundColor: '#ffc000',
       padding: 0,
       margin: 0,
       width: '100vw'
     }}>
       {/* Main Container */}
       <div style={{
-        background: 'white',
+        backgroundColor: '#ffc000',
         width: '100%',
         maxWidth: '100%',
         minHeight: '100vh',
@@ -1249,10 +1440,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
         <div style={{
           position: 'sticky',
           top: 0,
-          background: 'white',
+          background: '#ffc000',
           zIndex: 10,
           padding: '2rem 2rem 1rem',
-          borderBottom: '1px solid rgba(102, 126, 234, 0.1)',
+          borderBottom: '1px solid rgba(217, 119, 6, 0.1)',
           backdropFilter: 'blur(10px)',
           width: '100%'
         }}>
@@ -1265,13 +1456,13 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
             <button 
               onClick={handlePrevious}
               style={{
-                background: 'rgba(102, 126, 234, 0.1)',
+                background: 'rgba(217, 119, 6, 0.1)',
                 border: 'none',
                 borderRadius: '12px',
                 padding: '0.75rem',
                 cursor: 'pointer',
                 fontSize: '1.2rem',
-                color: '#667eea',
+                color: '#d97706',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1286,10 +1477,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
               <h1 style={{
                 fontSize: '1.8rem',
                 fontWeight: '700',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: '#333',
                 margin: 0
               }}>
                 {t.register}
@@ -1303,9 +1491,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
           <div style={{ 
             textAlign: 'center',
             padding: '1.5rem',
-            background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+            background: 'rgba(255, 255, 255, 0.9)',
             borderRadius: '16px',
-            border: '1px solid rgba(102, 126, 234, 0.1)'
+            border: '1px solid rgba(217, 119, 6, 0.2)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
           }}>
           <div style={{ 
             display: 'flex', 
@@ -1315,7 +1504,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
             marginBottom: '1rem'
           }}>
             <div style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: '#d97706',
               borderRadius: '50%',
               width: '32px',
               height: '32px',
@@ -1326,14 +1515,14 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
               fontSize: '0.9rem',
               fontWeight: '600'
             }}>
-              {currentQuestion}
+              {currentQuestion + 1}
             </div>
             <span style={{ 
-              color: '#667eea', 
+              color: '#333', 
               fontWeight: '600', 
               fontSize: '1.1rem'
             }}>
-              {t.question} {currentQuestion} {t.of} 13
+              {t.question} {currentQuestion + 1} {t.of} 14
             </span>
           </div>
           
@@ -1341,7 +1530,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
           <div style={{ 
             width: '100%', 
             height: '8px', 
-            backgroundColor: 'rgba(102, 126, 234, 0.1)', 
+            backgroundColor: 'rgba(217, 119, 6, 0.1)', 
             borderRadius: '4px',
             overflow: 'hidden',
             position: 'relative'
@@ -1349,7 +1538,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
             <div style={{ 
               width: `${(currentQuestion / 13) * 100}%`, 
               height: '100%', 
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              backgroundColor: '#d97706',
               borderRadius: '4px',
               transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
               position: 'relative'
@@ -1369,7 +1558,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
           <div style={{ 
             marginTop: '0.75rem',
             fontSize: '0.85rem',
-            color: '#888',
+            color: '#555',
             display: 'flex',
             justifyContent: 'space-between'
           }}>
@@ -1405,18 +1594,18 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
             gap: '1rem',
             alignItems: 'center',
             paddingTop: '2rem',
-            borderTop: '1px solid rgba(102, 126, 234, 0.1)'
+            borderTop: '1px solid rgba(217, 119, 6, 0.1)'
           }}>
-            {currentQuestion > 1 ? (
+            {currentQuestion > 0 ? (
               <button 
                 onClick={handlePrevious}
                 style={{
                   flex: 1,
                   padding: '1rem 1.5rem',
                   borderRadius: '16px',
-                  border: '2px solid #667eea',
+                  border: '2px solid #d97706',
                   background: 'white',
-                  color: '#667eea',
+                  color: '#d97706',
                   fontSize: '1rem',
                   fontWeight: '600',
                   cursor: 'pointer',
@@ -1427,7 +1616,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                   gap: '0.5rem'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(102, 126, 234, 0.05)';
+                  e.currentTarget.style.background = 'rgba(217, 119, 6, 0.05)';
                   e.currentTarget.style.transform = 'translateY(-2px)';
                 }}
                 onMouseLeave={(e) => {
@@ -1449,7 +1638,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                 padding: '1rem 1.5rem',
                 borderRadius: '16px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: '#d97706',
                 color: 'white',
                 fontSize: '1rem',
                 fontWeight: '600',
@@ -1459,15 +1648,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)'
+                boxShadow: '0 8px 24px rgba(217, 119, 6, 0.3)'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 12px 32px rgba(102, 126, 234, 0.4)';
+                e.currentTarget.style.boxShadow = '0 12px 32px rgba(217, 119, 6, 0.4)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(102, 126, 234, 0.3)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(217, 119, 6, 0.3)';
               }}
             >
               {currentQuestion === 13 ? t.finish : t.next}
