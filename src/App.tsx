@@ -179,9 +179,6 @@ const App: React.FC = () => {
             <HomePage 
               language={language}
               onNavigate={handleNavigate}
-              name="John"
-              meals={meals}
-              onMealSelect={handleMealSelect}
             />
           </>
         );

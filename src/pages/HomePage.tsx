@@ -12,16 +12,6 @@ type Page =
   | "notifications"
   | "calendar";
 
-interface MealData {
-  id: number;
-  time: string;
-  name: string;
-  duration: string;
-  answers: string[];
-  method: 'text' | 'voice';
-  date: string;
-}
-
 interface HomePageProps {
   language: Language;
   onNavigate: (page: Page) => void;

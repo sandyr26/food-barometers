@@ -26,7 +26,7 @@ interface ShoppingReasons {
 }
 
 const SuppliesPage: React.FC<SuppliesPageProps> = ({
-  language,
+  language: _language,
   onBack,
   onNavigate,
 }) => {
