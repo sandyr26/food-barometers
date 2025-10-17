@@ -278,7 +278,7 @@ const App: React.FC = () => {
         return (
           <ComingSoonPage
             language={language}
-            onNavigate={handleNavigate}
+            onNavigate={(page: string) => handleNavigate(page as Page)}
           />
         );
 

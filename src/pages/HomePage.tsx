@@ -10,7 +10,8 @@ type Page =
   | "addMeal"
   | "profile"
   | "notifications"
-  | "calendar";
+  | "calendar"
+  | "comingSoon";
 
 interface HomePageProps {
   language: Language;
