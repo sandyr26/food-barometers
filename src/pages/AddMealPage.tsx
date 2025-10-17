@@ -330,17 +330,6 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
     setDurationUnit('minutes');
   };
 
-  const resetAllStates = () => {
-    setShowInitialQuestion(true);
-    setShowSuccessPage(false);
-    setSavedMealData(null);
-    setInputMethod(null);
-    setCurrentQuestionIndex(0);
-    setAnswers(new Array(t.questions.length).fill(''));
-    setCurrentAnswer('');
-    resetSpecialInputs();
-  };
-
   const handleMethodSelect = (method: InputMethod) => {
     setInputMethod(method);
     setCurrentQuestionIndex(0);
