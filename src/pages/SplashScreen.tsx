@@ -1,4 +1,5 @@
 import React from 'react';
+import logo from '../assets/logo.png';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -74,12 +75,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, language }) => 
           boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
           border: '4px solid rgba(255,255,255,0.8)'
         }}>
-          <div style={{
-            fontSize: '4rem',
-            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
-          }}>
-            🍽️
-          </div>
+          <img src={logo} alt="Logo" style={{
+            width: '100%',
+            height: '100%',
+            borderRadius: '50%',
+            objectFit: 'cover'
+          }} />
         </div>
       </div>
 
