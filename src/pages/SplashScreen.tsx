@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React from 'react';
+import logo from '../assets/logo.png';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -6,35 +7,112 @@ interface SplashScreenProps {
 }
 
 const translations = {
-  fr: { appName: 'FOOD BAROMETERS', subtitle: 'Suivez votre alimentation' },
-  en: { appName: 'FOOD BAROMETERS', subtitle: 'Track your food intake' },
-  mfe: { appName: 'FOOD BAROMETERS', subtitle: 'Swiv to manze' },
-  rcf: { appName: 'FOOD BAROMETERS', subtitle: 'Swiv aou manzé' }
+  fr: { 
+    welcome: 'Bienvenue à Food Barometers',
+    connectButton: 'Se connecter'
+  },
+  en: { 
+    welcome: 'Welcome to Food Barometers',
+    connectButton: 'Connect'
+  },
+  mfe: { 
+    welcome: 'Byenvini dan Food Barometers',
+    connectButton: 'Konekte'
+  },
+  rcf: { 
+    welcome: 'Byenvini dan Food Barometers',
+    connectButton: 'Konèkté'
+  }
 };
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, language }) => {
   const t = translations[language];
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onComplete();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [onComplete]);
 
   return (
-    <div className="splash-screen">
-      <div className="splash-content">
-        <div className="app-logo">
-          <div className="logo-icon">🍽️</div>
-          <h1 className="app-title">{t.appName}</h1>
-        </div>
-        <p className="app-subtitle">{t.subtitle}</p>
-        <div className="loading-indicator">
-          <div className="spinner"></div>
+    <div style={{
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: '#ffc000',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '3rem 2rem',
+      textAlign: 'center'
+    }}>
+      {/* Welcome Text */}
+      <div style={{
+        marginTop: '2rem'
+      }}>
+        <h1 style={{
+          fontSize: '2.2rem',
+          fontWeight: '700',
+          color: '#333',
+          margin: 0,
+          lineHeight: '1.2',
+          textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          {t.welcome}
+        </h1>
+      </div>
+
+      {/* Picture in the middle */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '2rem 0'
+      }}>
+        <div style={{
+          width: '200px',
+          height: '200px',
+          backgroundColor: 'white',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+          border: '4px solid rgba(255,255,255,0.8)'
+        }}>
+          <img src={logo} alt="Logo" style={{
+            width: '100%',
+            height: '100%',
+            borderRadius: '50%',
+            objectFit: 'cover'
+          }} />
         </div>
       </div>
+
+      {/* Se connecter Button */}
+      <button
+        onClick={onComplete}
+        style={{
+          backgroundColor: '#333',
+          color: 'white',
+          border: 'none',
+          borderRadius: '25px',
+          padding: '1rem 2.5rem',
+          fontSize: '1.1rem',
+          fontWeight: '600',
+          cursor: 'pointer',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+          transition: 'all 0.3s ease',
+          minWidth: '200px'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#555';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.25)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#333';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
+        }}
+      >
+        {t.connectButton}
+      </button>
     </div>
   );
 };

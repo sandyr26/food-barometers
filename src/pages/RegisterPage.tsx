@@ -10,6 +10,9 @@ interface RegisterPageProps {
 }
 
 interface RegistrationData {
+  email: string;
+  password: string;
+  confirmPassword: string;
   gender: string;
   birthYear: string;
   height: string;
@@ -24,6 +27,7 @@ interface RegistrationData {
   spouseJob: string;
   spouseEducation: string;
   monthlyIncome: string;
+  householdCount: string;
   householdMembers: Array<{ age: string; relationship: string }>;
 }
 
@@ -35,6 +39,12 @@ const translations = {
     finish: "Terminer",
     question: "Question",
     of: "sur",
+    
+    // Account Information
+    accountInfo: "Informations de compte",
+    email: "Adresse email",
+    password: "Mot de passe",
+    confirmPassword: "Confirmer le mot de passe",
     
     // Questions
     q1: "Êtes-vous ?",
@@ -119,6 +129,19 @@ const translations = {
     addMember: "Ajouter une personne",
     age: "Âge",
     relationship: "Lien de parenté",
+    relationshipOptions: [
+      "Conjoint.e / partenaire",
+      "Enfant (fils, fille) (garde exclusive)",
+      "Enfant (en garde alternée)",
+      "Enfant du/de la conjoint.e (en garde alternée)",
+      "Parent (père, mère)",
+      "Beau-parent",
+      "Frère / sœur",
+      "Autre membre de la famille (oncle, tante, cousin, etc.)",
+      "Colocataire",
+      "Ami.e",
+      "Autre. Précisez"
+    ],
     remove: "Supprimer"
   },
   en: {
@@ -128,6 +151,12 @@ const translations = {
     finish: "Finish",
     question: "Question",
     of: "of",
+    
+    // Account Information
+    accountInfo: "Account Information",
+    email: "Email Address",
+    password: "Password",
+    confirmPassword: "Confirm Password",
     
     q1: "What is your gender?",
     q1Options: ["Male", "Female", "Other"],
@@ -211,6 +240,19 @@ const translations = {
     addMember: "Add person",
     age: "Age",
     relationship: "Relationship",
+    relationshipOptions: [
+      "Spouse / partner",
+      "Child (son, daughter) (exclusive custody)",
+      "Child (shared custody)",
+      "Partner's child (shared custody)",
+      "Parent (father, mother)",
+      "Step-parent",
+      "Brother / sister",
+      "Other family member (uncle, aunt, cousin, etc.)",
+      "Roommate",
+      "Friend",
+      "Other. Please specify"
+    ],
     remove: "Remove"
   },
   mfe: {
@@ -220,6 +262,12 @@ const translations = {
     finish: "Fini",
     question: "Kesyon",
     of: "lor",
+    
+    // Account Information
+    accountInfo: "Informasyon kont",
+    email: "Adres email",
+    password: "Mo de pas",
+    confirmPassword: "Konfirm mo de pas",
     
     q1: "Ki ou ete?",
     q1Options: ["Dimoun", "Fanm", "Lot"],
@@ -303,6 +351,19 @@ const translations = {
     addMember: "Azout dimoun",
     age: "Laz",
     relationship: "Ki li ete",
+    relationshipOptions: [
+      "Madame/Monsiè/Partner",
+      "Pitit (garson, fiy) (gard eksklizif)",
+      "Pitit (gard alterne)",
+      "Pitit Madame/Monsiè (gard alterne)",
+      "Parent (papa, mama)",
+      "Bo-parent",
+      "Frè/Sèr",
+      "Lot fami (tonton, tantinn, kozin, etc.)",
+      "Kolokater",
+      "Kamarad",
+      "Lot bagay. Dir sa"
+    ],
     remove: "Retire"
   },
   rcf: {
@@ -312,6 +373,12 @@ const translations = {
     finish: "Fini", 
     question: "Késyon",
     of: "lor",
+    
+    // Account Information
+    accountInfo: "Informasyon kont",
+    email: "Adres email",
+    password: "Mo de pas",
+    confirmPassword: "Konfirm mo de pas",
     
     q1: "Kosa ou lé?",
     q1Options: ["Nonm", "Fanm", "Ot"],
@@ -395,14 +462,30 @@ const translations = {
     addMember: "Azout dimoun", 
     age: "Laz",
     relationship: "Ki li lé",
+    relationshipOptions: [
+      "Madame/Monsiè/Partenèr",
+      "Pitit (garson, fiy) (gard ékskluzif)",
+      "Pitit (gard altèrné)",
+      "Pitit Madame/Monsiè (gard altèrné)",
+      "Parent (papa, mama)",
+      "Bo-parent",
+      "Frèr/Sèr",
+      "Lot fami (tonton, tantinn, kouzin, etc.)",
+      "Kolokatèr",
+      "Kamarad",
+      "Lot bagay. Dir sa"
+    ],
     remove: "Rétiré"
   }
 };
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, language }) => {
   const t = translations[language];
-  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
   const [formData, setFormData] = useState<RegistrationData>({
+    email: '',
+    password: '',
+    confirmPassword: '',
     gender: '',
     birthYear: '',
     height: '',
@@ -417,6 +500,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
     spouseJob: '',
     spouseEducation: '',
     monthlyIncome: '',
+    householdCount: '',
     householdMembers: []
   });
 
@@ -429,7 +513,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
   };
 
   const handlePrevious = () => {
-    if (currentQuestion > 1) {
+    if (currentQuestion > 0) {
       setCurrentQuestion(currentQuestion - 1);
     } else {
       onBack();
@@ -458,301 +542,870 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
     setFormData({ ...formData, householdMembers: updatedMembers });
   };
 
+  // Reusable radio button component
+  const renderRadioOptions = (question: string, options: string[], fieldName: string, selectedValue: string) => (
+    <div>
+      <h3 style={{ 
+        marginBottom: '2rem', 
+        color: '#333', 
+        fontSize: '1.3rem',
+        fontWeight: '600',
+        lineHeight: '1.4'
+      }}>
+        {question}
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {options.map((option) => (
+          <label 
+            key={option} 
+            style={{ 
+              display: 'flex',
+              alignItems: 'center',
+              padding: '1.25rem',
+              borderRadius: '16px',
+              border: `2px solid ${selectedValue === option ? '#d97706' : '#e1e5e9'}`,
+              background: selectedValue === option 
+                ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                : 'white',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              position: 'relative'
+            }}
+            onMouseEnter={(e) => {
+              if (selectedValue !== option) {
+                e.currentTarget.style.borderColor = '#d97706';
+                e.currentTarget.style.background = 'rgba(217, 119, 6, 0.02)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (selectedValue !== option) {
+                e.currentTarget.style.borderColor = '#e1e5e9';
+                e.currentTarget.style.background = 'white';
+              }
+            }}
+          >
+            <div style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              border: `2px solid ${selectedValue === option ? '#d97706' : '#ccc'}`,
+              marginRight: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: selectedValue === option ? '#d97706' : 'white',
+              transition: 'all 0.3s ease',
+              flexShrink: 0
+            }}>
+              {selectedValue === option && (
+                <div style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'white'
+                }} />
+              )}
+            </div>
+            <input 
+              type="radio" 
+              name={fieldName} 
+              value={option}
+              checked={selectedValue === option}
+              onChange={(e) => updateFormData(fieldName, e.target.value)}
+              style={{ display: 'none' }}
+            />
+            <span style={{ 
+              fontSize: '1rem',
+              fontWeight: '500',
+              color: selectedValue === option ? '#d97706' : '#333',
+              lineHeight: '1.4',
+              flex: 1
+            }}>
+              {option}
+            </span>
+            {selectedValue === option && (
+              <div style={{
+                marginLeft: '1rem',
+                color: '#d97706',
+                fontSize: '1.2rem',
+                flexShrink: 0
+              }}>
+                ✓
+              </div>
+            )}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+
   const renderQuestion = () => {
     switch (currentQuestion) {
+      case 0:
+        return (
+          <div>
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.accountInfo}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="email" 
+                  placeholder={t.email}
+                  value={formData.email}
+                  onChange={(e) => updateFormData('email', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+              
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="password" 
+                  placeholder={t.password}
+                  value={formData.password}
+                  onChange={(e) => updateFormData('password', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+              
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="password" 
+                  placeholder={t.confirmPassword}
+                  value={formData.confirmPassword}
+                  onChange={(e) => updateFormData('confirmPassword', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
       case 1:
         return (
           <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q1}</p>
-            {t.q1Options.map((option) => (
-              <label key={option} style={{ display: 'block', marginBottom: '1rem', cursor: 'pointer' }}>
-                <input 
-                  type="radio" 
-                  name="gender" 
-                  value={option}
-                  checked={formData.gender === option}
-                  onChange={(e) => updateFormData('gender', e.target.value)}
-                  style={{ marginRight: '12px' }} 
-                />
-                <span style={{ fontSize: '1rem' }}>{option}</span>
-              </label>
-            ))}
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.q1}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {t.q1Options.map((option) => (
+                <label 
+                  key={option} 
+                  style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '16px',
+                    border: `2px solid ${formData.gender === option ? '#d97706' : '#e1e5e9'}`,
+                    background: formData.gender === option 
+                      ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                      : 'white',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    position: 'relative'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (formData.gender !== option) {
+                      e.currentTarget.style.borderColor = '#d97706';
+                      e.currentTarget.style.background = 'rgba(217, 119, 6, 0.02)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (formData.gender !== option) {
+                      e.currentTarget.style.borderColor = '#e1e5e9';
+                      e.currentTarget.style.background = 'white';
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    border: `2px solid ${formData.gender === option ? '#d97706' : '#ccc'}`,
+                    marginRight: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: formData.gender === option ? '#d97706' : 'white',
+                    transition: 'all 0.3s ease'
+                  }}>
+                    {formData.gender === option && (
+                      <div style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: 'white'
+                      }} />
+                    )}
+                  </div>
+                  <input 
+                    type="radio" 
+                    name="gender" 
+                    value={option}
+                    checked={formData.gender === option}
+                    onChange={(e) => updateFormData('gender', e.target.value)}
+                    style={{ display: 'none' }}
+                  />
+                  <span style={{ 
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    color: formData.gender === option ? '#d97706' : '#333'
+                  }}>
+                    {option}
+                  </span>
+                  {formData.gender === option && (
+                    <div style={{
+                      marginLeft: 'auto',
+                      color: '#d97706',
+                      fontSize: '1.2rem'
+                    }}>
+                      ✓
+                    </div>
+                  )}
+                </label>
+              ))}
+            </div>
           </div>
         );
 
       case 2:
         return (
           <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q2}</p>
-            <input 
-              type="number" 
-              placeholder={t.birthYear}
-              className="input-field"
-              value={formData.birthYear}
-              onChange={(e) => updateFormData('birthYear', e.target.value)}
-              min="1920"
-              max="2010"
-            />
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.q2}
+            </h3>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type="number" 
+                placeholder={t.birthYear}
+                value={formData.birthYear}
+                onChange={(e) => updateFormData('birthYear', e.target.value)}
+                min="1920"
+                max="2010"
+                style={{
+                  width: '100%',
+                  padding: '1.25rem 1.5rem',
+                  borderRadius: '16px',
+                  border: '2px solid #e1e5e9',
+                  fontSize: '1.1rem',
+                  fontWeight: '500',
+                  background: 'white',
+                  transition: 'all 0.3s ease',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#d97706';
+                  e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e1e5e9';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+              <div style={{
+                marginTop: '0.75rem',
+                fontSize: '0.85rem',
+                color: '#888',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <span>📅</span>
+                <span>Enter year between 1920 and 2010</span>
+              </div>
+            </div>
           </div>
         );
 
       case 3:
         return (
           <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q3}</p>
-            <input 
-              type="number" 
-              placeholder={t.height}
-              className="input-field"
-              value={formData.height}
-              onChange={(e) => updateFormData('height', e.target.value)}
-              min="100"
-              max="250"
-            />
-            <input 
-              type="number" 
-              placeholder={t.weight}
-              className="input-field"
-              value={formData.weight}
-              onChange={(e) => updateFormData('weight', e.target.value)}
-              min="30"
-              max="200"
-            />
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.q3}
+            </h3>
+            <div style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="number" 
+                  placeholder={t.height}
+                  value={formData.height}
+                  onChange={(e) => updateFormData('height', e.target.value)}
+                  min="100"
+                  max="250"
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  right: '1.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '0.9rem',
+                  color: '#888',
+                  pointerEvents: 'none'
+                }}>
+                  📏 cm
+                </div>
+              </div>
+              
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="number" 
+                  placeholder={t.weight}
+                  value={formData.weight}
+                  onChange={(e) => updateFormData('weight', e.target.value)}
+                  min="30"
+                  max="200"
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  right: '1.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '0.9rem',
+                  color: '#888',
+                  pointerEvents: 'none'
+                }}>
+                  ⚖️ kg
+                </div>
+              </div>
+            </div>
           </div>
         );
 
       case 4:
-        return (
-          <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q4}</p>
-            {t.q4Options.map((option) => (
-              <label key={option} style={{ display: 'block', marginBottom: '1rem', cursor: 'pointer' }}>
-                <input 
-                  type="radio" 
-                  name="professionalStatus" 
-                  value={option}
-                  checked={formData.professionalStatus === option}
-                  onChange={(e) => updateFormData('professionalStatus', e.target.value)}
-                  style={{ marginRight: '12px' }} 
-                />
-                <span style={{ fontSize: '0.95rem' }}>{option}</span>
-              </label>
-            ))}
-          </div>
-        );
+        return renderRadioOptions(t.q4, t.q4Options, 'professionalStatus', formData.professionalStatus);
 
       case 5:
         return (
           <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q5}</p>
-            <input 
-              type="text" 
-              placeholder={t.activity}
-              className="input-field"
-              value={formData.activity}
-              onChange={(e) => updateFormData('activity', e.target.value)}
-            />
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.q5}
+            </h3>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type="text" 
+                placeholder={t.activity}
+                value={formData.activity}
+                onChange={(e) => updateFormData('activity', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '1.25rem 1.5rem',
+                  borderRadius: '16px',
+                  border: '2px solid #e1e5e9',
+                  fontSize: '1.1rem',
+                  fontWeight: '500',
+                  background: 'white',
+                  transition: 'all 0.3s ease',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#d97706';
+                  e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e1e5e9';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+              <div style={{
+                marginTop: '0.75rem',
+                fontSize: '0.85rem',
+                color: '#888',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <span>💼</span>
+                <span>Describe your professional activity</span>
+              </div>
+            </div>
           </div>
         );
 
       case 6:
-        return (
-          <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q6}</p>
-            {t.q6Options.map((option) => (
-              <label key={option} style={{ display: 'block', marginBottom: '1rem', cursor: 'pointer' }}>
-                <input 
-                  type="radio" 
-                  name="workTime" 
-                  value={option}
-                  checked={formData.workTime === option}
-                  onChange={(e) => updateFormData('workTime', e.target.value)}
-                  style={{ marginRight: '12px' }} 
-                />
-                <span style={{ fontSize: '1rem' }}>{option}</span>
-              </label>
-            ))}
-          </div>
-        );
+        return renderRadioOptions(t.q6, t.q6Options, 'workTime', formData.workTime);
 
       case 7:
         return (
           <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q7}</p>
-            {t.q7Options.map((option) => (
-              <label key={option} style={{ display: 'block', marginBottom: '1rem', cursor: 'pointer' }}>
-                <input 
-                  type="radio" 
-                  name="education" 
-                  value={option}
-                  checked={formData.education === option}
-                  onChange={(e) => updateFormData('education', e.target.value)}
-                  style={{ marginRight: '12px' }} 
-                />
-                <span style={{ fontSize: '0.9rem' }}>{option}</span>
-              </label>
-            ))}
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.q7}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {t.q7Options.map((option) => (
+                <label 
+                  key={option} 
+                  style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '16px',
+                    border: `2px solid ${formData.education === option ? '#d97706' : '#e1e5e9'}`,
+                    background: formData.education === option 
+                      ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                      : 'white',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    position: 'relative'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (formData.education !== option) {
+                      e.currentTarget.style.borderColor = '#d97706';
+                      e.currentTarget.style.background = 'rgba(217, 119, 6, 0.02)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (formData.education !== option) {
+                      e.currentTarget.style.borderColor = '#e1e5e9';
+                      e.currentTarget.style.background = 'white';
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    border: `2px solid ${formData.education === option ? '#d97706' : '#ccc'}`,
+                    marginRight: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: formData.education === option ? '#d97706' : 'white',
+                    transition: 'all 0.3s ease',
+                    flexShrink: 0
+                  }}>
+                    {formData.education === option && (
+                      <div style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: 'white'
+                      }} />
+                    )}
+                  </div>
+                  <input 
+                    type="radio" 
+                    name="education" 
+                    value={option}
+                    checked={formData.education === option}
+                    onChange={(e) => updateFormData('education', e.target.value)}
+                    style={{ display: 'none' }}
+                  />
+                  <span style={{ 
+                    fontSize: '1rem',
+                    fontWeight: '500',
+                    color: formData.education === option ? '#d97706' : '#333',
+                    lineHeight: '1.4',
+                    flex: 1
+                  }}>
+                    {option}
+                  </span>
+                  {formData.education === option && (
+                    <div style={{
+                      marginLeft: '1rem',
+                      color: '#d97706',
+                      fontSize: '1.2rem',
+                      flexShrink: 0
+                    }}>
+                      ✓
+                    </div>
+                  )}
+                </label>
+              ))}
+            </div>
+            
             {formData.education.includes('Précisez') && (
-              <input 
-                type="text" 
-                placeholder="Précisez..."
-                className="input-field"
-                value={formData.otherEducation}
-                onChange={(e) => updateFormData('otherEducation', e.target.value)}
-                style={{ marginTop: '1rem' }}
-              />
+              <div style={{ marginTop: '2rem', position: 'relative' }}>
+                <input 
+                  type="text" 
+                  placeholder="Précisez..."
+                  value={formData.otherEducation}
+                  onChange={(e) => updateFormData('otherEducation', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '16px',
+                    border: '2px solid #e1e5e9',
+                    fontSize: '1.1rem',
+                    fontWeight: '500',
+                    background: 'white',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#d97706';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e1e5e9';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
             )}
           </div>
         );
 
       case 8:
-        return (
-          <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q8}</p>
-            {t.q8Options.map((option) => (
-              <label key={option} style={{ display: 'block', marginBottom: '1rem', cursor: 'pointer' }}>
-                <input 
-                  type="radio" 
-                  name="maritalStatus" 
-                  value={option}
-                  checked={formData.maritalStatus === option}
-                  onChange={(e) => updateFormData('maritalStatus', e.target.value)}
-                  style={{ marginRight: '12px' }} 
-                />
-                <span style={{ fontSize: '1rem' }}>{option}</span>
-              </label>
-            ))}
-          </div>
-        );
+        return renderRadioOptions(t.q8, t.q8Options, 'maritalStatus', formData.maritalStatus);
 
       case 9:
-        return (
-          <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q9}</p>
-            {t.q9Options.map((option) => (
-              <label key={option} style={{ display: 'block', marginBottom: '1rem', cursor: 'pointer' }}>
-                <input 
-                  type="radio" 
-                  name="spouseActivity" 
-                  value={option}
-                  checked={formData.spouseActivity === option}
-                  onChange={(e) => updateFormData('spouseActivity', e.target.value)}
-                  style={{ marginRight: '12px' }} 
-                />
-                <span style={{ fontSize: '1rem' }}>{option}</span>
-              </label>
-            ))}
-          </div>
-        );
+        return renderRadioOptions(t.q9, t.q9Options, 'spouseActivity', formData.spouseActivity);
 
       case 10:
         return (
           <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q10}</p>
-            <input 
-              type="text" 
-              placeholder={t.spouseJob}
-              className="input-field"
-              value={formData.spouseJob}
-              onChange={(e) => updateFormData('spouseJob', e.target.value)}
-            />
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.q10}
+            </h3>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type="text" 
+                placeholder={t.spouseJob}
+                value={formData.spouseJob}
+                onChange={(e) => updateFormData('spouseJob', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '1.25rem 1.5rem',
+                  borderRadius: '16px',
+                  border: '2px solid #e1e5e9',
+                  fontSize: '1.1rem',
+                  fontWeight: '500',
+                  background: 'white',
+                  transition: 'all 0.3s ease',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#d97706';
+                  e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e1e5e9';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
           </div>
         );
 
       case 11:
-        return (
-          <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q11}</p>
-            {t.q7Options.map((option) => (
-              <label key={option} style={{ display: 'block', marginBottom: '1rem', cursor: 'pointer' }}>
-                <input 
-                  type="radio" 
-                  name="spouseEducation" 
-                  value={option}
-                  checked={formData.spouseEducation === option}
-                  onChange={(e) => updateFormData('spouseEducation', e.target.value)}
-                  style={{ marginRight: '12px' }} 
-                />
-                <span style={{ fontSize: '0.9rem' }}>{option}</span>
-              </label>
-            ))}
-          </div>
-        );
+        return renderRadioOptions(t.q11, t.q7Options, 'spouseEducation', formData.spouseEducation);
 
       case 12:
-        return (
-          <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q12}</p>
-            {t.q12Options.map((option) => (
-              <label key={option} style={{ display: 'block', marginBottom: '1rem', cursor: 'pointer' }}>
-                <input 
-                  type="radio" 
-                  name="monthlyIncome" 
-                  value={option}
-                  checked={formData.monthlyIncome === option}
-                  onChange={(e) => updateFormData('monthlyIncome', e.target.value)}
-                  style={{ marginRight: '12px' }} 
-                />
-                <span style={{ fontSize: '0.95rem' }}>{option}</span>
-              </label>
-            ))}
-          </div>
-        );
+        return renderRadioOptions(t.q12, t.q12Options, 'monthlyIncome', formData.monthlyIncome);
 
       case 13:
         return (
           <div>
-            <p style={{ marginBottom: '2rem', color: '#666', fontSize: '1.1rem' }}>{t.q13}</p>
-            {formData.householdMembers.map((member, index) => (
-              <div key={index} style={{ 
-                padding: '1rem', 
-                backgroundColor: '#f8f9fa', 
-                borderRadius: '8px', 
-                marginBottom: '1rem',
-                border: '1px solid #e9ecef'
+            <h3 style={{ 
+              marginBottom: '2rem', 
+              color: '#333', 
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
+              {t.q13}
+            </h3>
+            
+            {formData.householdMembers.length === 0 ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '2rem',
+                background: 'rgba(217, 119, 6, 0.02)',
+                borderRadius: '16px',
+                border: '2px dashed rgba(217, 119, 6, 0.2)',
+                marginBottom: '1.5rem'
               }}>
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                  <input 
-                    type="number" 
-                    placeholder={t.age}
-                    className="input-field"
-                    value={member.age}
-                    onChange={(e) => updateHouseholdMember(index, 'age', e.target.value)}
-                    style={{ flex: 1, marginBottom: 0 }}
-                    min="0"
-                    max="100"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder={t.relationship}
-                    className="input-field"
-                    value={member.relationship}
-                    onChange={(e) => updateHouseholdMember(index, 'relationship', e.target.value)}
-                    style={{ flex: 2, marginBottom: 0 }}
-                  />
-                </div>
-                <button 
-                  onClick={() => removeHouseholdMember(index)}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  {t.remove}
-                </button>
+                <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>👥</div>
+                <p style={{ color: '#888', margin: 0, fontSize: '0.95rem' }}>
+                  No household members added yet
+                </p>
               </div>
-            ))}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                {formData.householdMembers.map((member, index) => (
+                  <div key={index} style={{ 
+                    padding: '1.5rem', 
+                    background: 'white',
+                    borderRadius: '16px', 
+                    border: '2px solid #e1e5e9',
+                    position: 'relative'
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: '1rem', 
+                      marginBottom: '1rem',
+                      flexDirection: 'column'
+                    }}>
+                      <div style={{ display: 'flex', gap: '1rem' }}>
+                        <input 
+                          type="number" 
+                          placeholder={t.age}
+                          value={member.age}
+                          onChange={(e) => updateHouseholdMember(index, 'age', e.target.value)}
+                          min="0"
+                          max="100"
+                          style={{
+                            flex: 1,
+                            padding: '1rem',
+                            borderRadius: '12px',
+                            border: '2px solid #e1e5e9',
+                            fontSize: '1rem',
+                            fontWeight: '500',
+                            background: 'white',
+                            transition: 'all 0.3s ease',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = '#d97706';
+                            e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = '#e1e5e9';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                        <select 
+                          value={member.relationship}
+                          onChange={(e) => updateHouseholdMember(index, 'relationship', e.target.value)}
+                          style={{
+                            flex: 2,
+                            padding: '1rem',
+                            borderRadius: '12px',
+                            border: '2px solid #e1e5e9',
+                            fontSize: '1rem',
+                            fontWeight: '500',
+                            background: 'white',
+                            transition: 'all 0.3s ease',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                            cursor: 'pointer'
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = '#d97706';
+                            e.target.style.boxShadow = '0 0 0 4px rgba(217, 119, 6, 0.1)';
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = '#e1e5e9';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        >
+                          <option value="">{t.relationship}</option>
+                          {t.relationshipOptions.map((option, optionIndex) => (
+                            <option key={optionIndex} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => removeHouseholdMember(index)}
+                      style={{
+                        position: 'absolute',
+                        top: '1rem',
+                        right: '1rem',
+                        padding: '0.5rem',
+                        background: '#fff',
+                        border: '2px solid #ff6b6b',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        color: '#ff6b6b',
+                        transition: 'all 0.3s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '36px',
+                        height: '36px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#ff6b6b';
+                        e.currentTarget.style.color = 'white';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = '#fff';
+                        e.currentTarget.style.color = '#ff6b6b';
+                      }}
+                      title={t.remove}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
             <button 
               onClick={addHouseholdMember}
-              className="btn btn-secondary"
-              style={{ marginBottom: '1rem' }}
+              style={{
+                width: '100%',
+                padding: '1.25rem',
+                borderRadius: '16px',
+                border: '2px dashed #d97706',
+                background: 'rgba(217, 119, 6, 0.05)',
+                color: '#d97706',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(217, 119, 6, 0.1)';
+                e.currentTarget.style.borderColor = '#b45309';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(217, 119, 6, 0.05)';
+                e.currentTarget.style.borderColor = '#d97706';
+              }}
             >
-              ➕ {t.addMember}
+              <span style={{ fontSize: '1.2rem' }}>+</span>
+              {t.addMember}
             </button>
           </div>
         );
@@ -763,59 +1416,265 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
   };
 
   return (
-    <>
-      <div className="app-header">
-        <button onClick={handlePrevious} className="header-icon">
-          ←
-        </button>
-        <h1 className="app-header-title">{t.register}</h1>
-        <div></div>
-      </div>
-      <div className="page-content-full">
-      
-      <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-        <p style={{ color: '#667eea', fontWeight: '600', fontSize: '1.1rem' }}>
-          {t.question} {currentQuestion} {t.of} 13
-        </p>
-        <div style={{ 
-          width: '100%', 
-          height: '4px', 
-          backgroundColor: '#e1e5e9', 
-          borderRadius: '2px',
-          marginTop: '1rem'
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#ffc000',
+      padding: 0,
+      margin: 0,
+      width: '100vw'
+    }}>
+      {/* Main Container */}
+      <div style={{
+        backgroundColor: '#ffc000',
+        width: '100%',
+        maxWidth: '100%',
+        minHeight: '100vh',
+        position: 'relative',
+        overflow: 'hidden',
+        margin: 0,
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        
+        {/* Sticky Header */}
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          background: '#ffc000',
+          zIndex: 10,
+          padding: '2rem 2rem 1rem',
+          borderBottom: '1px solid rgba(217, 119, 6, 0.1)',
+          backdropFilter: 'blur(10px)',
+          width: '100%'
         }}>
           <div style={{ 
-            width: `${(currentQuestion / 13) * 100}%`, 
-            height: '100%', 
-            backgroundColor: '#667eea', 
-            borderRadius: '2px',
-            transition: 'width 0.3s ease'
-          }}></div>
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: '2rem'
+          }}>
+            <button 
+              onClick={handlePrevious}
+              style={{
+                background: 'rgba(217, 119, 6, 0.1)',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '0.75rem',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                color: '#d97706',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '48px',
+                height: '48px'
+              }}
+            >
+              ←
+            </button>
+            
+            <div style={{ textAlign: 'center', flex: 1, margin: '0 1rem' }}>
+              <h1 style={{
+                fontSize: '1.8rem',
+                fontWeight: '700',
+                color: '#333',
+                margin: 0
+              }}>
+                {t.register}
+              </h1>
+            </div>
+            
+            <div style={{ minWidth: '48px' }}></div>
+          </div>
+
+          {/* Progress Section */}
+          <div style={{ 
+            textAlign: 'center',
+            padding: '1.5rem',
+            background: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '16px',
+            border: '1px solid rgba(217, 119, 6, 0.2)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+          }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            gap: '0.75rem',
+            marginBottom: '1rem'
+          }}>
+            <div style={{
+              background: '#d97706',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontSize: '0.9rem',
+              fontWeight: '600'
+            }}>
+              {currentQuestion + 1}
+            </div>
+            <span style={{ 
+              color: '#333', 
+              fontWeight: '600', 
+              fontSize: '1.1rem'
+            }}>
+              {t.question} {currentQuestion + 1} {t.of} 14
+            </span>
+          </div>
+          
+          {/* Progress Bar */}
+          <div style={{ 
+            width: '100%', 
+            height: '8px', 
+            backgroundColor: 'rgba(217, 119, 6, 0.1)', 
+            borderRadius: '4px',
+            overflow: 'hidden',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              width: `${(currentQuestion / 13) * 100}%`, 
+              height: '100%', 
+              backgroundColor: '#d97706',
+              borderRadius: '4px',
+              transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '20px',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 100%)',
+                animation: currentQuestion > 0 ? 'shimmer 2s ease-in-out infinite' : 'none'
+              }} />
+            </div>
+          </div>
+          
+          <div style={{ 
+            marginTop: '0.75rem',
+            fontSize: '0.85rem',
+            color: '#555',
+            display: 'flex',
+            justifyContent: 'space-between'
+          }}>
+            <span>Progress</span>
+            <span>{Math.round((currentQuestion / 13) * 100)}%</span>
+          </div>
+          </div>
+        </div>
+        
+        {/* Scrollable Content Area */}
+        <div style={{
+          flex: 1,
+          padding: '2rem',
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%'
+        }}>
+          {/* Question Content */}
+          <div style={{
+            minHeight: '200px',
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1
+          }}>
+            {renderQuestion()}
+          </div>
+          
+          {/* Navigation Buttons */}
+          <div style={{ 
+            marginTop: '3rem', 
+            display: 'flex', 
+            gap: '1rem',
+            alignItems: 'center',
+            paddingTop: '2rem',
+            borderTop: '1px solid rgba(217, 119, 6, 0.1)'
+          }}>
+            {currentQuestion > 0 ? (
+              <button 
+                onClick={handlePrevious}
+                style={{
+                  flex: 1,
+                  padding: '1rem 1.5rem',
+                  borderRadius: '16px',
+                  border: '2px solid #d97706',
+                  background: 'white',
+                  color: '#d97706',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(217, 119, 6, 0.05)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span>←</span>
+                {t.previous}
+              </button>
+            ) : (
+              <div style={{ flex: 1 }}></div>
+            )}
+            
+            <button 
+              onClick={handleNext}
+              style={{
+                flex: 1,
+                padding: '1rem 1.5rem',
+                borderRadius: '16px',
+                border: 'none',
+                background: '#d97706',
+                color: 'white',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                boxShadow: '0 8px 24px rgba(217, 119, 6, 0.3)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 12px 32px rgba(217, 119, 6, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(217, 119, 6, 0.3)';
+              }}
+            >
+              {currentQuestion === 13 ? t.finish : t.next}
+              <span>→</span>
+            </button>
+          </div>
         </div>
       </div>
       
-      {renderQuestion()}
-      
-      <div style={{ marginTop: '3rem', display: 'flex', gap: '1rem' }}>
-        {currentQuestion > 1 && (
-          <button 
-            className="btn btn-secondary" 
-            onClick={handlePrevious}
-            style={{ flex: 1 }}
-          >
-            {t.previous}
-          </button>
-        )}
-        <button 
-          className="btn btn-primary" 
-          onClick={handleNext}
-          style={{ flex: 1 }}
-        >
-          {currentQuestion === 13 ? t.finish : t.next}
-        </button>
-      </div>
-      </div>
-    </>
+      {/* Shimmer Animation */}
+      <style>{`
+        @keyframes shimmer {
+          0% { opacity: 0; }
+          50% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+    </div>
   );
 };
 

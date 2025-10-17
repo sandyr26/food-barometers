@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import SplashScreen from './pages/SplashScreen';
 import AuthPage from './pages/AuthPage';
+import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
 import AddMealPage from './pages/AddMealPage';
@@ -9,9 +10,11 @@ import ProfilePage from './pages/ProfilePage';
 import NotificationsPage from './pages/NotificationsPage';
 import SuppliesPage from './pages/SuppliesPage';
 import CalendarPage from './pages/CalendarPage.tsx';
+import MealDetailPage from './pages/MealDetailPage';
+import DayMealsPage from './pages/DayMealsPage';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type Page = 'splash' | 'auth' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar';
+type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals';
 
 interface MealData {
   id: number;
@@ -27,6 +30,8 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('splash');
   const [language, setLanguage] = useState<Language>('fr');
   const [notificationCount] = useState(3);
+  const [selectedMeal, setSelectedMeal] = useState<MealData | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [meals, setMeals] = useState<MealData[]>([
     // Sample meals for September 1-15, 2025
     { id: 1, time: '2025-09-01T08:00:00', name: 'Breakfast', duration: '15 min', answers: ['Bread', 'Coffee'], method: 'text', date: '2025-09-01' },
@@ -60,19 +65,19 @@ const App: React.FC = () => {
     { id: 29, time: '2025-09-14T13:45:00', name: 'Lunch', duration: '32 min', answers: ['Ramen', 'Vegetables'], method: 'text', date: '2025-09-14' },
     { id: 30, time: '2025-09-14T19:20:00', name: 'Dinner', duration: '42 min', answers: ['Roast beef', 'Potatoes'], method: 'text', date: '2025-09-14' },
     { id: 31, time: '2025-09-15T08:25:00', name: 'Breakfast', duration: '15 min', answers: ['Muesli', 'Fruit'], method: 'text', date: '2025-09-15' },
-    { id: 32, time: '2025-09-15T12:15:00', name: 'Lunch', duration: '26 min', answers: ['Quinoa bowl', 'Avocado'], method: 'voice', date: '2025-09-15' }
+    { id: 32, time: '2025-09-15T12:15:00', name: 'Lunch', duration: '26 min', answers: ['Quinoa bowl', 'Avocado'], method: 'voice', date: '2025-09-15' },
+    // Today's meals (September 25, 2025) for testing
+    { id: 33, time: '2025-09-25T08:00:00', name: 'Croissant', duration: '12 min', answers: ['Coffee', 'Croissant', 'Fresh croissant with butter and jam'], method: 'text', date: '2025-09-25' },
+    { id: 34, time: '2025-09-25T12:30:00', name: 'Chicken salad', duration: '25 min', answers: ['Salad', 'Chicken salad', 'Mixed green salad with grilled chicken'], method: 'text', date: '2025-09-25' }
   ]);
 
-  useEffect(() => {
-    if (currentPage === 'splash') {
-      const timer = setTimeout(() => {
-        setCurrentPage('auth');
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentPage]);
+
 
   const handleLogin = () => {
+    setCurrentPage('login');
+  };
+
+  const handleLoginSubmit = () => {
     setCurrentPage('home');
   };
 
@@ -97,6 +102,20 @@ const App: React.FC = () => {
     // Don't navigate immediately - let AddMealPage show success page first
   };
 
+  const handleMealSelect = (meal: MealData) => {
+    setSelectedMeal(meal);
+    setCurrentPage('mealDetail');
+  };
+
+  const handleDaySelect = (date: string) => {
+    setSelectedDate(date);
+    setCurrentPage('dayMeals');
+  };
+
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+  };
+
   const renderPage = () => {
     switch (currentPage) {
       case 'splash':
@@ -112,6 +131,15 @@ const App: React.FC = () => {
           <AuthPage
             onLogin={handleLogin}
             onRegister={handleRegister}
+          />
+        );
+
+      case 'login':
+        return (
+          <LoginPage
+            onBack={() => setCurrentPage('auth')}
+            onLogin={handleLoginSubmit}
+            language={language}
           />
         );
 
@@ -153,27 +181,8 @@ const App: React.FC = () => {
               onNavigate={handleNavigate}
               name="John"
               meals={meals}
+              onMealSelect={handleMealSelect}
             />
-            <div className="navbar">
-              <button 
-                className="nav-item active"
-                onClick={() => handleNavigate('home')}
-              >
-                🏠
-              </button>
-              <button 
-                className="nav-item"
-                onClick={() => handleNavigate('addMeal')}
-              >
-                ➕
-              </button>
-              <button 
-                className="nav-item"
-                onClick={() => handleNavigate('calendar')}
-              >
-                📅
-              </button>
-            </div>
           </>
         );
 
@@ -183,6 +192,7 @@ const App: React.FC = () => {
             language={language}
             onBack={() => handleNavigate('home')}
             onAddMeal={handleAddMeal}
+            onNavigate={handleNavigate}
           />
         );
 
@@ -216,31 +226,11 @@ const App: React.FC = () => {
       case 'calendar':
         return (
           <>
-            {/* Header with notification and profile icons */}
-            <div className="app-header">
-              <h1 className="app-header-title">FOOD BAROMETERS</h1>
-              <div className="header-icons">
-                <button 
-                  className="header-icon notification-btn"
-                  onClick={() => handleNavigate('notifications')}
-                >
-                  🔔
-                  {notificationCount > 0 && (
-                    <span className="notification-count">{notificationCount}</span>
-                  )}
-                </button>
-                <button 
-                  className="header-icon"
-                  onClick={() => handleNavigate('profile')}
-                >
-                  👤
-                </button>
-              </div>
-            </div>
             <CalendarPage 
               language={language}
-              onBack={() => handleNavigate('home')}
               meals={meals}
+              onBack={() => handleNavigate('home')}
+              onDaySelect={handleDaySelect}
             />
             <div className="navbar">
               <button 
@@ -264,6 +254,27 @@ const App: React.FC = () => {
             </div>
           </>
         );
+
+      case 'mealDetail':
+        return selectedMeal ? (
+          <MealDetailPage
+            language={language}
+            meal={selectedMeal}
+            onBack={() => setCurrentPage('home')}
+          />
+        ) : null;
+
+      case 'dayMeals':
+        return selectedDate ? (
+          <DayMealsPage
+            language={language}
+            selectedDate={selectedDate}
+            meals={meals}
+            onBack={() => setCurrentPage('calendar')}
+            onMealSelect={handleMealSelect}
+            onDateChange={handleDateChange}
+          />
+        ) : null;
 
       default:
         return null;
