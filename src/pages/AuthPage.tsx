@@ -1,4 +1,5 @@
 import React from 'react';
+import logo from '../assets/LOGO.png';
 
 interface AuthPageProps {
   onLogin: () => void;
@@ -20,6 +21,26 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onRegister }) => {
       textAlign: 'center',
       gap: '2rem'
     }}>
+      {/* Logo */}
+      <div style={{
+        width: '120px',
+        height: '120px',
+        backgroundColor: 'white',
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+        border: '4px solid rgba(255,255,255,0.8)'
+      }}>
+        <img src={logo} alt="Logo" style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: '50%',
+          objectFit: 'cover'
+        }} />
+      </div>
+
       {/* Title */}
       <h1 style={{
         fontSize: '2.5rem',

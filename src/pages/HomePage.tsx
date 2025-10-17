@@ -1,4 +1,5 @@
 import React from "react";
+import logo from '../assets/LOGO.png';
 
 type Language = "fr" | "en" | "mfe" | "rcf";
 type Page =
@@ -92,12 +93,12 @@ const HomePage: React.FC<HomePageProps> = ({
             border: '4px solid rgba(255,255,255,0.8)',
             margin: '0 auto 2rem'
           }}>
-            <div style={{
-              fontSize: '3rem',
-              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
-            }}>
-              ���️
-            </div>
+            <img src={logo} alt="Logo" style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              objectFit: 'cover'
+            }} />
           </div>
         </div>
 
