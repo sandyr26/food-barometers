@@ -1,8 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
-type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type InputMethod = 'text' | 'voice' | null;
-type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals';
+type Language = "fr" | "en" | "mfe" | "rcf";
+type InputMethod = "text" | "voice" | null;
+type Page =
+  | "splash"
+  | "auth"
+  | "login"
+  | "register"
+  | "home"
+  | "addMeal"
+  | "profile"
+  | "notifications"
+  | "supplies"
+  | "calendar"
+  | "mealDetail"
+  | "dayMeals";
 
 interface MealData {
   id: number;
@@ -10,7 +22,7 @@ interface MealData {
   name: string;
   duration: string;
   answers: string[];
-  method: 'text' | 'voice';
+  method: "text" | "voice";
   date: string;
 }
 
@@ -24,7 +36,8 @@ interface AddMealPageProps {
 const translations = {
   fr: {
     addMeal: "Ajouter un repas",
-    initialQuestion: "Pouvez-vous décrire chacune de vos prises alimentaires que vous avez eues hier, depuis le moment où vous vous êtes levé jusqu'au moment du coucher ?",
+    initialQuestion:
+      "Pouvez-vous décrire chacune de vos prises alimentaires que vous avez eues hier, depuis le moment où vous vous êtes levé jusqu'au moment du coucher ?",
     infoDetails: `COMPOSITION, aliments solides et liquides : en clair, le plus détaillé possible.
 Si marques/label : les intégrer.
 Si pain : Précisez (blanc, complet, autre) 
@@ -54,7 +67,7 @@ Modalités : Debout ? Assis ?  Est-ce que vous faisiez quelque chose en mangeant
       "Dans quel contexte social ?",
       "Quelles sont les modalités de consommation ?",
       "Combien de temps a duré ce repas ?",
-      "Y a-t-il des différences par rapport à vos habitudes ?"
+      "Y a-t-il des différences par rapport à vos habitudes ?",
     ],
     startRecording: "Commencer l'enregistrement",
     stopRecording: "Arrêter l'enregistrement",
@@ -66,7 +79,7 @@ Modalités : Debout ? Assis ?  Est-ce que vous faisiez quelque chose en mangeant
     saveMeal: "Enregistrer le repas",
     locations: {
       home: "À domicile",
-      work: "Au travail", 
+      work: "Au travail",
       school: "À l'école/université",
       canteen: "Cantine/cafétéria",
       restaurant: "Restaurant",
@@ -74,7 +87,7 @@ Modalités : Debout ? Assis ?  Est-ce que vous faisiez quelque chose en mangeant
       friends: "Chez des amis/famille",
       street: "Dans la rue",
       transport: "Dans les transports",
-      other: "Autre"
+      other: "Autre",
     },
     otherLocation: "Précisez le lieu",
     selectTime: "Sélectionnez l'heure",
@@ -82,14 +95,16 @@ Modalités : Debout ? Assis ?  Est-ce que vous faisiez quelque chose en mangeant
     minutes: "minutes",
     hours: "heures",
     mealAddedSuccess: "Repas ajouté avec succès !",
-    mealSavedMessage: "Votre repas a été enregistré dans votre journal alimentaire.",
+    mealSavedMessage:
+      "Votre repas a été enregistré dans votre journal alimentaire.",
     nextQuestion: "Question suivante",
     addAnotherMeal: "Ajouter un autre repas",
-    backToHome: "Retour à l'accueil"
+    backToHome: "Retour à l'accueil",
   },
   en: {
     addMeal: "Add meal",
-    initialQuestion: "Can you describe each of your food intakes that you had yesterday, from the moment you woke up until bedtime?",
+    initialQuestion:
+      "Can you describe each of your food intakes that you had yesterday, from the moment you woke up until bedtime?",
     infoDetails: `COMPOSITION, solid and liquid foods: clearly, as detailed as possible.
 If brands/labels: include them.
 If bread: Specify (white, whole grain, other)
@@ -119,7 +134,7 @@ Methods: Standing? Sitting? Were you doing something while eating?`,
       "In what social context?",
       "What are the consumption modalities?",
       "How long did this meal last?",
-      "Are there any differences from your usual habits?"
+      "Are there any differences from your usual habits?",
     ],
     startRecording: "Start Recording",
     stopRecording: "Stop Recording",
@@ -132,29 +147,30 @@ Methods: Standing? Sitting? Were you doing something while eating?`,
     locations: {
       home: "At home",
       work: "At work",
-      school: "At school/university", 
+      school: "At school/university",
       canteen: "Canteen/cafeteria",
       restaurant: "Restaurant",
       fastfood: "Fast food",
       friends: "At friends/family",
       street: "On the street",
       transport: "In transport",
-      other: "Other"
+      other: "Other",
     },
     otherLocation: "Specify location",
     selectTime: "Select time",
-    duration: "Duration", 
+    duration: "Duration",
     minutes: "minutes",
     hours: "hours",
     mealAddedSuccess: "Meal added successfully!",
     mealSavedMessage: "Your meal has been saved to your food diary.",
     nextQuestion: "Next question",
     addAnotherMeal: "Add another meal",
-    backToHome: "Back to home"
+    backToHome: "Back to home",
   },
   mfe: {
     addMeal: "Azout manze",
-    initialQuestion: "Eske ou kapav dekrir sak manze ou ti manze yer, depi kan ou ti leve ziska kan ou ti dormi?",
+    initialQuestion:
+      "Eske ou kapav dekrir sak manze ou ti manze yer, depi kan ou ti leve ziska kan ou ti dormi?",
     infoDetails: `KONPOZISYON: Dekrir to manze solid ek likid byen detaye.
 Si ena marka/label: mete li.
 Si du pen: dir ki kalite (blan, konple, lot)
@@ -184,7 +200,7 @@ Kouma: debout? asiz? To ti pe fer kisaz kan to manze?`,
       "Dan ki konteks sosyal?",
       "Kouma ou ti manze?",
       "Konbyen tan ou ti pran pou manze?",
-      "Ena diferans ek to fason manze abitiel?"
+      "Ena diferans ek to fason manze abitiel?",
     ],
     startRecording: "Komas anrezitre",
     stopRecording: "Aret anrezitre",
@@ -198,16 +214,16 @@ Kouma: debout? asiz? To ti pe fer kisaz kan to manze?`,
       home: "Lakaz",
       work: "Travay",
       school: "Lekol/iniversite",
-      canteen: "Kantin/kafeteria", 
+      canteen: "Kantin/kafeteria",
       restaurant: "Restoran",
       fastfood: "Fast-food",
       friends: "Lakaz kamarad/lafamiy",
       street: "Dan lari",
       transport: "Dan transpor",
-      other: "Lot"
+      other: "Lot",
     },
     otherLocation: "Dir kot",
-    selectTime: "Swazir ler", 
+    selectTime: "Swazir ler",
     duration: "Konbyen tan",
     minutes: "minit",
     hours: "ler",
@@ -215,11 +231,12 @@ Kouma: debout? asiz? To ti pe fer kisaz kan to manze?`,
     mealSavedMessage: "To manze finn anrezistre dan to zurnal manze.",
     nextQuestion: "Kesyon sivan",
     addAnotherMeal: "Azout en lot manze",
-    backToHome: "Retour lakaz"
+    backToHome: "Retour lakaz",
   },
   rcf: {
     addMeal: "Azout manzé",
-    initialQuestion: "Èske ou kapav dékrir sak manzé ou té manzé yèr, dépi kan ou té lévé ziska kan ou té dormi?",
+    initialQuestion:
+      "Èske ou kapav dékrir sak manzé ou té manzé yèr, dépi kan ou té lévé ziska kan ou té dormi?",
     infoDetails: `KONPOZISYON: Dékrir to manzé solid èk likid byin détayé.
 Si èna mark/label: mèt li.
 Si di pin: dir ki kalité (blan, konplè, lot)
@@ -249,7 +266,7 @@ Kouma: débout? asiz? To té pé fèr kisaz kan to manzé?`,
       "Dan ki kontèks sosyal?",
       "Kouma ou té manzé?",
       "Konbyèn tan ou té pran pou manzé?",
-      "Éna diférèns èk to fason manzé abitiyèl?"
+      "Éna diférèns èk to fason manzé abitiyèl?",
     ],
     startRecording: "Komans anrézistré",
     stopRecording: "Arèt anrézistré",
@@ -257,50 +274,59 @@ Kouma: débout? asiz? To té pé fèr kisaz kan to manzé?`,
     next: "Swivan",
     previous: "Dovan",
     finish: "Fini",
-    yourAnswer: "To répons", 
+    yourAnswer: "To répons",
     saveMeal: "Sov manzé",
     locations: {
       home: "Lakaz",
       work: "Travay",
       school: "Lékol/inivèrsité",
       canteen: "Kantin/kafétèria",
-      restaurant: "Restoran", 
+      restaurant: "Restoran",
       fastfood: "Fast-food",
       friends: "Lakaz kamarad/lafamiy",
       street: "Dan lari",
       transport: "Dan transpor",
-      other: "Lot"
+      other: "Lot",
     },
     otherLocation: "Dir koté",
     selectTime: "Swazir lèr",
     duration: "Konbyèn tan",
-    minutes: "minit", 
+    minutes: "minit",
     hours: "lèr",
     mealAddedSuccess: "Manzé finn azouté !",
-    mealSavedMessage: "To manzé finn anrézistré dan to zurnal manzé.",
+    mealSavedMessage: "To manzé finn anrézistré dan to zournal manzé.",
     nextQuestion: "Kèsyon sivan",
     addAnotherMeal: "Azout ènn lot manzé",
-    backToHome: "Rétour lakaz"
-  }
+    backToHome: "Rétour lakaz",
+  },
 };
 
-const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, onNavigate }) => {
+const AddMealPage: React.FC<AddMealPageProps> = ({
+  language,
+  onBack,
+  onAddMeal,
+  onNavigate,
+}) => {
   const t = translations[language];
   const [showInitialQuestion, setShowInitialQuestion] = useState(true);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showSuccessPage, setShowSuccessPage] = useState(false);
   const [inputMethod, setInputMethod] = useState<InputMethod>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<string[]>(new Array(t.questions.length).fill(''));
+  const [answers, setAnswers] = useState<string[]>(
+    new Array(t.questions.length).fill("")
+  );
   const [isRecording, setIsRecording] = useState(false);
-  const [currentAnswer, setCurrentAnswer] = useState('');
-  
+  const [currentAnswer, setCurrentAnswer] = useState("");
+  const [mealCount, setMealCount] = useState(1);
+  const maxMeals = 10;
+
   // Special input states
-  const [selectedTime, setSelectedTime] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
-  const [otherLocationText, setOtherLocationText] = useState('');
-  const [durationNumber, setDurationNumber] = useState('');
-  const [durationUnit, setDurationUnit] = useState('minutes');
+  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState("");
+  const [otherLocationText, setOtherLocationText] = useState("");
+  const [durationNumber, setDurationNumber] = useState("");
+  const [durationUnit, setDurationUnit] = useState("minutes");
   const [savedMealData, setSavedMealData] = useState<MealData | null>(null);
 
   // Helper functions to identify question types
@@ -313,9 +339,13 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
     if (isTimeQuestion(currentQuestionIndex)) {
       return selectedTime;
     } else if (isLocationQuestion(currentQuestionIndex)) {
-      return selectedLocation === 'other' ? otherLocationText : selectedLocation;
+      return selectedLocation === "other"
+        ? otherLocationText
+        : selectedLocation;
     } else if (isDurationQuestion(currentQuestionIndex)) {
-      return durationNumber && durationUnit ? `${durationNumber} ${durationUnit}` : '';
+      return durationNumber && durationUnit
+        ? `${durationNumber} ${durationUnit}`
+        : "";
     } else {
       return currentAnswer;
     }
@@ -323,11 +353,11 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
 
   // Reset special inputs when changing questions
   const resetSpecialInputs = () => {
-    setSelectedTime('');
-    setSelectedLocation('');
-    setOtherLocationText('');
-    setDurationNumber('');
-    setDurationUnit('minutes');
+    setSelectedTime("");
+    setSelectedLocation("");
+    setOtherLocationText("");
+    setDurationNumber("");
+    setDurationUnit("minutes");
   };
 
   const handleMethodSelect = (method: InputMethod) => {
@@ -336,14 +366,14 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
   };
 
   const handleNextQuestion = () => {
-    if (inputMethod === 'text') {
+    if (inputMethod === "text") {
       const updatedAnswers = [...answers];
       updatedAnswers[currentQuestionIndex] = getCurrentAnswerValue();
       setAnswers(updatedAnswers);
-      setCurrentAnswer('');
+      setCurrentAnswer("");
       resetSpecialInputs();
     }
-    
+
     if (currentQuestionIndex < t.questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
@@ -354,11 +384,11 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
 
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
-      if (inputMethod === 'text') {
-        const previousAnswer = answers[currentQuestionIndex - 1] || '';
+      if (inputMethod === "text") {
+        const previousAnswer = answers[currentQuestionIndex - 1] || "";
         setCurrentAnswer(previousAnswer);
         resetSpecialInputs();
-        
+
         // Parse previous answers for special input types
         const prevIndex = currentQuestionIndex - 1;
         if (isTimeQuestion(prevIndex)) {
@@ -368,11 +398,13 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
           if (locationKeys.includes(previousAnswer)) {
             setSelectedLocation(previousAnswer);
           } else {
-            setSelectedLocation('other');
+            setSelectedLocation("other");
             setOtherLocationText(previousAnswer);
           }
         } else if (isDurationQuestion(prevIndex)) {
-          const match = previousAnswer.match(/^(\d+)\s+(minutes|hours|minit|ler|lèr|heures)$/);
+          const match = previousAnswer.match(
+            /^(\d+)\s+(minutes|hours|minit|ler|lèr|heures)$/
+          );
           if (match) {
             setDurationNumber(match[1]);
             setDurationUnit(match[2]);
@@ -391,31 +423,36 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
 
   const handleFinish = () => {
     let finalAnswers = answers;
-    if (inputMethod === 'text') {
+    if (inputMethod === "text") {
       const updatedAnswers = [...answers];
       updatedAnswers[currentQuestionIndex] = getCurrentAnswerValue();
       finalAnswers = updatedAnswers;
       setAnswers(updatedAnswers);
     }
-    
+
     // Create meal data object
-    const timeString = finalAnswers[0] || '12:00'; // Time from first question
-    const dateString = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
+    const timeString = finalAnswers[0] || "12:00"; // Time from first question
+    const dateString = new Date().toISOString().split("T")[0]; // Today's date in YYYY-MM-DD format
     const fullDateTime = `${dateString}T${timeString}:00`; // Create full datetime string
-    
+
     const mealData: MealData = {
       id: Date.now(), // Simple ID generation
       time: fullDateTime, // Full datetime string
-      name: finalAnswers[1] || `${t.addMeal} ${new Date().getHours()}:${new Date().getMinutes().toString().padStart(2, '0')}`, // Meal name from second question or default
-      duration: finalAnswers[7] || '30 minutes', // Duration from eighth question
+      name:
+        finalAnswers[1] ||
+        `${t.addMeal} ${new Date().getHours()}:${new Date()
+          .getMinutes()
+          .toString()
+          .padStart(2, "0")}`, // Meal name from second question or default
+      duration: finalAnswers[7] || "30 minutes", // Duration from eighth question
       answers: finalAnswers,
-      method: inputMethod || 'text',
-      date: dateString // Today's date in YYYY-MM-DD format
+      method: inputMethod || "text",
+      date: dateString, // Today's date in YYYY-MM-DD format
     };
-    
+
     // Store meal data for later saving
     setSavedMealData(mealData);
-    
+
     // Show success page
     setShowSuccessPage(true);
   };
@@ -428,71 +465,120 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
       <>
         <div className="app-header">
           <div></div>
-          <h1 className="app-header-title">
-            {t.addMeal}
-          </h1>
+          <h1 className="app-header-title">{t.addMeal}</h1>
           <div></div>
         </div>
         <div className="page-content-full">
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '3rem 2rem',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '60vh'
-          }}>
+          <div
+            style={{
+              textAlign: "center",
+              padding: "3rem 2rem",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "60vh",
+            }}
+          >
             {/* Success Icon */}
-            <div style={{
-              fontSize: '4rem',
-              marginBottom: '2rem',
-              color: '#28a745'
-            }}>
+            <div
+              style={{
+                fontSize: "4rem",
+                marginBottom: "2rem",
+                color: "#28a745",
+              }}
+            >
               ✅
             </div>
-            
+            {/* Meal counter */}
+            <div
+              style={{ marginBottom: "1rem", color: "#333", fontWeight: 600 }}
+            >
+              {mealCount} / {maxMeals} {t.addMeal}
+            </div>
             {/* Success Message */}
-            <h2 style={{ 
-              fontSize: '1.5rem', 
-              marginBottom: '1rem', 
-              color: '#28a745',
-              fontWeight: '600'
-            }}>
+            <h2
+              style={{
+                fontSize: "1.5rem",
+                marginBottom: "1rem",
+                color: "#28a745",
+                fontWeight: "600",
+              }}
+            >
               {t.mealAddedSuccess}
             </h2>
-            
-            <p style={{ 
-              fontSize: '1rem', 
-              marginBottom: '3rem', 
-              color: '#666',
-              lineHeight: '1.5',
-              maxWidth: '300px'
-            }}>
+            <p
+              style={{
+                fontSize: "1rem",
+                marginBottom: "3rem",
+                color: "#666",
+                lineHeight: "1.5",
+                maxWidth: "300px",
+              }}
+            >
               {t.mealSavedMessage}
             </p>
-
             {/* Action Buttons */}
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '1rem', 
-              width: '100%',
-              maxWidth: '280px'
-            }}>
-              <button 
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "1rem",
+                width: "100%",
+                maxWidth: "280px",
+              }}
+            >
+              <button
+                className="btn btn-primary" // Changed to primary button class
+                onClick={() => {
+                  setShowSuccessPage(false);
+                  setShowInitialQuestion(true);
+                  setInputMethod(null);
+                  setCurrentQuestionIndex(0);
+                  setAnswers(new Array(t.questions.length).fill(""));
+                  setCurrentAnswer("");
+                  setSelectedTime("");
+                  setSelectedLocation("");
+                  setOtherLocationText("");
+                  setDurationNumber("");
+                  setDurationUnit("minutes");
+                  setSavedMealData(null);
+                  setMealCount(mealCount + 1);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "1rem",
+                  fontSize: "1.1rem",
+                  fontWeight: "600",
+                  backgroundColor: mealCount >= maxMeals ? "#ccc" : "#333", // Primary color
+                  color: mealCount >= maxMeals ? "#888" : "white", // White text for primary button
+                  cursor: mealCount >= maxMeals ? "not-allowed" : "pointer",
+                  border: "none",
+                  borderRadius: "8px",
+                  marginBottom: "0.5rem",
+                  pointerEvents: mealCount >= maxMeals ? "none" : "auto",
+                }}
+                disabled={mealCount >= maxMeals}
+              >
+                {t.addAnotherMeal}
+              </button>
+              <button
                 className="btn btn-primary"
                 onClick={() => {
                   if (savedMealData) {
                     onAddMeal(savedMealData);
                   }
-                  onNavigate('supplies');
+                  onNavigate("supplies");
                 }}
-                style={{ 
-                  width: '100%', 
-                  padding: '1rem', 
-                  fontSize: '1.1rem',
-                  fontWeight: '600'
+                style={{
+                  width: "100%",
+                  padding: "1rem",
+                  fontSize: "1.1rem",
+                  fontWeight: "600",
+                  backgroundColor: "#333",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
                 }}
               >
                 {t.nextQuestion}
@@ -512,42 +598,63 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
           <button onClick={onBack} className="header-icon">
             ←
           </button>
-          <h1 className="app-header-title">
-            {t.addMeal}
-          </h1>
+          <h1 className="app-header-title">{t.addMeal}</h1>
           <div></div>
         </div>
         <div className="page-content-full">
-          <div style={{ textAlign: 'center', marginBottom: '3rem', padding: '2rem 1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
-              <h2 style={{ fontSize: '1.3rem', lineHeight: '1.5', color: '#333', margin: 0, flex: 1, textAlign: 'left' }}>
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: "3rem",
+              padding: "2rem 1rem",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "center",
+                gap: "0.5rem",
+                marginBottom: "2rem",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "1.3rem",
+                  lineHeight: "1.5",
+                  color: "#333",
+                  margin: 0,
+                  flex: 1,
+                  textAlign: "left",
+                }}
+              >
                 {t.initialQuestion}
               </h2>
-              <button 
+              <button
                 onClick={() => setShowInfoModal(true)}
                 style={{
-                  background: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '24px',
-                  height: '24px',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  background: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "24px",
+                  height: "24px",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   flexShrink: 0,
-                  marginTop: '2px'
+                  marginTop: "2px",
                 }}
               >
                 i
               </button>
             </div>
-            <button 
+            <button
               className="btn btn-primary"
               onClick={() => setShowInitialQuestion(false)}
-              style={{ width: '100%', padding: '1rem', fontSize: '1.1rem' }}
+              style={{ width: "100%", padding: "1rem", fontSize: "1.1rem" }}
             >
               {t.addMeal}
             </button>
@@ -556,54 +663,60 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
 
         {/* Info Modal */}
         {showInfoModal && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem'
-          }}>
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '1.5rem',
-              maxWidth: '90%',
-              maxHeight: '80%',
-              overflow: 'auto',
-              position: 'relative'
-            }}>
-              <button 
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
+              padding: "1rem",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "8px",
+                padding: "1.5rem",
+                maxWidth: "90%",
+                maxHeight: "80%",
+                overflow: "auto",
+                position: "relative",
+              }}
+            >
+              <button
                 onClick={() => setShowInfoModal(false)}
                 style={{
-                  position: 'absolute',
-                  top: '10px',
-                  right: '15px',
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#666'
+                  position: "absolute",
+                  top: "10px",
+                  right: "15px",
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  color: "#666",
                 }}
               >
                 ×
               </button>
-              <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#333' }}>
+              <h3 style={{ marginTop: 0, marginBottom: "1rem", color: "#333" }}>
                 Instructions détaillées
               </h3>
-              <pre style={{ 
-                whiteSpace: 'pre-wrap', 
-                fontFamily: 'inherit', 
-                fontSize: '14px', 
-                lineHeight: '1.5',
-                margin: 0,
-                color: '#333'
-              }}>
+              <pre
+                style={{
+                  whiteSpace: "pre-wrap",
+                  fontFamily: "inherit",
+                  fontSize: "14px",
+                  lineHeight: "1.5",
+                  margin: 0,
+                  color: "#333",
+                }}
+              >
                 {t.infoDetails}
               </pre>
             </div>
@@ -621,38 +734,43 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
           <button onClick={onBack} className="header-icon">
             ←
           </button>
-          <h1 className="app-header-title">
-            {t.addMeal}
-          </h1>
+          <h1 className="app-header-title">{t.addMeal}</h1>
           <div></div>
         </div>
         <div className="page-content-full">
+          <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+            <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>
+              {t.chooseMethod}
+            </h2>
+          </div>
 
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h2 style={{ fontSize: '1.3rem', marginBottom: '1rem' }}>
-            {t.chooseMethod}
-          </h2>
-        </div>
+          <div className="meal-method-selector">
+            <button
+              className="meal-method-button"
+              onClick={() => handleMethodSelect("text")}
+            >
+              <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📝</div>
+              <div style={{ fontWeight: "600", marginBottom: "0.25rem" }}>
+                {t.textInput}
+              </div>
+              <div style={{ fontSize: "0.9rem", opacity: 0.7 }}>
+                {t.textDescription}
+              </div>
+            </button>
 
-        <div className="meal-method-selector">
-          <button 
-            className="meal-method-button"
-            onClick={() => handleMethodSelect('text')}
-          >
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📝</div>
-            <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{t.textInput}</div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>{t.textDescription}</div>
-          </button>
-
-          <button 
-            className="meal-method-button"
-            onClick={() => handleMethodSelect('voice')}
-          >
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎤</div>
-            <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{t.voiceInput}</div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>{t.voiceDescription}</div>
-          </button>
-        </div>
+            <button
+              className="meal-method-button"
+              onClick={() => handleMethodSelect("voice")}
+            >
+              <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🎤</div>
+              <div style={{ fontWeight: "600", marginBottom: "0.25rem" }}>
+                {t.voiceInput}
+              </div>
+              <div style={{ fontSize: "0.9rem", opacity: 0.7 }}>
+                {t.voiceDescription}
+              </div>
+            </button>
+          </div>
         </div>
       </>
     );
@@ -662,8 +780,12 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
   return (
     <>
       <div className="app-header">
-        <button 
-          onClick={currentQuestionIndex === 0 ? () => setInputMethod(null) : handlePreviousQuestion} 
+        <button
+          onClick={
+            currentQuestionIndex === 0
+              ? () => setInputMethod(null)
+              : handlePreviousQuestion
+          }
           className="header-icon"
         >
           ←
@@ -674,169 +796,228 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, 
         <div></div>
       </div>
       <div className="page-content-full">
+        <div style={{ marginBottom: "2rem" }}>
+          <h2
+            style={{
+              fontSize: "1.2rem",
+              marginBottom: "2rem",
+              lineHeight: "1.5",
+            }}
+          >
+            {t.questions[currentQuestionIndex]}
+          </h2>
 
-      <div style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.2rem', marginBottom: '2rem', lineHeight: '1.5' }}>
-          {t.questions[currentQuestionIndex]}
-        </h2>
-
-        {inputMethod === 'text' && (
-          <div>
-            {/* Time selector for question 0 */}
-            {isTimeQuestion(currentQuestionIndex) && (
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                  {t.selectTime}:
-                </label>
-                <input
-                  type="time"
-                  className="input-field"
-                  value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
-                  style={{ fontSize: '1rem', padding: '0.75rem' }}
-                />
-              </div>
-            )}
-
-            {/* Location dropdown for question 4 */}
-            {isLocationQuestion(currentQuestionIndex) && (
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                  {t.yourAnswer}:
-                </label>
-                <select
-                  className="input-field"
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  style={{ fontSize: '1rem', padding: '0.75rem', marginBottom: '1rem' }}
-                >
-                  <option value="">Sélectionnez un lieu...</option>
-                  {Object.entries(t.locations).map(([key, value]) => (
-                    <option key={key} value={key}>{value}</option>
-                  ))}
-                </select>
-                
-                {selectedLocation === 'other' && (
+          {inputMethod === "text" && (
+            <div>
+              {/* Time selector for question 0 */}
+              {isTimeQuestion(currentQuestionIndex) && (
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "0.5rem",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {t.selectTime}:
+                  </label>
                   <input
-                    type="text"
+                    type="time"
                     className="input-field"
-                    placeholder={t.otherLocation}
-                    value={otherLocationText}
-                    onChange={(e) => setOtherLocationText(e.target.value)}
-                    style={{ fontSize: '1rem', padding: '0.75rem' }}
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    style={{ fontSize: "1rem", padding: "0.75rem" }}
                   />
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* Duration selector for question 7 */}
-            {isDurationQuestion(currentQuestionIndex) && (
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                  {t.duration}:
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="999"
-                    className="input-field"
-                    placeholder="0"
-                    value={durationNumber}
-                    onChange={(e) => setDurationNumber(e.target.value)}
-                    style={{ fontSize: '1rem', padding: '0.75rem', width: '100px' }}
-                  />
+              {/* Location dropdown for question 4 */}
+              {isLocationQuestion(currentQuestionIndex) && (
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "0.5rem",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {t.yourAnswer}:
+                  </label>
                   <select
                     className="input-field"
-                    value={durationUnit}
-                    onChange={(e) => setDurationUnit(e.target.value)}
-                    style={{ fontSize: '1rem', padding: '0.75rem', width: 'auto' }}
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    style={{
+                      fontSize: "1rem",
+                      padding: "0.75rem",
+                      marginBottom: "1rem",
+                    }}
                   >
-                    <option value="minutes">{t.minutes}</option>
-                    <option value="hours">{t.hours}</option>
+                    <option value="">Sélectionnez un lieu...</option>
+                    {Object.entries(t.locations).map(([key, value]) => (
+                      <option key={key} value={key}>
+                        {value}
+                      </option>
+                    ))}
                   </select>
+
+                  {selectedLocation === "other" && (
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder={t.otherLocation}
+                      value={otherLocationText}
+                      onChange={(e) => setOtherLocationText(e.target.value)}
+                      style={{ fontSize: "1rem", padding: "0.75rem" }}
+                    />
+                  )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Regular text input for other questions */}
-            {!isTimeQuestion(currentQuestionIndex) && 
-             !isLocationQuestion(currentQuestionIndex) && 
-             !isDurationQuestion(currentQuestionIndex) && (
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                  {t.yourAnswer}:
-                </label>
-                <textarea
-                  className="input-field"
-                  rows={4}
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  placeholder="Tapez votre réponse ici..."
-                  style={{ minHeight: '100px', resize: 'vertical' }}
-                />
-              </div>
-            )}
-          </div>
-        )}
+              {/* Duration selector for question 7 */}
+              {isDurationQuestion(currentQuestionIndex) && (
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "0.5rem",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {t.duration}:
+                  </label>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "0.5rem",
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      type="number"
+                      min="1"
+                      max="999"
+                      className="input-field"
+                      placeholder="0"
+                      value={durationNumber}
+                      onChange={(e) => setDurationNumber(e.target.value)}
+                      style={{
+                        fontSize: "1rem",
+                        padding: "0.75rem",
+                        width: "100px",
+                      }}
+                    />
+                    <select
+                      className="input-field"
+                      value={durationUnit}
+                      onChange={(e) => setDurationUnit(e.target.value)}
+                      style={{
+                        fontSize: "1rem",
+                        padding: "0.75rem",
+                        width: "auto",
+                      }}
+                    >
+                      <option value="minutes">{t.minutes}</option>
+                      <option value="hours">{t.hours}</option>
+                    </select>
+                  </div>
+                </div>
+              )}
 
-      </div>
+              {/* Regular text input for other questions */}
+              {!isTimeQuestion(currentQuestionIndex) &&
+                !isLocationQuestion(currentQuestionIndex) &&
+                !isDurationQuestion(currentQuestionIndex) && (
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "0.5rem",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {t.yourAnswer}:
+                    </label>
+                    <textarea
+                      className="input-field"
+                      rows={4}
+                      value={currentAnswer}
+                      onChange={(e) => setCurrentAnswer(e.target.value)}
+                      placeholder="Tapez votre réponse ici..."
+                      style={{ minHeight: "100px", resize: "vertical" }}
+                    />
+                  </div>
+                )}
+            </div>
+          )}
+        </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginTop: 'auto' }}>
-        {currentQuestionIndex > 0 && (
+        <div style={{ display: "flex", gap: "1rem", marginTop: "auto" }}>
+          {currentQuestionIndex > 0 && (
+            <button
+              className="btn btn-secondary"
+              onClick={handlePreviousQuestion}
+              style={{ flex: 1 }}
+            >
+              {t.previous}
+            </button>
+          )}
+
           <button
-            className="btn btn-secondary"
-            onClick={handlePreviousQuestion}
-            style={{ flex: 1 }}
+            className="btn btn-primary"
+            onClick={isLastQuestion ? handleFinish : handleNextQuestion}
+            disabled={inputMethod === "text" && !getCurrentAnswerValue().trim()}
+            style={{ flex: 2 }}
           >
-            {t.previous}
+            {isLastQuestion ? t.finish : t.next}
           </button>
-        )}
-        
-        <button
-          className="btn btn-primary"
-          onClick={isLastQuestion ? handleFinish : handleNextQuestion}
-          disabled={inputMethod === 'text' && !getCurrentAnswerValue().trim()}
-          style={{ flex: 2 }}
-        >
-          {isLastQuestion ? t.finish : t.next}
-        </button>
-      </div>
-      
-        {inputMethod === 'voice' && (
+        </div>
+
+        {inputMethod === "voice" && (
           <div className="voice-recorder">
-            <div className="voice-icon" style={{ fontSize: '4rem', marginBottom: '2rem' }}>
+            <div
+              className="voice-icon"
+              style={{ fontSize: "4rem", marginBottom: "2rem" }}
+            >
               🎤
             </div>
-            
+
             {isRecording && (
-              <div style={{ marginBottom: '2rem', color: '#dc3545', fontWeight: '600' }}>
+              <div
+                style={{
+                  marginBottom: "2rem",
+                  color: "#dc3545",
+                  fontWeight: "600",
+                }}
+              >
                 {t.recording}
               </div>
             )}
 
             <button
-              className={`btn ${isRecording ? 'btn-danger' : 'btn-primary'}`}
+              className={`btn ${isRecording ? "btn-danger" : "btn-primary"}`}
               onClick={handleRecordingToggle}
-              style={{ 
-                marginBottom: '2rem',
-                padding: '1rem 2rem',
-                fontSize: '1.1rem',
-                borderRadius: '50px'
+              style={{
+                marginBottom: "2rem",
+                padding: "1rem 2rem",
+                fontSize: "1.1rem",
+                borderRadius: "50px",
               }}
             >
               {isRecording ? t.stopRecording : t.startRecording}
             </button>
 
             {isRecording && (
-              <div style={{ 
-                width: '60px', 
-                height: '60px', 
-                border: '3px solid #dc3545', 
-                borderRadius: '50%', 
-                margin: '0 auto',
-                animation: 'pulse 1.5s infinite'
-              }} />
+              <div
+                style={{
+                  width: "60px",
+                  height: "60px",
+                  border: "3px solid #dc3545",
+                  borderRadius: "50%",
+                  margin: "0 auto",
+                  animation: "pulse 1.5s infinite",
+                }}
+              />
             )}
           </div>
         )}

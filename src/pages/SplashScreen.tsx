@@ -8,19 +8,19 @@ interface SplashScreenProps {
 
 const translations = {
   fr: { 
-    welcome: 'Bienvenue à Food Barometers',
+    welcome: 'Bienvenue à Food Barometer',
     connectButton: 'Se connecter'
   },
   en: { 
-    welcome: 'Welcome to Food Barometers',
+    welcome: 'Welcome to Food Barometer',
     connectButton: 'Connect'
   },
   mfe: { 
-    welcome: 'Byenvini dan Food Barometers',
+    welcome: 'Byenvini dan Food Barometer',
     connectButton: 'Konekte'
   },
   rcf: { 
-    welcome: 'Byenvini dan Food Barometers',
+    welcome: 'Byenvini dan Food Barometer',
     connectButton: 'Konèkté'
   }
 };

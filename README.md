@@ -1,30 +1,30 @@
-# FOOD BAROMETERS
+# FOOD BAROMETER
 
 Un'application mobile pour le suivi de l'alimentation avec support multilingue.
 
-## íº€ AperÃ§u du Projet
+## ğŸ“‹ AperÃ§u du Projet
 
-**FOOD BAROMETERS** est une application web mobile construite avec React qui aide les utilisateurs Ã  suivre leur consommation alimentaire et Ã  surveiller leur santÃ© nutritionnelle.
+**FOOD BAROMETER** est une application web mobile construite avec React qui aide les utilisateurs Ã  suivre leur consommation alimentaire et Ã  surveiller leur santÃ© nutritionnelle.
 
 ### âœ¨ FonctionnalitÃ©s Principales
 
-- í¾¨ **Ã‰cran de dÃ©marrage** avec branding de l'application
-- í´ **Authentification sociale** (simulation Facebook/Google)
-- í³ **Questionnaire d'inscription** en plusieurs Ã©tapes
-- í³Š **Tableau de bord** avec graphiques de progression IMC
-- í³… **Calendrier hebdomadaire** d'apport alimentaire
-- í¾¤ **Enregistrement alimentaire** par voix et texte
-- í´” **SystÃ¨me de notifications** push
-- í±¤ **Gestion de profil**
+- ï¿½ï¿½ï¿½ **Ã‰cran de dÃ©marrage** avec branding de l'application
+- ï¿½ï¿½ï¿½ **Authentification sociale** (simulation Facebook/Google)
+- ï¿½ï¿½ï¿½ **Questionnaire d'inscription** en plusieurs Ã©tapes
+- ï¿½ï¿½ï¿½ **Tableau de bord** avec graphiques de progression IMC
+- ï¿½ï¿½ï¿½ **Calendrier hebdomadaire** d'apport alimentaire
+- ï¿½ï¿½ï¿½ **Enregistrement alimentaire** par voix et texte
+- ï¿½ï¿½ï¿½ **SystÃ¨me de notifications** push
+- ï¿½ï¿½ï¿½ **Gestion de profil**
 
-### í¼ Support Multilingue
+### ï¿½ï¿½ï¿½ Support Multilingue
 
 - **FranÃ§ais** (par dÃ©faut)
 - **Anglais**
 - **CrÃ©ole Mauricien**
 - **CrÃ©ole RÃ©unionnais**
 
-## í» ï¸ Stack Technique
+## ï¿½ï¿½ï¿½ï¸ Stack Technique
 
 - **React 18+** avec TypeScript
 - **Vite** pour les outils de build
@@ -34,7 +34,7 @@ Un'application mobile pour le suivi de l'alimentation avec support multilingue.
 - **React Hook Form** pour la gestion des formulaires
 - **Design responsive** mobile-first
 
-## íº€ DÃ©marrage Rapide
+## ï¿½ï¿½ï¿½ DÃ©marrage Rapide
 
 ### PrÃ©requis
 
@@ -69,7 +69,7 @@ Un'application mobile pour le suivi de l'alimentation avec support multilingue.
 - `npm run preview` - PrÃ©visualise le build de production
 - `npm run lint` - ExÃ©cute ESLint
 
-## í³± Structure de l'Application
+## ï¿½ï¿½ï¿½ Structure de l'Application
 
 ```
 src/
@@ -90,7 +90,7 @@ src/
 â””â”€â”€ utils/             # Fonctions utilitaires
 ```
 
-## í´§ Configuration
+## ï¿½ï¿½ï¿½ Configuration
 
 ### Variables d'Environnement
 
@@ -106,7 +106,7 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id
 
 L'application est configurÃ©e pour Ãªtre installable en tant que PWA sur les appareils mobiles.
 
-## í³Š Questionnaire d'Inscription
+## ï¿½ï¿½ï¿½ Questionnaire d'Inscription
 
 Le questionnaire comprend 13 questions couvrant :
 
@@ -117,7 +117,7 @@ Le questionnaire comprend 13 questions couvrant :
 - Revenus du foyer
 - Composition du mÃ©nage
 
-## í½½ï¸ Enregistrement Alimentaire
+## ï¿½ï¿½ï¿½ï¸ Enregistrement Alimentaire
 
 Les utilisateurs peuvent enregistrer leurs repas via :
 
@@ -136,13 +136,13 @@ Les utilisateurs peuvent enregistrer leurs repas via :
 - DurÃ©e du repas
 - DiffÃ©rences par rapport aux habitudes
 
-## í´” Notifications
+## ï¿½ï¿½ï¿½ Notifications
 
 - Rappels quotidiens pour l'enregistrement des repas
 - Notifications de progression
 - Alertes santÃ© personnalisÃ©es
 
-## íº€ DÃ©ploiement
+## ï¿½ï¿½ï¿½ DÃ©ploiement
 
 ### Build de Production
 
@@ -164,7 +164,7 @@ npm run build
 # DÃ©ployez le dossier `dist/`
 ```
 
-## í´ Contribution
+## ï¿½ï¿½ï¿½ Contribution
 
 1. Fork le projet
 2. CrÃ©ez votre branche feature (`git checkout -b feature/AmazingFeature`)
@@ -172,11 +172,11 @@ npm run build
 4. Push vers la branche (`git push origin feature/AmazingFeature`)
 5. Ouvrez une Pull Request
 
-## í³ Licence
+## ï¿½ï¿½ï¿½ Licence
 
 Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de dÃ©tails.
 
-## í¶˜ Support
+## ï¿½ï¿½ï¿½ Support
 
 Pour toute question ou problÃ¨me :
 
@@ -186,4 +186,4 @@ Pour toute question ou problÃ¨me :
 
 ---
 
-**FOOD BAROMETERS** - Suivez votre alimentation, amÃ©liorez votre santÃ© íµ—í³±
+**FOOD BAROMETER** - Suivez votre alimentation, amÃ©liorez votre santÃ© ğŸ

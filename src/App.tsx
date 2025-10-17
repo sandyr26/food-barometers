@@ -12,9 +12,10 @@ import SuppliesPage from './pages/SuppliesPage';
 import CalendarPage from './pages/CalendarPage.tsx';
 import MealDetailPage from './pages/MealDetailPage';
 import DayMealsPage from './pages/DayMealsPage';
+import ComingSoonPage from './pages/ComingSoonPage';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals';
+type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon';
 
 interface MealData {
   id: number;
@@ -157,7 +158,7 @@ const App: React.FC = () => {
           <>
             {/* Header with notification and profile icons */}
             <div className="app-header">
-              <h1 className="app-header-title">FOOD BAROMETERS</h1>
+              <h1 className="app-header-title">FOOD BAROMETER</h1>
               <div className="header-icons">
                 <button 
                   className="header-icon notification-btn"
@@ -272,6 +273,14 @@ const App: React.FC = () => {
             onDateChange={handleDateChange}
           />
         ) : null;
+
+      case 'comingSoon':
+        return (
+          <ComingSoonPage
+            language={language}
+            onNavigate={handleNavigate}
+          />
+        );
 
       default:
         return null;

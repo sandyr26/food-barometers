@@ -49,7 +49,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onRegister }) => {
         margin: '0',
         textShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        Food Barometers
+        Food Barometer
       </h1>
 
       {/* Buttons Container */}

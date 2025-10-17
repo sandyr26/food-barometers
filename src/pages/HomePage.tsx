@@ -19,22 +19,22 @@ interface HomePageProps {
 
 const translations = {
   fr: {
-    welcome: "Bienvenue sur FOOD BAROMETERS",
+    welcome: "Bienvenue sur FOOD BAROMETER",
     recurrentSurvey: "Enquête récurrente",
     focus: "Focus"
   },
   en: {
-    welcome: "Welcome to FOOD BAROMETERS",
+    welcome: "Welcome to FOOD BAROMETER",
     recurrentSurvey: "Recurrent Survey",
     focus: "Focus"
   },
   mfe: {
-    welcome: "Byenvini lor FOOD BAROMETERS",
+    welcome: "Byenvini lor FOOD BAROMETER",
     recurrentSurvey: "Ankyet Rekirant",
     focus: "Fokis"
   },
   rcf: {
-    welcome: "Byenvini lor FOOD BAROMETERS",
+    welcome: "Byenvini lor FOOD BAROMETER",
     recurrentSurvey: "Ankèt Rékiran",
     focus: "Fokis"
   }
@@ -57,7 +57,10 @@ const HomePage: React.FC<HomePageProps> = ({
       justifyContent: 'space-between',
       padding: '3rem 2rem',
       textAlign: 'center',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      position: 'fixed',
+      top: 0,
+      left: 0
     }}>
       {/* Welcome Section */}
       <div style={{
@@ -67,21 +70,22 @@ const HomePage: React.FC<HomePageProps> = ({
         justifyContent: 'center',
         alignItems: 'center'
       }}>
-        {/* Logo/Icon */}
+        {/* Logo */}
         <div style={{
           marginBottom: '2rem'
         }}>
+          {/* Logo container */}
           <div style={{
-            width: '120px',
-            height: '120px',
-            backgroundColor: 'white',
+            width: '180px',
+            height: '180px',
+            backgroundColor: 'transparent',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-            border: '4px solid rgba(255,255,255,0.8)',
-            margin: '0 auto 2rem'
+            boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
+            border: 'none',
+            margin: '0 auto'
           }}>
             <img src={logo} alt="Logo" style={{
               width: '100%',
@@ -147,7 +151,7 @@ const HomePage: React.FC<HomePageProps> = ({
 
         {/* Focus Button */}
         <button
-          onClick={() => onNavigate('calendar')}
+          onClick={() => onNavigate('comingSoon')}
           style={{
             backgroundColor: 'white',
             color: '#333',

@@ -1,4 +1,4 @@
-/* Mobile-first responsive design for FOOD BAROMETERS */
+/* Mobile-first responsive design for FOOD BAROMETER */
 * {
   margin: 0;
   padding: 0;
@@ -60,6 +60,7 @@ body {
 /* App Header Styles */
 .app-header {
   display: flex;
+  width: 100vw;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
@@ -129,10 +130,11 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
+  width: 100vw;
   background: #333;
   display: flex;
   justify-content: space-around;
-  padding: 1rem;
+  padding: 1rem 0;
   border-top: 3px solid #ffc000;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
   z-index: 1000;
