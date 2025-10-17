@@ -25,225 +25,72 @@ interface ShoppingReasons {
   other: boolean;
 }
 
-const translations = {
-  fr: {
-    supplies: "Approvisionnements",
-    question1: "Où faites-vous vos courses ?",
-    question2: "Quelles sont parmi les suivantes les raisons pour lesquelles vous avez fréquenté ces lieux durant ces 4 dernières semaines (plusieurs raisons possibles) ?",
-    question3: "Utilisez-vous le STC (subventionnés) pour faire vos achats alimentaires ?",
-    often: "Souvent",
-    sometimes: "Parfois",
-    yes: "Oui",
-    no: "Non",
-    reasons: {
-      prices: "Les prix",
-      proximity: "La proximité", 
-      practicality: "La praticité",
-      advertising: "La publicité/Promotion",
-      quality: "La qualité",
-      other: "Autres"
-    },
-    locations: {
-      supermarket: "Supermarché / Hypermarché hors discount",
-      discount: "Magasin hard discount",
-      grocery: "Épicerie Supérette",
-      bakery: "Boulangerie - pâtisserie",
-      specialized: "Comm. de proximité spécialisés (boucherie, poissonnerie.)",
-      frozen: "Magasin de surgelés",
-      bio: "Magasin BIO",
-      market: "Marché forain",
-      roadside: "Vendeur en bord de route",
-      produce: "Primeur (magasin spécialisé en fruits et légumes)",
-      baskets: "Paniers de producteurs",
-      mobile: "Commerçant ambulant",
-      gas: "Station-service",
-      food_aid: "Centre d'aide alimentaire",
-      online: "Achat par internet, téléphone ou catalogue",
-      personal: "Jardin, verger, élevage personnel",
-      fishing: "Pêche / cueillette personnelle en dehors de votre propriété privée",
-      received: "Produits reçus (jardin, verger, élevage, pêche/cueillette en dehors d'une propriété privée)"
-    },
-    submit: "Soumettre",
-    next: "Suivant",
-    previous: "Précédent",
-    back: "Retour",
-    thankYou: "Merci pour votre participation !",
-    surveyComplete: "Votre réponse a été enregistrée avec succès.",
-    questionProgress: "Question {{current}} sur {{total}}"
-  },
-  en: {
-    supplies: "Supplies",
-    question1: "Where do you do your shopping?",
-    question2: "Which of the following are the reasons why you frequented these places during the last 4 weeks (multiple reasons possible)?",
-    question3: "Do you use subsidized STC for your food purchases?",
-    often: "Often",
-    sometimes: "Sometimes",
-    yes: "Yes",
-    no: "No",
-    reasons: {
-      prices: "Prices",
-      proximity: "Proximity",
-      practicality: "Practicality",
-      advertising: "Advertising/Promotion",
-      quality: "Quality",
-      other: "Other"
-    },
-    locations: {
-      supermarket: "Supermarket / Hypermarket non-discount",
-      discount: "Hard discount store",
-      grocery: "Grocery store",
-      bakery: "Bakery - pastry shop",
-      specialized: "Specialized local shops (butcher, fishmonger, etc.)",
-      frozen: "Frozen food store",
-      bio: "Organic store",
-      market: "Market",
-      roadside: "Roadside vendor",
-      produce: "Produce store (specialized in fruits and vegetables)",
-      baskets: "Producer baskets",
-      mobile: "Mobile merchant",
-      gas: "Gas station",
-      food_aid: "Food aid center",
-      online: "Online, phone or catalog purchase",
-      personal: "Personal garden, orchard, livestock",
-      fishing: "Personal fishing/foraging outside your private property",
-      received: "Received products (garden, orchard, livestock, fishing/foraging outside private property)"
-    },
-    submit: "Submit",
-    next: "Next",
-    previous: "Previous",
-    back: "Back",
-    thankYou: "Thank you for your participation!",
-    surveyComplete: "Your response has been successfully recorded.",
-    questionProgress: "Question {{current}} of {{total}}"
-  },
-  mfe: {
-    supplies: "Aprovizyon",
-    question1: "Kot ou pe fer ou kours?",
-    question2: "Ki raison parmi sa bann-la ki fer ou finn al dan sa bann kote-la pendant sa 4 semaine ki finn pase la (kapav ena plisier raison)?",
-    question3: "Ou pe servi STC (subventionne) pou fer ou aste manze?",
-    often: "Souvan",
-    sometimes: "Parfwa",
-    yes: "Wi",
-    no: "Non",
-    reasons: {
-      prices: "Prix-la",
-      proximity: "Proximite",
-      practicality: "Pratik",
-      advertising: "Piblisité/Promotion", 
-      quality: "Kalité",
-      other: "Lot bagay"
-    },
-    locations: {
-      supermarket: "Supermarché / Hypermarché or discount",
-      discount: "Magazin hard discount",
-      grocery: "Episri Superet",
-      bakery: "Bulanzri - patisri",
-      specialized: "Komersan proximité spésialisé (busri, pwasonri)",
-      frozen: "Magazin sirkèlé",
-      bio: "Magazin BIO",
-      market: "Marsé forain",
-      roadside: "Vandèr lor bor smin",
-      produce: "Primèr (magazin spésialisé dan fwi ek legim)",
-      baskets: "Panye produktèr",
-      mobile: "Komersan ambiulan",
-      gas: "Stasyon sèrvis",
-      food_aid: "Santr èd alimantèr",
-      online: "Aste par internet, telefon u katalog",
-      personal: "Zardin, verzé, elevaz persinel",
-      fishing: "Pès / kweyèt persinel deor ou propriété privé",
-      received: "Prodwi reswi (zardin, verzé, elevaz, pès/kweyèt deor propriété privé)"
-    },
-    submit: "Voy",
-    next: "Sivan",
-    previous: "Avan",
-    back: "Retour",
-    thankYou: "Mersi pou ou partisipasyon!",
-    surveyComplete: "Ou repons finn anrezistre avek sikse.",
-    questionProgress: "Kesyon {{current}} lor {{total}}"
-  },
-  rcf: {
-    supplies: "Aprovizyon", 
-    question1: "Kot ou pé fèr ou kours?",
-    question2: "Ki raison parmi sa bann-la ki fèr ou finn al dan sa bann kotè-la pandan sa 4 sèmèn ki finn pasé la (kapav éna plisièr raison)?",
-    question3: "Ou pé sèrvi STC (subvèntionné) pou fèr ou astè manzé?",
-    often: "Souvan",
-    sometimes: "Parfwa",
-    yes: "Wi",
-    no: "Non", 
-    reasons: {
-      prices: "Prix-la",
-      proximity: "Proximité",
-      practicality: "Pratik",
-      advertising: "Piblisité/Promotion",
-      quality: "Kalité", 
-      other: "Lot bagay"
-    },
-    locations: {
-      supermarket: "Supèrmarsé / Hypèrmarsé or discount",
-      discount: "Magazin hard discount",
-      grocery: "Épisri Supèrèt",
-      bakery: "Bulanzri - patisri",
-      specialized: "Komèrsan proximité spésialisé (busri, pwasonri)",
-      frozen: "Magazin sirkèlé",
-      bio: "Magazin BIO",
-      market: "Marsé forain",
-      roadside: "Vandèr lor bor smin",
-      produce: "Primèr (magazin spésialisé dan fwi èk légim)",
-      baskets: "Panyé produktèr",
-      mobile: "Komèrsan ambiulan",
-      gas: "Stasyon sèrvis",
-      food_aid: "Santèr èd alimantèr",
-      online: "Astè par internet, téléfon u katalog",
-      personal: "Zardin, vèrzé, élèvaz pèrsinèl",
-      fishing: "Pès / kwèyèt pèrsinèl déor ou propriété privé",
-      received: "Prodwi rèswi (zardin, vèrzé, élèvaz, pès/kwèyèt déor propriété privé)"
-    },
-    submit: "Voy",
-    next: "Sivan",
-    previous: "Avan",
-    back: "Rètour",
-    thankYou: "Mèrsi pou ou partisipasyon!",
-    surveyComplete: "Ou répons finn anrèzistrè avèk siksè.",
-    questionProgress: "Kèsyon {{current}} lor {{total}}"
-  }
-};
-
 const SuppliesPage: React.FC<SuppliesPageProps> = ({
   language,
   onBack,
   onNavigate,
 }) => {
-  const t = translations[language];
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [submitted, setSubmitted] = useState(false);
+  const totalQuestions = 10;
 
-  // Initialize locations state
-  const [locations, setLocations] = useState<ShoppingLocation[]>([
-    { key: 'supermarket', label: t.locations.supermarket, often: false, sometimes: false },
-    { key: 'discount', label: t.locations.discount, often: false, sometimes: false },
-    { key: 'grocery', label: t.locations.grocery, often: false, sometimes: false },
-    { key: 'bakery', label: t.locations.bakery, often: false, sometimes: false },
-    { key: 'specialized', label: t.locations.specialized, often: false, sometimes: false },
-    { key: 'frozen', label: t.locations.frozen, often: false, sometimes: false },
-    { key: 'bio', label: t.locations.bio, often: false, sometimes: false },
-    { key: 'market', label: t.locations.market, often: false, sometimes: false },
-    { key: 'roadside', label: t.locations.roadside, often: false, sometimes: false },
-    { key: 'produce', label: t.locations.produce, often: false, sometimes: false },
-    { key: 'baskets', label: t.locations.baskets, often: false, sometimes: false },
-    { key: 'mobile', label: t.locations.mobile, often: false, sometimes: false },
-    { key: 'gas', label: t.locations.gas, often: false, sometimes: false },
-    { key: 'food_aid', label: t.locations.food_aid, often: false, sometimes: false },
-    { key: 'online', label: t.locations.online, often: false, sometimes: false },
-    { key: 'personal', label: t.locations.personal, often: false, sometimes: false },
-    { key: 'fishing', label: t.locations.fishing, often: false, sometimes: false },
-    { key: 'received', label: t.locations.received, often: false, sometimes: false }
-  ]);
+  // Q1: Shopping locations
+  const locationLabels = {
+    supermarket: "Supermarché / Hypermarché hors discount",
+    discount: "Magasin hard discount",
+    grocery: "Épicerie Supérette",
+    bakery: "Boulangerie - pâtisserie",
+    specialized: "Comm. de proximité spécialisés (boucherie, poissonnerie.)",
+    frozen: "Magasin de surgelés",
+    bio: "Magasin BIO",
+    market: "Marché forain",
+    roadside: "Vendeur en bord de route",
+    produce: "Primeur (magasin spécialisé en fruits et légumes)",
+    baskets: "Paniers de producteurs",
+    mobile: "Commerçant ambulant",
+    gas: "Station-service",
+    food_aid: "Centre d'aide alimentaire",
+    online: "Achat par internet, téléphone ou catalogue",
+    personal: "Jardin, verger, élevage personnel",
+    fishing: "Pêche / cueillette personnelle en dehors de votre propriété privée",
+    received: "Produits reçus (jardin, verger, élevage, pêche/cueillette en dehors d'une propriété privée)"
+  };
 
-  // Initialize reasons state for each location
+  const [locations, setLocations] = useState<ShoppingLocation[]>(
+    Object.entries(locationLabels).map(([key, label]) => ({
+      key,
+      label,
+      often: false,
+      sometimes: false
+    }))
+  );
+
+  // Q2: Reasons
   const [locationReasons, setLocationReasons] = useState<Record<string, ShoppingReasons>>({});
 
-  // STC usage
+  // Q3: STC usage
   const [stcUsage, setStcUsage] = useState<'yes' | 'no' | ''>('');
+
+  // Q4: Household expense attention
+  const [expenseAttention, setExpenseAttention] = useState<'yes' | 'no' | ''>('');
+
+  // Q5: Expense adjustments
+  const [expenseAdjustments, setExpenseAdjustments] = useState<Record<string, number>>({});
+
+  // Q6: Food security
+  const [foodSecurity, setFoodSecurity] = useState<Record<string, boolean>>({});
+
+  // Q7: Meal quality
+  const [mealQuality, setMealQuality] = useState<Record<string, boolean>>({});
+
+  // Q8: Cooking frequency
+  const [cookingFreq, setCookingFreq] = useState<string>('');
+
+  // Q9: Diet changes
+  const [dietChanges, setDietChanges] = useState<Record<string, boolean>>({});
+
+  // Q10: Food concerns
+  const [foodConcerns, setFoodConcerns] = useState<Record<string, boolean>>({});
 
   const handleLocationChange = (locationKey: string, frequency: 'often' | 'sometimes', checked: boolean) => {
     setLocations(prevLocations => 
@@ -252,10 +99,10 @@ const SuppliesPage: React.FC<SuppliesPageProps> = ({
           const updated = { ...location };
           if (frequency === 'often') {
             updated.often = checked;
-            if (checked) updated.sometimes = false; // Mutual exclusion
+            if (checked) updated.sometimes = false;
           } else {
             updated.sometimes = checked;
-            if (checked) updated.often = false; // Mutual exclusion
+            if (checked) updated.often = false;
           }
           return updated;
         }
@@ -268,85 +115,60 @@ const SuppliesPage: React.FC<SuppliesPageProps> = ({
     setLocationReasons(prev => ({
       ...prev,
       [locationKey]: {
-        ...prev[locationKey],
+        ...(prev[locationKey] || {}),
         [reason]: checked
       }
     }));
   };
 
   const handleNext = () => {
-    if (currentQuestion < 3) {
+    if (currentQuestion === 4 && expenseAttention === 'no') {
+      setCurrentQuestion(6); // Skip Q5
+    } else if (currentQuestion < totalQuestions) {
       setCurrentQuestion(currentQuestion + 1);
     }
   };
 
   const handlePrevious = () => {
-    if (currentQuestion > 1) {
+    if (currentQuestion === 6 && expenseAttention === 'no') {
+      setCurrentQuestion(4); // Skip Q5 going back
+    } else if (currentQuestion > 1) {
       setCurrentQuestion(currentQuestion - 1);
     }
   };
 
   const handleSubmit = () => {
-    // Here you would typically send the data to your backend
     console.log('Survey Data:', {
       locations,
       locationReasons,
-      stcUsage
+      stcUsage,
+      expenseAttention,
+      expenseAdjustments,
+      foodSecurity,
+      mealQuality,
+      cookingFreq,
+      dietChanges,
+      foodConcerns
     });
     setSubmitted(true);
   };
 
-  const getSelectedLocations = () => {
-    return locations.filter(location => location.often || location.sometimes);
-  };
-
-  const canProceedFromQuestion1 = () => {
-    return getSelectedLocations().length > 0;
-  };
-
-  const canProceedFromQuestion2 = () => {
-    const selectedLocations = getSelectedLocations();
-    return selectedLocations.every(location => 
-      locationReasons[location.key] && 
-      Object.values(locationReasons[location.key]).some(Boolean)
-    );
-  };
-
-  const canSubmit = () => {
-    return stcUsage !== '';
-  };
+  const getSelectedLocations = () => locations.filter(l => l.often || l.sometimes);
 
   if (submitted) {
     return (
       <>
         <div className="app-header">
-          <button onClick={onBack} className="header-icon">
-            ←
-          </button>
-          <h1 className="app-header-title">
-            {t.supplies}
-          </h1>
+          <button onClick={onBack} className="header-icon">←</button>
+          <h1 className="app-header-title">Approvisionnements</h1>
           <div></div>
         </div>
-        
         <div className="page-content-full">
-          <div style={{
-            textAlign: 'center',
-            padding: '3rem 2rem',
-            background: 'white',
-            borderRadius: '12px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            border: '1px solid #f0f0f0'
-          }}>
+          <div style={{ textAlign: 'center', padding: '3rem 2rem', background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
-            <h2 style={{ color: '#51cf66', marginBottom: '1rem' }}>{t.thankYou}</h2>
-            <p style={{ color: '#666', marginBottom: '2rem' }}>{t.surveyComplete}</p>
-            <button 
-              onClick={() => onNavigate('home')}
-              className="btn btn-primary"
-            >
-              {t.back}
-            </button>
+            <h2 style={{ color: '#51cf66', marginBottom: '1rem' }}>Merci pour votre participation !</h2>
+            <p style={{ color: '#666', marginBottom: '2rem' }}>Votre réponse a été enregistrée avec succès.</p>
+            <button onClick={() => onNavigate('home')} className="btn btn-primary">Retour</button>
           </div>
         </div>
       </>
@@ -354,52 +176,27 @@ const SuppliesPage: React.FC<SuppliesPageProps> = ({
   }
 
   const renderQuestion = () => {
+    const boxStyle = { background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' };
+    const titleStyle = { marginBottom: '1.5rem', color: '#333', fontSize: '1.2rem' };
+
     switch (currentQuestion) {
       case 1:
         return (
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            marginBottom: '2rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            border: '1px solid #f0f0f0'
-          }}>
-            <h2 style={{ marginBottom: '1.5rem', color: '#333', fontSize: '1.2rem' }}>
-              {t.question1}
-            </h2>
-            
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>Où faites-vous vos courses ?</h2>
             <div style={{ marginBottom: '1rem', display: 'flex', gap: '2rem', fontWeight: '600', color: '#667eea' }}>
               <span style={{ flex: 1 }}></span>
-              <span style={{ width: '80px', textAlign: 'center' }}>{t.often}</span>
-              <span style={{ width: '80px', textAlign: 'center' }}>{t.sometimes}</span>
+              <span style={{ width: '80px', textAlign: 'center' }}>Souvent</span>
+              <span style={{ width: '80px', textAlign: 'center' }}>Parfois</span>
             </div>
-
             {locations.map((location) => (
-              <div key={location.key} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-                padding: '0.75rem',
-                borderBottom: '1px solid #f0f0f0',
-                fontSize: '0.95rem'
-              }}>
+              <div key={location.key} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderBottom: '1px solid #f0f0f0', fontSize: '0.95rem' }}>
                 <span style={{ flex: 1, color: '#333' }}>{location.label}</span>
                 <div style={{ width: '80px', textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={location.often}
-                    onChange={(e) => handleLocationChange(location.key, 'often', e.target.checked)}
-                    style={{ transform: 'scale(1.2)' }}
-                  />
+                  <input type="checkbox" checked={location.often} onChange={(e) => handleLocationChange(location.key, 'often', e.target.checked)} style={{ transform: 'scale(1.2)' }} />
                 </div>
                 <div style={{ width: '80px', textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={location.sometimes}
-                    onChange={(e) => handleLocationChange(location.key, 'sometimes', e.target.checked)}
-                    style={{ transform: 'scale(1.2)' }}
-                  />
+                  <input type="checkbox" checked={location.sometimes} onChange={(e) => handleLocationChange(location.key, 'sometimes', e.target.checked)} style={{ transform: 'scale(1.2)' }} />
                 </div>
               </div>
             ))}
@@ -407,47 +204,21 @@ const SuppliesPage: React.FC<SuppliesPageProps> = ({
         );
 
       case 2:
+        const reasons = ['prices', 'proximity', 'practicality', 'advertising', 'quality', 'other'];
+        const reasonLabels = { prices: 'Les prix', proximity: 'La proximité', practicality: 'La praticité', advertising: 'La publicité/Promotion', quality: 'La qualité', other: 'Autres' };
         return (
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            marginBottom: '2rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            border: '1px solid #f0f0f0'
-          }}>
-            <h2 style={{ marginBottom: '1.5rem', color: '#333', fontSize: '1.2rem' }}>
-              {t.question2}
-            </h2>
-            
-            <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', fontWeight: '600', color: '#667eea', fontSize: '0.9rem' }}>
-              <span style={{ flex: 1 }}></span>
-              <span style={{ width: '70px', textAlign: 'center' }}>{t.reasons.prices}</span>
-              <span style={{ width: '70px', textAlign: 'center' }}>{t.reasons.proximity}</span>
-              <span style={{ width: '70px', textAlign: 'center' }}>{t.reasons.practicality}</span>
-              <span style={{ width: '70px', textAlign: 'center' }}>{t.reasons.advertising}</span>
-              <span style={{ width: '70px', textAlign: 'center' }}>{t.reasons.quality}</span>
-              <span style={{ width: '70px', textAlign: 'center' }}>{t.reasons.other}</span>
+          <div style={{...boxStyle, overflowX: 'auto'}}>
+            <h2 style={titleStyle}>Quelles sont parmi les suivantes les raisons pour lesquelles vous avez fréquenté ces lieux durant ces 4 dernières semaines (plusieurs raisons possibles) ?</h2>
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', fontWeight: '600', color: '#667eea', fontSize: '0.85rem' }}>
+              <span style={{ flex: 1, minWidth: '150px' }}></span>
+              {reasons.map(r => <span key={r} style={{ width: '60px', textAlign: 'center' }}>{reasonLabels[r as keyof typeof reasonLabels]}</span>)}
             </div>
-
             {getSelectedLocations().map((location) => (
-              <div key={location.key} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem',
-                borderBottom: '1px solid #f0f0f0',
-                fontSize: '0.9rem'
-              }}>
-                <span style={{ flex: 1, color: '#333' }}>{location.label}</span>
-                {Object.keys(t.reasons).map((reason) => (
-                  <div key={reason} style={{ width: '70px', textAlign: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={locationReasons[location.key]?.[reason as keyof ShoppingReasons] || false}
-                      onChange={(e) => handleReasonChange(location.key, reason as keyof ShoppingReasons, e.target.checked)}
-                      style={{ transform: 'scale(1.1)' }}
-                    />
+              <div key={location.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', borderBottom: '1px solid #f0f0f0', fontSize: '0.85rem' }}>
+                <span style={{ flex: 1, minWidth: '150px', color: '#333' }}>{location.label}</span>
+                {reasons.map(reason => (
+                  <div key={reason} style={{ width: '60px', textAlign: 'center' }}>
+                    <input type="checkbox" checked={locationReasons[location.key]?.[reason as keyof ShoppingReasons] || false} onChange={(e) => handleReasonChange(location.key, reason as keyof ShoppingReasons, e.target.checked)} style={{ transform: 'scale(1.1)' }} />
                   </div>
                 ))}
               </div>
@@ -457,42 +228,203 @@ const SuppliesPage: React.FC<SuppliesPageProps> = ({
 
       case 3:
         return (
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            marginBottom: '2rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            border: '1px solid #f0f0f0'
-          }}>
-            <h2 style={{ marginBottom: '1.5rem', color: '#333', fontSize: '1.2rem' }}>
-              {t.question3}
-            </h2>
-            
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>Utilisez-vous le STC (subventionnés) pour faire vos achats alimentaires ?</h2>
             <div style={{ display: 'flex', gap: '2rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="stc"
-                  value="yes"
-                  checked={stcUsage === 'yes'}
-                  onChange={() => setStcUsage('yes')}
-                  style={{ transform: 'scale(1.2)' }}
-                />
-                <span style={{ color: '#333', fontWeight: '500' }}>{t.yes}</span>
+                <input type="radio" name="stc" checked={stcUsage === 'yes'} onChange={() => setStcUsage('yes')} style={{ transform: 'scale(1.2)' }} />
+                <span style={{ color: '#333', fontWeight: '500' }}>Oui</span>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  name="stc"
-                  value="no"
-                  checked={stcUsage === 'no'}
-                  onChange={() => setStcUsage('no')}
-                  style={{ transform: 'scale(1.2)' }}
-                />
-                <span style={{ color: '#333', fontWeight: '500' }}>{t.no}</span>
+                <input type="radio" name="stc" checked={stcUsage === 'no'} onChange={() => setStcUsage('no')} style={{ transform: 'scale(1.2)' }} />
+                <span style={{ color: '#333', fontWeight: '500' }}>Non</span>
               </label>
             </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>Au cours des quatre dernières semaines, vous est-il arrivé de devoir faire attention à vos dépenses totales du foyer (loyer, factures diverses, alimentation, loisirs...) ?</h2>
+            <div style={{ display: 'flex', gap: '2rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="radio" name="expense" checked={expenseAttention === 'yes'} onChange={() => setExpenseAttention('yes')} style={{ transform: 'scale(1.2)' }} />
+                <span style={{ color: '#333', fontWeight: '500' }}>Oui</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="radio" name="expense" checked={expenseAttention === 'no'} onChange={() => setExpenseAttention('no')} style={{ transform: 'scale(1.2)' }} />
+                <span style={{ color: '#333', fontWeight: '500' }}>Non</span>
+              </label>
+            </div>
+          </div>
+        );
+
+      case 5:
+        const expensePosts = {
+          food: "Alimentation (quantité, qualité, produits achetés)",
+          housing: "Logement (loyer, réparations, charges)",
+          transport: "Transports (essence, entretien, déplacements)",
+          health: "Santé (consultations, soins, médicaments)",
+          energy: "Énergie (gaz, climatisation,...)",
+          communication: "Communication (téléphone, internet)",
+          leisure: "Loisirs et sorties (restaurant...)",
+          personal: "Achats personnels (vêtements, électroménager, etc.)",
+          tobacco: "Cigarettes et Alcool",
+          other: "Autre"
+        };
+        return (
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>Si oui, dans quels domaines avez-vous ajusté vos dépenses ?</h2>
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem', fontWeight: '600', color: '#667eea' }}>
+              <span style={{ flex: 1 }}>Poste</span>
+              <span style={{ width: '100px', textAlign: 'center' }}>Classement</span>
+            </div>
+            {Object.entries(expensePosts).map(([key, label]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderBottom: '1px solid #f0f0f0', fontSize: '0.95rem' }}>
+                <span style={{ flex: 1, color: '#333' }}>{label}</span>
+                <div style={{ width: '100px', textAlign: 'center' }}>
+                  <input type="number" min="0" max="10" value={expenseAdjustments[key] || ''} onChange={(e) => setExpenseAdjustments(prev => ({...prev, [key]: parseInt(e.target.value) || 0}))} style={{ width: '60px', padding: '0.5rem', borderRadius: '6px', border: '1px solid #e0e0e0', textAlign: 'center' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 6:
+        const foodSecItems = {
+          worried: "Vous avez été inquiet(e) de ne pas avoir assez à manger (pour vous ou vos proches).",
+          noNutritious: "Vous ne pouviez pas manger des aliments nourrissants.",
+          noHealthy: "Vous ne pouviez pas manger des aliments bons pour la santé.",
+          sameThing: "Vous mangiez presque toujours la même chose.",
+          skippedMeal: "Vous aviez dû sauter un repas.",
+          notEnough: "Vous n'avez pas mangé autant qu'il aurait fallu.",
+          nothingHome: "Il n'y avait plus rien à manger à la maison.",
+          hungry: "Vous aviez faim mais n'avez pas mangé.",
+          nothingAllDay: "Vous n'aviez rien mangé de toute la journée."
+        };
+        return (
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>À un moment au cours des 4 dernières semaines, vous êtes-vous trouvé(e) dans une situation où, faute de moyens :</h2>
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '2rem', fontWeight: '600', color: '#667eea' }}>
+              <span style={{ flex: 1 }}></span>
+              <span style={{ width: '80px', textAlign: 'center' }}>Oui</span>
+              <span style={{ width: '80px', textAlign: 'center' }}>Non</span>
+            </div>
+            {Object.entries(foodSecItems).map(([key, item]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderBottom: '1px solid #f0f0f0', fontSize: '0.95rem' }}>
+                <span style={{ flex: 1, color: '#333' }}>{item}</span>
+                <div style={{ width: '80px', textAlign: 'center' }}>
+                  <input type="radio" name={`fs_${key}`} checked={foodSecurity[key] === true} onChange={() => setFoodSecurity(prev => ({ ...prev, [key]: true }))} style={{ transform: 'scale(1.2)' }} />
+                </div>
+                <div style={{ width: '80px', textAlign: 'center' }}>
+                  <input type="radio" name={`fs_${key}`} checked={foodSecurity[key] === false} onChange={() => setFoodSecurity(prev => ({ ...prev, [key]: false }))} style={{ transform: 'scale(1.2)' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 7:
+        const mealQualityReasons = {
+          unexpected: "Imprévus",
+          contextConstraint: "Contrainte de contexte, de lieu",
+          insufficientTime: "Temps insuffisant",
+          tempting: "Aspect ou odeur attractifs et tentant",
+          insufficientMeans: "Moyens insuffisants",
+          notAloneDeciding: "Pas seul.e à décider",
+          inadequateOffer: "Offre inadaptée",
+          will: "Volonté",
+          unavailableFamily: "Indisponibilité des proches",
+          emotions: "Les émotions (angoisses, tristesse, ...)",
+          other: "Autre"
+        };
+        return (
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>Au cours des quatre dernières semaines, pouvez-vous indiquer les éléments qui ont pu vous amener à penser que ce que vous mangiez n'était pas un "bon repas" tel que vous l'envisagez ?</h2>
+            {Object.entries(mealQualityReasons).map(([key, reason]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderBottom: '1px solid #f0f0f0', fontSize: '0.95rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: 1 }}>
+                  <input type="checkbox" checked={mealQuality[key] || false} onChange={(e) => setMealQuality(prev => ({ ...prev, [key]: e.target.checked }))} style={{ transform: 'scale(1.2)' }} />
+                  <span style={{ color: '#333' }}>{reason}</span>
+                </label>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 8:
+        const cookingOptions = {
+          everyday: "Tous les jours",
+          twoThree: "2 ou 3 fois par semaine",
+          once: "1 fois par semaine",
+          never: "0 fois"
+        };
+        return (
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>Au cours des quatre dernières semaines, à quelle fréquence avez-vous cuisiné ?</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {Object.entries(cookingOptions).map(([key, freq]) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input type="radio" name="cooking" value={key} checked={cookingFreq === key} onChange={() => setCookingFreq(key)} style={{ transform: 'scale(1.2)' }} />
+                  <span style={{ color: '#333', fontWeight: '500' }}>{freq}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 9:
+        const dietChangeReasons = {
+          wellness: "Pour améliorer ma forme et mon bien-être.",
+          lifeThreat: "Parce que ma vie ou celle de mes proches est en jeu.",
+          ethics: "Pour des raisons de convictions et d'éthique (écologie, BEA…).",
+          lifestyleChange: "Du fait d'un changement de mode de vie (travail, horaires, déménagement).",
+          familyChange: "Suite à un changement de schéma familial (vie en couple, séparation, naissance…).",
+          alone: "Du fait de me retrouver seul.e.",
+          noAlternative: "Parce que je n'avais pas d'autres alternatives : pénurie alimentaire, obligation réglementaire…"
+        };
+        return (
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>Lors des 4 dernières semaines, avez-vous modifié ou voulu modifier votre alimentation pour une des raisons suivantes ?</h2>
+            {Object.entries(dietChangeReasons).map(([key, reason]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderBottom: '1px solid #f0f0f0', fontSize: '0.95rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: 1 }}>
+                  <input type="checkbox" checked={dietChanges[key] || false} onChange={(e) => setDietChanges(prev => ({ ...prev, [key]: e.target.checked }))} style={{ transform: 'scale(1.2)' }} />
+                  <span style={{ color: '#333' }}>{reason}</span>
+                </label>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 10:
+        const concerns = {
+          none: "Aucune préoccupation",
+          priceIncrease: "Hausse des prix",
+          health: "Effets sur la santé",
+          tradition: "Perte de tradition et d'identité",
+          body: "Effets sur le corps (prise de poids,...)",
+          shortage: "Pénuries, crises, manque de nourriture",
+          quality: "Qualité ou fraîcheur des produits vendus",
+          imported: "Produits importés (traçabilité, qualité, conditions de production)",
+          recalls: "Rappels de produits pour des raisons sanitaires",
+          equity: "Équité du système alimentaire",
+          future: "Avenir pour nos enfants",
+          processed: "Produits (ultra) transformés",
+          environment: "Effets sur l'environnement"
+        };
+        return (
+          <div style={boxStyle}>
+            <h2 style={titleStyle}>Au cours des quatre dernières semaines, avez-vous eu des préoccupations par rapport à l'alimentation ?</h2>
+            {Object.entries(concerns).map(([key, concern]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderBottom: '1px solid #f0f0f0', fontSize: '0.95rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: 1 }}>
+                  <input type="checkbox" checked={foodConcerns[key] || false} onChange={(e) => setFoodConcerns(prev => ({ ...prev, [key]: e.target.checked }))} style={{ transform: 'scale(1.2)' }} />
+                  <span style={{ color: '#333' }}>{concern}</span>
+                </label>
+              </div>
+            ))}
           </div>
         );
 
@@ -504,84 +436,31 @@ const SuppliesPage: React.FC<SuppliesPageProps> = ({
   return (
     <>
       <div className="app-header">
-        <button onClick={onBack} className="header-icon">
-          ←
-        </button>
-        <h1 className="app-header-title">
-          {t.supplies}
-        </h1>
+        <button onClick={onBack} className="header-icon">←</button>
+        <h1 className="app-header-title">Approvisionnements</h1>
         <div></div>
       </div>
       
       <div className="page-content-full">
-        {/* Progress indicator */}
-        <div style={{ 
-          textAlign: 'center', 
-          marginBottom: '1rem',
-          color: '#667eea',
-          fontWeight: '500'
-        }}>
-          Question {currentQuestion} sur 3
+        <div style={{ textAlign: 'center', marginBottom: '1rem', color: '#667eea', fontWeight: '500' }}>
+          Question {currentQuestion} sur {totalQuestions}
         </div>
 
-        {/* Progress bar */}
-        <div style={{
-          width: '100%',
-          height: '6px',
-          backgroundColor: '#f0f0f0',
-          borderRadius: '3px',
-          marginBottom: '2rem',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${(currentQuestion / 3) * 100}%`,
-            height: '100%',
-            backgroundColor: '#667eea',
-            borderRadius: '3px',
-            transition: 'width 0.3s ease'
-          }}></div>
+        <div style={{ width: '100%', height: '6px', backgroundColor: '#f0f0f0', borderRadius: '3px', marginBottom: '2rem', overflow: 'hidden' }}>
+          <div style={{ width: `${(currentQuestion / totalQuestions) * 100}%`, height: '100%', backgroundColor: '#667eea', borderRadius: '3px', transition: 'width 0.3s ease' }}></div>
         </div>
 
         {renderQuestion()}
 
-        {/* Navigation buttons */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '1rem', 
-          marginBottom: '2rem',
-          justifyContent: 'space-between'
-        }}>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', justifyContent: 'space-between' }}>
           {currentQuestion > 1 && (
-            <button 
-              onClick={handlePrevious}
-              className="btn btn-secondary"
-              style={{ flex: 1 }}
-            >
-              {t.previous}
-            </button>
+            <button onClick={handlePrevious} className="btn btn-secondary" style={{ flex: 1 }}>Précédent</button>
           )}
           
-          {currentQuestion < 3 ? (
-            <button 
-              onClick={handleNext}
-              className="btn btn-primary"
-              style={{ flex: 1, marginLeft: currentQuestion === 1 ? 'auto' : '0' }}
-              disabled={
-                currentQuestion === 1 ? !canProceedFromQuestion1() :
-                currentQuestion === 2 ? !canProceedFromQuestion2() : false
-              }
-            >
-              {t.next}
-            </button>
+          {currentQuestion < totalQuestions ? (
+            <button onClick={handleNext} className="btn btn-primary" style={{ flex: 1, marginLeft: currentQuestion === 1 ? 'auto' : '0' }}>Suivant</button>
           ) : (
-            <button 
-              onClick={handleSubmit}
-              className="btn btn-primary"
-              style={{ flex: 1 }}
-              disabled={!canSubmit()}
-            >
-              {t.submit}
-            </button>
+            <button onClick={handleSubmit} className="btn btn-primary" style={{ flex: 1 }}>Soumettre</button>
           )}
         </div>
       </div>
