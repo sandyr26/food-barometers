@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './App.css';
 import SplashScreen from './pages/SplashScreen';
 import AuthPage from './pages/AuthPage';
+import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
 import AddMealPage from './pages/AddMealPage';
@@ -13,7 +14,7 @@ import MealDetailPage from './pages/MealDetailPage';
 import DayMealsPage from './pages/DayMealsPage';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type Page = 'splash' | 'auth' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals';
+type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals';
 
 interface MealData {
   id: number;
@@ -73,6 +74,10 @@ const App: React.FC = () => {
 
 
   const handleLogin = () => {
+    setCurrentPage('login');
+  };
+
+  const handleLoginSubmit = () => {
     setCurrentPage('home');
   };
 
@@ -126,6 +131,15 @@ const App: React.FC = () => {
           <AuthPage
             onLogin={handleLogin}
             onRegister={handleRegister}
+          />
+        );
+
+      case 'login':
+        return (
+          <LoginPage
+            onBack={() => setCurrentPage('auth')}
+            onLogin={handleLoginSubmit}
+            language={language}
           />
         );
 
