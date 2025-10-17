@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
 type InputMethod = 'text' | 'voice' | null;
+type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals';
 
 interface MealData {
   id: number;
@@ -17,6 +18,7 @@ interface AddMealPageProps {
   language: Language;
   onBack: () => void;
   onAddMeal: (mealData: MealData) => void;
+  onNavigate: (page: Page) => void;
 }
 
 const translations = {
@@ -81,6 +83,7 @@ Modalités : Debout ? Assis ?  Est-ce que vous faisiez quelque chose en mangeant
     hours: "heures",
     mealAddedSuccess: "Repas ajouté avec succès !",
     mealSavedMessage: "Votre repas a été enregistré dans votre journal alimentaire.",
+    nextQuestion: "Question suivante",
     addAnotherMeal: "Ajouter un autre repas",
     backToHome: "Retour à l'accueil"
   },
@@ -145,6 +148,7 @@ Methods: Standing? Sitting? Were you doing something while eating?`,
     hours: "hours",
     mealAddedSuccess: "Meal added successfully!",
     mealSavedMessage: "Your meal has been saved to your food diary.",
+    nextQuestion: "Next question",
     addAnotherMeal: "Add another meal",
     backToHome: "Back to home"
   },
@@ -209,6 +213,7 @@ Kouma: debout? asiz? To ti pe fer kisaz kan to manze?`,
     hours: "ler",
     mealAddedSuccess: "Manze finn azout !",
     mealSavedMessage: "To manze finn anrezistre dan to zurnal manze.",
+    nextQuestion: "Kesyon sivan",
     addAnotherMeal: "Azout en lot manze",
     backToHome: "Retour lakaz"
   },
@@ -273,12 +278,13 @@ Kouma: débout? asiz? To té pé fèr kisaz kan to manzé?`,
     hours: "lèr",
     mealAddedSuccess: "Manzé finn azouté !",
     mealSavedMessage: "To manzé finn anrézistré dan to zurnal manzé.",
+    nextQuestion: "Kèsyon sivan",
     addAnotherMeal: "Azout ènn lot manzé",
     backToHome: "Rétour lakaz"
   }
 };
 
-const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal }) => {
+const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal, onNavigate }) => {
   const t = translations[language];
   const [showInitialQuestion, setShowInitialQuestion] = useState(true);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -494,7 +500,12 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal }
             }}>
               <button 
                 className="btn btn-primary"
-                onClick={handleAddAnotherMeal}
+                onClick={() => {
+                  if (savedMealData) {
+                    onAddMeal(savedMealData);
+                  }
+                  onNavigate('supplies');
+                }}
                 style={{ 
                   width: '100%', 
                   padding: '1rem', 
@@ -502,24 +513,7 @@ const AddMealPage: React.FC<AddMealPageProps> = ({ language, onBack, onAddMeal }
                   fontWeight: '600'
                 }}
               >
-                {t.addAnotherMeal}
-              </button>
-              
-              <button 
-                className="btn btn-secondary"
-                onClick={() => {
-                  if (savedMealData) {
-                    onAddMeal(savedMealData);
-                  }
-                  onBack();
-                }}
-                style={{ 
-                  width: '100%', 
-                  padding: '1rem', 
-                  fontSize: '1rem'
-                }}
-              >
-                {t.backToHome}
+                {t.nextQuestion}
               </button>
             </div>
           </div>

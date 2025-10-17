@@ -192,6 +192,7 @@ const App: React.FC = () => {
             language={language}
             onBack={() => handleNavigate('home')}
             onAddMeal={handleAddMeal}
+            onNavigate={handleNavigate}
           />
         );
 
