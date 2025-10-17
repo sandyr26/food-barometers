@@ -59,15 +59,26 @@ Modalités : Debout ? Assis ?  Est-ce que vous faisiez quelque chose en mangeant
     textDescription: "Répondez aux questions une par une",
     voiceDescription: "Enregistrez vos réponses vocalement",
     questions: [
-      "À quelle heure avez-vous consommé ce repas ?",
-      "Quelle est la dénomination de cette prise alimentaire ?",
-      "Quels sont les aliments qui composent ce repas ?",
-      "Comment ces aliments ont-ils été préparés ?",
-      "Où avez-vous consommé ce repas ?",
-      "Dans quel contexte social ?",
-      "Quelles sont les modalités de consommation ?",
+      "À quelle heure avez-vous commencé votre repas ?",
+      "Comment appelez-vous ce moment ?",
+      "Indiquez les ingrédients consommés",
+      "Ce repas a-t-il été cuisiné par vous-même ou par un membre de votre famille ?",
+      "Où avez-vous pris votre repas ?",
+      "Étiez-vous seul·e ou accompagné·e ?",
+      "Étiez-vous debout ou assis·e ? Faisiez-vous autre chose en mangeant ?",
       "Combien de temps a duré ce repas ?",
-      "Y a-t-il des différences par rapport à vos habitudes ?",
+      "En quoi ce repas diffère-t-il de vos habitudes alimentaires ?",
+    ],
+    questionDetails: [
+      "HEURE DE LA CONSOMMATION\nÀ quelle heure avez-vous commencé votre repas ?",
+      "DÉNOMINATION DE LA PRISE\nChacun a son propre vocabulaire pour désigner une prise alimentaire. Il peut s'agir d'un goûter, d'un apéro, d'un petit-déjeuner…\nComment appelez-vous ce moment ?",
+      "COMPOSITION — ALIMENTS SOLIDES ET LIQUIDES\nIndiquez les ingrédients consommés.\nSi vous avez mangé du pain, précisez le type de pain.\nSi vous avez mangé du riz, indiquez le type de riz.\nSi vous avez bu de l'eau, précisez s'il s'agit d'eau du robinet ou d'eau en bouteille (minérale, de source, plate ou gazeuse).\nSi vous avez bu du jus de fruits, indiquez le type de jus.\nMentionnez les marques et labels si possible.",
+      "MODE DE PRÉPARATION DES ALIMENTS\nCe repas a-t-il été cuisiné par vous-même ou par un membre de votre famille ?\nA-t-il été acheté ou livré ?\nSi oui, quel est le lieu d'achat ou de livraison ?",
+      "LIEU\nOù avez-vous pris votre repas ?\n– au domicile\n– au travail (précisez l'endroit exact)\n– sur le lieu d'étude (cantine, cafétéria, restaurant universitaire…)\n– à proximité du lieu d'étude\n– dans la rue\n– au restaurant\n– chez des amis\n– autre (à préciser)",
+      "SOCIABILITÉ\nÉtiez-vous seul·e ou accompagné·e ?",
+      "MODALITÉS\nÉtiez-vous debout ou assis·e ?\nFaisiez-vous autre chose en mangeant ?",
+      "DURÉE\nCombien de temps a duré ce repas ?",
+      "DIFFÉRENCES PAR RAPPORT À L'HABITUDE\nEn quoi ce repas diffère-t-il de vos habitudes alimentaires ?",
     ],
     startRecording: "Commencer l'enregistrement",
     stopRecording: "Arrêter l'enregistrement",
@@ -126,15 +137,26 @@ Methods: Standing? Sitting? Were you doing something while eating?`,
     textDescription: "Answer questions one by one",
     voiceDescription: "Record your answers vocally",
     questions: [
-      "What time did you consume this meal?",
-      "What is the name of this food intake?",
-      "What foods make up this meal?",
-      "How were these foods prepared?",
-      "Where did you consume this meal?",
-      "In what social context?",
-      "What are the consumption modalities?",
+      "What time did you start your meal?",
+      "What do you call this moment?",
+      "Indicate the ingredients consumed",
+      "Was this meal cooked by yourself or by a family member?",
+      "Where did you have your meal?",
+      "Were you alone or accompanied?",
+      "Were you standing or sitting? Were you doing something else while eating?",
       "How long did this meal last?",
-      "Are there any differences from your usual habits?",
+      "How does this meal differ from your eating habits?",
+    ],
+    questionDetails: [
+      "CONSUMPTION TIME\nWhat time did you start your meal?",
+      "MEAL DESIGNATION\nEveryone has their own vocabulary to designate a food intake. It can be a snack, an aperitif, breakfast...\nWhat do you call this moment?",
+      "COMPOSITION — SOLID AND LIQUID FOODS\nIndicate the ingredients consumed.\nIf you ate bread, specify the type of bread.\nIf you ate rice, indicate the type of rice.\nIf you drank water, specify whether it was tap water or bottled water (mineral, spring, still or sparkling).\nIf you drank fruit juice, indicate the type of juice.\nMention brands and labels if possible.",
+      "FOOD PREPARATION METHOD\nWas this meal cooked by yourself or by a family member?\nWas it bought or delivered?\nIf yes, what is the place of purchase or delivery?",
+      "LOCATION\nWhere did you have your meal?\n– at home\n– at work (specify the exact location)\n– at the place of study (canteen, cafeteria, university restaurant...)\n– near the place of study\n– on the street\n– at a restaurant\n– at friends' place\n– other (to specify)",
+      "SOCIABILITY\nWere you alone or accompanied?",
+      "MODALITIES\nWere you standing or sitting?\nWere you doing something else while eating?",
+      "DURATION\nHow long did this meal last?",
+      "DIFFERENCES FROM HABIT\nHow does this meal differ from your eating habits?",
     ],
     startRecording: "Start Recording",
     stopRecording: "Stop Recording",
@@ -192,15 +214,26 @@ Kouma: debout? asiz? To ti pe fer kisaz kan to manze?`,
     textDescription: "Repond bann kesyon en par en",
     voiceDescription: "Enrezistre to bann repons",
     questions: [
-      "Ki ler ou ti manze sa?",
-      "Ki kalite manze sa?",
-      "Ki bann manze ki ena dan sa repa?",
-      "Kouma bann manze la ti prepare?",
-      "Kot ou ti manze sa?",
-      "Dan ki konteks sosyal?",
-      "Kouma ou ti manze?",
-      "Konbyen tan ou ti pran pou manze?",
-      "Ena diferans ek to fason manze abitiel?",
+      "Ki ler ou ti komas manze?",
+      "Kouma ou apel sa moman la?",
+      "Dir ki bann ingedient ou ti manze",
+      "Sa manze la, to mem ou en dimoun lakaz ki ti kizine?",
+      "Kot ou ti pran to manze?",
+      "To ti sel ou to ti ar dimoun?",
+      "To ti debout ou asiz? To ti pe fer lot kisaz kan to manze?",
+      "Konbyen tan to ti pran pou manze?",
+      "Kouma sa manze la diferan ek to fason manze abitiel?",
+    ],
+    questionDetails: [
+      "LER KONSOMATION\nKi ler ou ti komas manze?",
+      "DENOMINASYON PRIZ\nSakenn ena so prop vokabiler pou dir en priz alimanter. Li kapav en gouter, en apero, en ti dezene...\nKouma ou apel sa moman la?",
+      "KONPOZISYON — MANZE SOLID EK LIKID\nDir ki bann ingedient ou ti manze.\nSi ou ti manze dipen, dir ki kalite dipen.\nSi ou ti manze diri, dir ki kalite diri.\nSi ou ti bwar dilo, dir si ti dilo robinet ou dilo boutey (mineral, lasours, plat ou gazoz).\nSi ou ti bwar zu fri, dir ki kalite zu.\nMet bann mark ek label si posib.",
+      "FASON PREPARE MANZE\nSa manze la, to mem ou en dimoun lakaz ki ti kizine?\nLi ti asete ou livre?\nSi wi, kot ki kote asete ou livrer?",
+      "KOTE\nKot ou ti pran to manze?\n– lakaz\n– travay (dir ekzakteman kot)\n– kote etid (kantin, kafeteria, restoran iniversite...)\n– kote pres kote etid\n– dan lari\n– restoran\n– lakaz kamarad\n– lot (eksplik)",
+      "SOSYABILITE\nTo ti sel ou to ti ar dimoun?",
+      "MODALITE\nTo ti debout ou asiz?\nTo ti pe fer lot kisaz kan to manze?",
+      "DIRE\nKonbyen tan to ti pran pou manze?",
+      "DIFERANS EK ABITYID\nKouma sa manze la diferan ek to fason manze abitiel?",
     ],
     startRecording: "Komas anrezitre",
     stopRecording: "Aret anrezitre",
@@ -258,15 +291,26 @@ Kouma: débout? asiz? To té pé fèr kisaz kan to manzé?`,
     textDescription: "Répond bann késyon ènn par ènn",
     voiceDescription: "Anrézistré to bann répons",
     questions: [
-      "Ki lèr ou té manzé sa?",
-      "Ki kalité manzé sa?",
-      "Ki bann manzé ki éna dan sa répa?",
-      "Kouma bann manzé la té prépâré?",
-      "Kot ou té manzé sa?",
-      "Dan ki kontèks sosyal?",
-      "Kouma ou té manzé?",
-      "Konbyèn tan ou té pran pou manzé?",
-      "Éna diférèns èk to fason manzé abitiyèl?",
+      "Ki lèr ou té komans manzé?",
+      "Kouma ou apèl sa moman la?",
+      "Dir ki bann ingrédiàn ou té manzé",
+      "Sa manzé la, to mèm ou ènn dimoun lakaz ki té kizinn?",
+      "Koté ou té pran to manzé?",
+      "To té sèl ou to té ar dimoun?",
+      "To té débout ou asiz? To té pé fèr lot kisaz kan to manzé?",
+      "Konbyèn tan to té pran pou manzé?",
+      "Kouma sa manzé la diférèn èk to fason manzé abitiyèl?",
+    ],
+    questionDetails: [
+      "LÈR KONSOMATION\nKi lèr ou té komans manzé?",
+      "DÉNOMINATION PRIZ\nSakènn éna so prop vokabiyé pou dir ènn priz alimantèr. Li kapav ènn goutèr, ènn apéro, ènn ti dézènè...\nKouma ou apèl sa moman la?",
+      "KONPOZISYON — MANZÉ SOLID ÈK LIKID\nDir ki bann ingrédiàn ou té manzé.\nSi ou té manzé dipèn, dir ki kalité dipèn.\nSi ou té manzé diri, dir ki kalité diri.\nSi ou té bwar dilo, dir si té dilo robinèt ou dilo boutèy (minéral, lasours, plat ou gazèz).\nSi ou té bwar zi fri, dir ki kalité zi.\nMèt bann mark èk labèl si posib.",
+      "FASON PRÉPARE MANZÉ\nSa manzé la, to mèm ou ènn dimoun lakaz ki té kizinn?\nLi té astè ou livré?\nSi wi, koté ki koté astè ou livrè?",
+      "KOTÉ\nKoté ou té pran to manzé?\n– lakaz\n– travay (dir èkzakteman koté)\n– koté étid (kantin, kafétèria, rèstoran inivèrsité...)\n– koté prè koté étid\n– dan lari\n– rèstoran\n– lakaz kamarad\n– lot (èksplik)",
+      "SOSYABILITÉ\nTo té sèl ou to té ar dimoun?",
+      "MODALITÉ\nTo té débout ou asiz?\nTo té pé fèr lot kisaz kan to manzé?",
+      "DIRÉ\nKonbyèn tan to té pran pou manzé?",
+      "DIFÉRÈNS ÈK ABITIYID\nKouma sa manzé la diférèn èk to fason manzé abitiyèl?",
     ],
     startRecording: "Komans anrézistré",
     stopRecording: "Arèt anrézistré",
@@ -329,6 +373,8 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
   const [durationUnit, setDurationUnit] = useState("minutes");
   const [savedMealData, setSavedMealData] = useState<MealData | null>(null);
 
+  const [showQuestionDetail, setShowQuestionDetail] = useState(false);
+
   // Helper functions to identify question types
   const isTimeQuestion = (index: number) => index === 0; // "What time did you consume this meal?"
   const isLocationQuestion = (index: number) => index === 4; // "Where did you consume this meal?"
@@ -374,6 +420,8 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
       resetSpecialInputs();
     }
 
+    setShowQuestionDetail(false); // Reset question detail display
+
     if (currentQuestionIndex < t.questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
@@ -411,6 +459,7 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
           }
         }
       }
+      setShowQuestionDetail(false); // Reset question detail display
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
@@ -529,7 +578,7 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
               }}
             >
               <button
-                className="btn btn-primary" // Changed to primary button class
+                className="btn btn-secondary"
                 onClick={() => {
                   setShowSuccessPage(false);
                   setShowInitialQuestion(true);
@@ -546,19 +595,37 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
                   setMealCount(mealCount + 1);
                 }}
                 style={{
-                  width: "100%",
-                  padding: "1rem",
-                  fontSize: "1.1rem",
+                  backgroundColor: mealCount >= maxMeals ? "#ccc" : "white",
+                  color: mealCount >= maxMeals ? "#888" : "#333",
+                  border: mealCount >= maxMeals ? "2px solid #ccc" : "2px solid #333",
+                  borderRadius: "25px",
+                  padding: "1.2rem 2rem",
+                  fontSize: "1.2rem",
                   fontWeight: "600",
-                  backgroundColor: mealCount >= maxMeals ? "#ccc" : "#333", // Primary color
-                  color: mealCount >= maxMeals ? "#888" : "white", // White text for primary button
                   cursor: mealCount >= maxMeals ? "not-allowed" : "pointer",
-                  border: "none",
-                  borderRadius: "8px",
+                  boxShadow: mealCount >= maxMeals ? "none" : "0 6px 20px rgba(0,0,0,0.1)",
+                  transition: "all 0.3s ease",
+                  width: "100%",
                   marginBottom: "0.5rem",
                   pointerEvents: mealCount >= maxMeals ? "none" : "auto",
                 }}
                 disabled={mealCount >= maxMeals}
+                onMouseEnter={(e) => {
+                  if (mealCount < maxMeals) {
+                    e.currentTarget.style.backgroundColor = "#333";
+                    e.currentTarget.style.color = "white";
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.2)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (mealCount < maxMeals) {
+                    e.currentTarget.style.backgroundColor = "white";
+                    e.currentTarget.style.color = "#333";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
+                  }
+                }}
               >
                 {t.addAnotherMeal}
               </button>
@@ -571,14 +638,27 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
                   onNavigate("supplies");
                 }}
                 style={{
-                  width: "100%",
-                  padding: "1rem",
-                  fontSize: "1.1rem",
-                  fontWeight: "600",
                   backgroundColor: "#333",
                   color: "white",
                   border: "none",
-                  borderRadius: "8px",
+                  borderRadius: "25px",
+                  padding: "1.2rem 2rem",
+                  fontSize: "1.2rem",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.2)",
+                  transition: "all 0.3s ease",
+                  width: "100%",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#555";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.25)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#333";
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.2)";
                 }}
               >
                 {t.nextQuestion}
@@ -797,15 +877,62 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
       </div>
       <div className="page-content-full">
         <div style={{ marginBottom: "2rem" }}>
-          <h2
-            style={{
-              fontSize: "1.2rem",
-              marginBottom: "2rem",
-              lineHeight: "1.5",
-            }}
-          >
-            {t.questions[currentQuestionIndex]}
-          </h2>
+          <div style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "0.5rem",
+            marginBottom: "1rem",
+          }}>
+            <h2
+              style={{
+                fontSize: "1.2rem",
+                marginBottom: "0",
+                lineHeight: "1.5",
+                flex: 1,
+              }}
+            >
+              {t.questions[currentQuestionIndex]}
+            </h2>
+            <button
+              onClick={() => setShowQuestionDetail(!showQuestionDetail)}
+              style={{
+                background: "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: "50%",
+                width: "24px",
+                height: "24px",
+                fontSize: "14px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                marginTop: "2px",
+              }}
+            >
+              i
+            </button>
+          </div>
+
+          {/* Detailed question information */}
+          {showQuestionDetail && (
+            <div
+              style={{
+                backgroundColor: "#f8f9fa",
+                border: "1px solid #e9ecef",
+                borderRadius: "8px",
+                padding: "1rem",
+                marginBottom: "1rem",
+                fontSize: "0.9rem",
+                lineHeight: "1.5",
+                whiteSpace: "pre-line",
+              }}
+            >
+              {t.questionDetails[currentQuestionIndex]}
+            </div>
+          )}
 
           {inputMethod === "text" && (
             <div>

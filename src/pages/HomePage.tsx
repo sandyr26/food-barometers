@@ -77,22 +77,40 @@ const HomePage: React.FC<HomePageProps> = ({
         }}>
           {/* Logo container */}
           <div style={{
-            width: '180px',
-            height: '180px',
-            backgroundColor: 'transparent',
+            width: '200px',
+            height: '200px',
+            backgroundColor: 'white',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
-            border: 'none',
-            margin: '0 auto'
+            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+            border: '4px solid rgba(255,255,255,0.8)',
+            margin: '0 auto',
+            position: 'relative'
           }}>
+            {/* Animated rings around logo */}
+            <div style={{
+              position: 'absolute',
+              width: '220px',
+              height: '220px',
+              border: '2px solid rgba(255,255,255,0.3)',
+              borderRadius: '50%'
+            }} />
+            <div style={{
+              position: 'absolute',
+              width: '240px',
+              height: '240px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '50%'
+            }} />
+            
             <img src={logo} alt="Logo" style={{
               width: '100%',
               height: '100%',
               borderRadius: '50%',
-              objectFit: 'cover'
+              objectFit: 'cover',
+              transition: 'transform 0.3s ease'
             }} />
           </div>
         </div>
