@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import SplashScreen from './pages/SplashScreen';
 import AuthPage from './pages/AuthPage';
@@ -13,9 +13,11 @@ import CalendarPage from './pages/CalendarPage.tsx';
 import MealDetailPage from './pages/MealDetailPage';
 import DayMealsPage from './pages/DayMealsPage';
 import ComingSoonPage from './pages/ComingSoonPage';
+import AdminLoginPage from './pages/AdminLoginPage';
+import AdminDashboard from './pages/AdminDashboard';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon';
+type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon' | 'adminLogin' | 'adminDashboard';
 
 interface MealData {
   id: number;
@@ -28,11 +30,74 @@ interface MealData {
 }
 
 const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<Page>('splash');
+  // Function to get page from URL
+  const getPageFromUrl = (): Page => {
+    const path = window.location.pathname;
+    switch (path) {
+      case '/admin':
+        return 'adminLogin';
+      case '/admin/dashboard':
+        return 'adminDashboard';
+      case '/auth':
+        return 'auth';
+      case '/login':
+        return 'login';
+      case '/register':
+        return 'register';
+      case '/home':
+        return 'home';
+      default:
+        return 'splash';
+    }
+  };
+
+  const [currentPage, setCurrentPage] = useState<Page>(getPageFromUrl());
   const [language, setLanguage] = useState<Language>('fr');
   const [notificationCount] = useState(3);
   const [selectedMeal, setSelectedMeal] = useState<MealData | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
+
+  // URL routing effect
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPage(getPageFromUrl());
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Function to navigate and update URL
+  const navigateToPage = (page: Page) => {
+    let url = '/';
+    switch (page) {
+      case 'adminLogin':
+        url = '/admin';
+        break;
+      case 'adminDashboard':
+        url = '/admin/dashboard';
+        break;
+      case 'auth':
+        url = '/auth';
+        break;
+      case 'login':
+        url = '/login';
+        break;
+      case 'register':
+        url = '/register';
+        break;
+      case 'home':
+        url = '/home';
+        break;
+      case 'splash':
+      default:
+        url = '/';
+        break;
+    }
+    
+    window.history.pushState({}, '', url);
+    setCurrentPage(page);
+  };
   const [meals, setMeals] = useState<MealData[]>([
     // Sample meals for September 1-15, 2025
     { id: 1, time: '2025-09-01T08:00:00', name: 'Breakfast', duration: '15 min', answers: ['Bread', 'Coffee'], method: 'text', date: '2025-09-01' },
@@ -67,31 +132,37 @@ const App: React.FC = () => {
     { id: 30, time: '2025-09-14T19:20:00', name: 'Dinner', duration: '42 min', answers: ['Roast beef', 'Potatoes'], method: 'text', date: '2025-09-14' },
     { id: 31, time: '2025-09-15T08:25:00', name: 'Breakfast', duration: '15 min', answers: ['Muesli', 'Fruit'], method: 'text', date: '2025-09-15' },
     { id: 32, time: '2025-09-15T12:15:00', name: 'Lunch', duration: '26 min', answers: ['Quinoa bowl', 'Avocado'], method: 'voice', date: '2025-09-15' },
-    // Today's meals (September 25, 2025) for testing
-    { id: 33, time: '2025-09-25T08:00:00', name: 'Croissant', duration: '12 min', answers: ['Coffee', 'Croissant', 'Fresh croissant with butter and jam'], method: 'text', date: '2025-09-25' },
-    { id: 34, time: '2025-09-25T12:30:00', name: 'Chicken salad', duration: '25 min', answers: ['Salad', 'Chicken salad', 'Mixed green salad with grilled chicken'], method: 'text', date: '2025-09-25' }
+    // Additional recent meals to make data more robust
+    { id: 33, time: '2025-10-01T08:00:00', name: 'Breakfast', duration: '12 min', answers: ['Coffee', 'Croissant'], method: 'text', date: '2025-10-01' },
+    { id: 34, time: '2025-10-01T12:30:00', name: 'Lunch', duration: '25 min', answers: ['Salad', 'Grilled chicken'], method: 'text', date: '2025-10-01' },
+    { id: 35, time: '2025-10-01T19:00:00', name: 'Dinner', duration: '35 min', answers: ['Pasta', 'Wine'], method: 'voice', date: '2025-10-01' },
+    { id: 36, time: '2025-10-02T07:45:00', name: 'Breakfast', duration: '10 min', answers: ['Cereal', 'Milk'], method: 'text', date: '2025-10-02' },
+    { id: 37, time: '2025-10-02T13:00:00', name: 'Lunch', duration: '20 min', answers: ['Sandwich', 'Juice'], method: 'text', date: '2025-10-02' },
+    { id: 38, time: '2025-10-03T08:15:00', name: 'Breakfast', duration: '15 min', answers: ['Toast', 'Jam', 'Orange juice'], method: 'voice', date: '2025-10-03' },
+    { id: 39, time: '2025-10-03T12:45:00', name: 'Lunch', duration: '30 min', answers: ['Fish curry', 'Rice'], method: 'text', date: '2025-10-03' },
+    { id: 40, time: '2025-10-03T19:30:00', name: 'Dinner', duration: '40 min', answers: ['Steak', 'Vegetables'], method: 'text', date: '2025-10-03' }
   ]);
 
 
 
   const handleLogin = () => {
-    setCurrentPage('login');
+    navigateToPage('login');
   };
 
   const handleLoginSubmit = () => {
-    setCurrentPage('home');
+    navigateToPage('home');
   };
 
   const handleRegister = () => {
-    setCurrentPage('register');
+    navigateToPage('register');
   };
 
   const handleRegistrationComplete = () => {
-    setCurrentPage('home');
+    navigateToPage('home');
   };
 
   const handleNavigate = (page: Page) => {
-    setCurrentPage(page);
+    navigateToPage(page);
   };
 
   const handleLanguageChange = (newLanguage: Language) => {
@@ -105,16 +176,12 @@ const App: React.FC = () => {
 
   const handleMealSelect = (meal: MealData) => {
     setSelectedMeal(meal);
-    setCurrentPage('mealDetail');
-  };
-
-  const handleDaySelect = (date: string) => {
-    setSelectedDate(date);
-    setCurrentPage('dayMeals');
+    navigateToPage('mealDetail');
   };
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
+    navigateToPage('dayMeals');
   };
 
   const renderPage = () => {
@@ -122,7 +189,8 @@ const App: React.FC = () => {
       case 'splash':
         return (
           <SplashScreen 
-            onComplete={() => setCurrentPage('auth')}
+            onComplete={() => navigateToPage('auth')}
+            onAdminAccess={() => navigateToPage('adminLogin')}
             language={language}
           />
         );
@@ -138,7 +206,7 @@ const App: React.FC = () => {
       case 'login':
         return (
           <LoginPage
-            onBack={() => setCurrentPage('auth')}
+            onBack={() => navigateToPage('auth')}
             onLogin={handleLoginSubmit}
             language={language}
           />
@@ -147,7 +215,7 @@ const App: React.FC = () => {
       case 'register':
         return (
           <RegisterPage
-            onBack={() => setCurrentPage('auth')}
+            onBack={() => navigateToPage('auth')}
             onComplete={handleRegistrationComplete}
             language={language}
           />
@@ -228,7 +296,7 @@ const App: React.FC = () => {
               language={language}
               meals={meals}
               onBack={() => handleNavigate('home')}
-              onDaySelect={handleDaySelect}
+              onDaySelect={handleDateChange}
             />
             <div className="navbar">
               <button 
@@ -258,7 +326,7 @@ const App: React.FC = () => {
           <MealDetailPage
             language={language}
             meal={selectedMeal}
-            onBack={() => setCurrentPage('home')}
+            onBack={() => navigateToPage('home')}
           />
         ) : null;
 
@@ -268,7 +336,7 @@ const App: React.FC = () => {
             language={language}
             selectedDate={selectedDate}
             meals={meals}
-            onBack={() => setCurrentPage('calendar')}
+            onBack={() => navigateToPage('calendar')}
             onMealSelect={handleMealSelect}
             onDateChange={handleDateChange}
           />
@@ -279,6 +347,22 @@ const App: React.FC = () => {
           <ComingSoonPage
             language={language}
             onNavigate={(page: string) => handleNavigate(page as Page)}
+          />
+        );
+
+      case 'adminLogin':
+        return (
+          <AdminLoginPage
+            onLogin={() => navigateToPage('adminDashboard')}
+            onBack={() => navigateToPage('splash')}
+          />
+        );
+
+      case 'adminDashboard':
+        return (
+          <AdminDashboard
+            meals={meals}
+            onLogout={() => navigateToPage('splash')}
           />
         );
 

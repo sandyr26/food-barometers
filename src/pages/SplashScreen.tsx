@@ -3,6 +3,7 @@ import logo from '../assets/LOGO.png';
 
 interface SplashScreenProps {
   onComplete: () => void;
+  onAdminAccess?: () => void;
   language: 'fr' | 'en' | 'mfe' | 'rcf';
 }
 
@@ -25,10 +26,24 @@ const translations = {
   }
 };
 
-const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, language }) => {
+const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, onAdminAccess, language }) => {
   const t = translations[language];
   const [isVisible, setIsVisible] = useState(false);
   const [showButton, setShowButton] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
+
+  const handleLogoClick = () => {
+    const newCount = clickCount + 1;
+    setClickCount(newCount);
+    
+    // Reset click count after 3 seconds of inactivity
+    setTimeout(() => setClickCount(0), 3000);
+    
+    // If clicked 5 times quickly, open admin login
+    if (newCount >= 5 && onAdminAccess) {
+      onAdminAccess();
+    }
+  };
 
   useEffect(() => {
     // Trigger entrance animations
@@ -193,13 +208,19 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, language }) => 
               borderRadius: '50%'
             }} />
             
-            <img src={logo} alt="Logo" style={{
-              width: '100%',
-              height: '100%',
-              borderRadius: '50%',
-              objectFit: 'cover',
-              transition: 'transform 0.3s ease'
-            }} />
+            <img 
+              src={logo} 
+              alt="Logo" 
+              onClick={handleLogoClick}
+              style={{
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                transition: 'transform 0.3s ease',
+                cursor: 'pointer'
+              }} 
+            />
           </div>
         </div>
 
