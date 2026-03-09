@@ -4,9 +4,10 @@ import logo from '../assets/LOGO.png';
 interface AuthPageProps {
   onLogin: () => void;
   onRegister: () => void;
+  onAdmin: () => void;
 }
 
-const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onRegister }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onRegister, onAdmin }) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -202,6 +203,25 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onRegister }) => {
         >
           Register
         </button>
+
+        {/* Admin Link */}
+        <a
+          onClick={(e) => { e.preventDefault(); onAdmin(); }}
+          href="/admin"
+          style={{
+            color: 'rgba(51,51,51,0.5)',
+            fontSize: '0.85rem',
+            textDecoration: 'none',
+            textAlign: 'center',
+            cursor: 'pointer',
+            marginTop: '0.5rem',
+            transition: 'color 0.2s ease'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#333'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(51,51,51,0.5)'; }}
+        >
+          Admin
+        </a>
       </div>
       </div>
     </>

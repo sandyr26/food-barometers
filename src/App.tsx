@@ -200,6 +200,7 @@ const App: React.FC = () => {
           <AuthPage
             onLogin={handleLogin}
             onRegister={handleRegister}
+            onAdmin={() => navigateToPage('adminLogin')}
           />
         );
 
