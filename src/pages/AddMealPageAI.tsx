@@ -250,11 +250,11 @@ const AddMealPageAI: React.FC<AddMealPageAIProps> = ({ onBack, language, onAddMe
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  page: { width: "100%", minHeight: "100vh", background: "#fff9e8", color: "#333", overflowX: "hidden" },
-  header: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", background: "#ffc000", boxShadow: "0 2px 10px rgba(217,119,6,0.2)", position: "sticky", top: 0, zIndex: 2, boxSizing: "border-box" },
+  page: { width: "100%", height: "100dvh", minHeight: "100vh", display: "flex", flexDirection: "column", background: "#fff9e8", color: "#333", overflow: "hidden" },
+  header: { width: "100%", flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", background: "#ffc000", boxShadow: "0 2px 10px rgba(217,119,6,0.2)", boxSizing: "border-box" },
   title: { margin: 0, fontSize: "1.2rem", fontWeight: 700 },
   headerSpacer: { width: 40 },
-  content: { width: "100%", maxWidth: 680, margin: "0 auto", padding: "1.25rem 1rem 3rem", boxSizing: "border-box" },
+  content: { width: "100%", maxWidth: 680, flex: "1 1 auto", minHeight: 0, margin: "0 auto", padding: "1.25rem 1rem 3rem", boxSizing: "border-box", overflowY: "auto" },
   progressRow: { display: "flex", justifyContent: "space-between", alignItems: "center", color: "#765800", fontSize: "0.85rem", fontWeight: 700, marginBottom: "0.8rem" },
   liveBadge: { padding: "0.35rem 0.65rem", borderRadius: 999, background: "#fff0bd", color: "#765800", fontSize: "0.72rem", letterSpacing: "0.04em", textTransform: "uppercase" },
   mascotPanel: { textAlign: "center", padding: "0.5rem 0 1rem" },
