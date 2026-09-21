@@ -5,6 +5,7 @@ import AuthPage from './pages/AuthPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
+import AddMealPageAI from './pages/AddMealPageAI';
 import AddMealPage from './pages/AddMealPage';
 import ProfilePage from './pages/ProfilePage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -17,7 +18,7 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon' | 'adminLogin' | 'adminDashboard';
+type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMealAI' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon' | 'adminLogin' | 'adminDashboard';
 
 interface MealData {
   id: number;
@@ -46,6 +47,8 @@ const App: React.FC = () => {
         return 'register';
       case '/home':
         return 'home';
+      case '/add-meal-ai':
+        return 'addMealAI';
       default:
         return 'splash';
     }
@@ -88,6 +91,9 @@ const App: React.FC = () => {
         break;
       case 'home':
         url = '/home';
+        break;
+      case 'addMealAI':
+        url = '/add-meal-ai';
         break;
       case 'splash':
       default:
@@ -251,6 +257,16 @@ const App: React.FC = () => {
               onNavigate={handleNavigate}
             />
           </>
+        );
+
+      case 'addMealAI':
+        return (
+          <AddMealPageAI
+              language={language}
+            onBack={() => handleNavigate('home')}
+            onAddMeal={handleAddMeal}
+              onNavigate={handleNavigate}
+            />
         );
 
       case 'addMeal':

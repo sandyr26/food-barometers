@@ -7,6 +7,7 @@ type Page =
   | "auth"
   | "register"
   | "home"
+  | "addMealAI"
   | "addMeal"
   | "profile"
   | "notifications"
@@ -22,21 +23,25 @@ const translations = {
   fr: {
     welcome: "Bienvenue sur FOOD BAROMETER",
     recurrentSurvey: "Enquête récurrente",
+    recurrentSurveyAI: "Enquête récurrente AI",
     focus: "Focus"
   },
   en: {
     welcome: "Welcome to FOOD BAROMETER",
     recurrentSurvey: "Recurrent Survey",
+    recurrentSurveyAI: "Recurrent Survey AI",
     focus: "Focus"
   },
   mfe: {
     welcome: "Byenvini lor FOOD BAROMETER",
     recurrentSurvey: "Ankyet Rekirant",
+    recurrentSurveyAI: "Ankyet Rekirant AI",
     focus: "Fokis"
   },
   rcf: {
     welcome: "Byenvini lor FOOD BAROMETER",
     recurrentSurvey: "Ankèt Rékiran",
+    recurrentSurveyAI: "Ankèt Rékiran AI",
     focus: "Fokis"
   }
 };
@@ -166,6 +171,25 @@ const HomePage: React.FC<HomePageProps> = ({
           }}
         >
           {t.recurrentSurvey}
+        </button>
+
+        <button
+          onClick={() => window.location.assign('/add-meal-ai')}
+          style={{
+            backgroundColor: '#333',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            padding: '1.2rem 2rem',
+            fontSize: '1.2rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+            transition: 'all 0.3s ease',
+            width: '100%'
+          }}
+        >
+          {t.recurrentSurveyAI}
         </button>
 
         {/* Focus Button */}
