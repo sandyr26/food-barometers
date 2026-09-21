@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BackButton from '../components/BackButton';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
 
@@ -197,9 +198,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ language, onBack, onLanguageC
   return (
     <>
       <div className="app-header">
-        <button onClick={onBack} className="header-icon">
-          ←
-        </button>
+        <BackButton onClick={onBack} />
         <h1 className="app-header-title">
           {t.profile}
         </h1>

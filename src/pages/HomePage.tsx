@@ -174,7 +174,7 @@ const HomePage: React.FC<HomePageProps> = ({
         </button>
 
         <button
-          onClick={() => window.location.assign('/add-meal-ai')}
+          onClick={() => onNavigate('addMealAI')}
           style={{
             backgroundColor: '#333',
             color: 'white',

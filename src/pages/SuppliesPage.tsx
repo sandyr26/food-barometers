@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import BackButton from "../components/BackButton";
 
 type Language = "fr" | "en" | "mfe" | "rcf";
 type Page = "splash" | "auth" | "register" | "home" | "addMeal" | "profile" | "notifications" | "supplies";
@@ -178,7 +179,7 @@ const SuppliesPage: React.FC<SuppliesPageProps> = ({
     return (
       <>
         <div className="app-header">
-          <button onClick={onBack} className="header-icon">←</button>
+          <BackButton onClick={onBack} />
           <h1 className="app-header-title">Approvisionnements</h1>
           <div></div>
         </div>
@@ -680,7 +681,7 @@ const SuppliesPage: React.FC<SuppliesPageProps> = ({
   return (
     <>
       <div className="app-header">
-        <button onClick={onBack} className="header-icon">←</button>
+        <BackButton onClick={onBack} />
         <h1 className="app-header-title">Approvisionnements</h1>
         <div></div>
       </div>

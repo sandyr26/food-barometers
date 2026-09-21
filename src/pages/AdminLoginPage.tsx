@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import logo from '../assets/LOGO.png';
+import BackButton from '../components/BackButton';
 
 interface AdminLoginPageProps {
   onLogin: () => void;
@@ -45,32 +46,9 @@ const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onLogin, onBack }) => {
       gap: '2rem'
     }}>
       {/* Back button */}
-      <button
-        onClick={onBack}
-        style={{
-          position: 'absolute',
-          top: '2rem',
-          left: '2rem',
-          backgroundColor: 'transparent',
-          color: '#ffc000',
-          border: '2px solid #ffc000',
-          borderRadius: '8px',
-          padding: '0.5rem 1rem',
-          fontSize: '1rem',
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#ffc000';
-          e.currentTarget.style.color = '#1a1a1a';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'transparent';
-          e.currentTarget.style.color = '#ffc000';
-        }}
-      >
-        ← Back
-      </button>
+      <div style={{ position: 'absolute', top: '2rem', left: '2rem' }}>
+        <BackButton onClick={onBack} />
+      </div>
 
       {/* Logo */}
       <div style={{

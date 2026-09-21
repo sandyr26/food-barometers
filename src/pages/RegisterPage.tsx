@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BackButton from '../components/BackButton';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
 
@@ -1453,25 +1454,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onBack, onComplete, languag
             justifyContent: 'space-between',
             marginBottom: '2rem'
           }}>
-            <button 
-              onClick={handlePrevious}
-              style={{
-                background: 'rgba(217, 119, 6, 0.1)',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '0.75rem',
-                cursor: 'pointer',
-                fontSize: '1.2rem',
-                color: '#d97706',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: '48px',
-                height: '48px'
-              }}
-            >
-              ←
-            </button>
+            <BackButton onClick={handlePrevious} />
             
             <div style={{ textAlign: 'center', flex: 1, margin: '0 1rem' }}>
               <h1 style={{

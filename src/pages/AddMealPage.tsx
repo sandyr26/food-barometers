@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import BackButton from "../components/BackButton";
 
 type Language = "fr" | "en" | "mfe" | "rcf";
 type InputMethod = "text" | "voice" | null;
@@ -675,9 +676,7 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
     return (
       <>
         <div className="app-header">
-          <button onClick={onBack} className="header-icon">
-            ←
-          </button>
+          <BackButton onClick={onBack} />
           <h1 className="app-header-title">{t.addMeal}</h1>
           <div></div>
         </div>
@@ -811,9 +810,7 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
     return (
       <>
         <div className="app-header">
-          <button onClick={onBack} className="header-icon">
-            ←
-          </button>
+          <BackButton onClick={onBack} />
           <h1 className="app-header-title">{t.addMeal}</h1>
           <div></div>
         </div>
@@ -860,16 +857,13 @@ const AddMealPage: React.FC<AddMealPageProps> = ({
   return (
     <>
       <div className="app-header">
-        <button
+        <BackButton
           onClick={
             currentQuestionIndex === 0
               ? () => setInputMethod(null)
               : handlePreviousQuestion
           }
-          className="header-icon"
-        >
-          ←
-        </button>
+        />
         <h1 className="app-header-title">
           {t.addMeal} ({currentQuestionIndex + 1}/{t.questions.length})
         </h1>

@@ -1,4 +1,5 @@
 import React from 'react';
+import BackButton from '../components/BackButton';
 
 interface ComingSoonPageProps {
   language: 'fr' | 'en' | 'mfe' | 'rcf';
@@ -87,33 +88,7 @@ const ComingSoonPage: React.FC<ComingSoonPageProps> = ({ language, onNavigate })
       </p>
 
       {/* Back Button */}
-      <button
-        onClick={() => onNavigate('home')}
-        style={{
-          padding: '15px 40px',
-          fontSize: '18px',
-          backgroundColor: '#333',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          fontWeight: '600',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
-          transition: 'all 0.3s ease'
-        }}
-        onMouseOver={(e) => {
-          e.currentTarget.style.backgroundColor = '#555';
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 6px 8px rgba(0,0,0,0.3)';
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.backgroundColor = '#333';
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.2)';
-        }}
-      >
-        {t.backButton}
-      </button>
+      <BackButton onClick={() => onNavigate('home')} label={t.backButton} />
 
       {/* CSS Animation for pulse effect */}
       <style>{`

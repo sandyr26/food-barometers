@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BackButton from '../components/BackButton';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
 
@@ -68,33 +69,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
       position: 'relative'
     }}>
       {/* Back Button */}
-      <button
-        onClick={onBack}
-        style={{
-          position: 'absolute',
-          top: '1.5rem',
-          left: '1.5rem',
-          background: 'rgba(51, 51, 51, 0.1)',
-          border: 'none',
-          borderRadius: '50%',
-          width: '40px',
-          height: '40px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          fontSize: '1.5rem',
-          transition: 'all 0.3s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(51, 51, 51, 0.2)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(51, 51, 51, 0.1)';
-        }}
-      >
-        ←
-      </button>
+      <div style={{ position: 'absolute', top: '1.5rem', left: '1.5rem' }}>
+        <BackButton onClick={onBack} />
+      </div>
 
       {/* Login Form Container */}
       <div style={{

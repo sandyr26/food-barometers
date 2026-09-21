@@ -1,4 +1,5 @@
 import React from "react";
+import BackButton from "../components/BackButton";
 
 type Language = "fr" | "en" | "mfe" | "rcf";
 type Page = "splash" | "auth" | "register" | "home" | "addMeal" | "profile" | "notifications" | "supplies";
@@ -166,9 +167,7 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({
   return (
     <>
       <div className="app-header">
-        <button onClick={onBack} className="header-icon">
-          ←
-        </button>
+        <BackButton onClick={onBack} />
         <h1 className="app-header-title">
           {t.notifications}
         </h1>

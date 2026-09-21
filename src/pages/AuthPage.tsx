@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import logo from '../assets/LOGO.png';
 
 interface AuthPageProps {
@@ -8,17 +8,6 @@ interface AuthPageProps {
 }
 
 const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onRegister, onAdmin }) => {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    // Trigger entrance animation after component mounts
-    const timer = setTimeout(() => {
-      setIsVisible(true);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
-
   return (
     <>
       <style>
@@ -57,19 +46,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onRegister, onAdmin }) => 
           }
 
           .auth-container {
-            animation: ${isVisible ? 'authFadeInUp 0.8s ease-out' : 'none'};
+            animation: authFadeInUp 0.8s ease-out both;
           }
 
           .auth-logo {
-            animation: ${isVisible ? 'authFadeInScale 1s ease-out 0.3s both' : 'none'};
+            animation: authFadeInScale 1s ease-out 0.3s both;
           }
 
           .auth-title {
-            animation: ${isVisible ? 'authFadeInUp 0.8s ease-out 0.6s both' : 'none'};
+            animation: authFadeInUp 0.8s ease-out 0.6s both;
           }
 
           .auth-buttons {
-            animation: ${isVisible ? 'authSlideInUp 0.8s ease-out 0.9s both' : 'none'};
+            animation: authSlideInUp 0.8s ease-out 0.9s both;
           }
         `}
       </style>

@@ -5,9 +5,25 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Food Barometer</title>
+    <style>
+      html,
+      body,
+      #root {
+        min-width: 320px;
+        min-height: 100%;
+        margin: 0;
+        background: #ffc000;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root" style="min-height: 100vh; background: #ffc000"></div>
+    <script>
+      const initialBackground = window.location.pathname === '/add-meal-ai' ? '#fff9e8' : '#ffc000';
+      document.documentElement.style.backgroundColor = initialBackground;
+      document.body.style.backgroundColor = initialBackground;
+      document.getElementById('root').style.background = initialBackground;
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

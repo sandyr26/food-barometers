@@ -389,7 +389,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="App">
+    <div className={`App ${currentPage === 'splash' || currentPage === 'auth' ? 'App--fullscreen' : ''}`}>
       {renderPage()}
     </div>
   );

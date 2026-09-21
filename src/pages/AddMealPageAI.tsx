@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import BackButton from "../components/BackButton";
 import mascotIdle from "../assets/Mascotte1.png";
 import mascotQuestion from "../assets/Mascotte2.png";
 import mascotSpeaking from "../assets/Mascotte3.png";
@@ -87,7 +87,7 @@ const speakQuestion = (text: string, language: Language, onComplete: () => void)
   window.speechSynthesis.speak(utterance);
 };
 
-const AddMealPageAI: React.FC<AddMealPageAIProps> = ({ language, onAddMeal }) => {
+const AddMealPageAI: React.FC<AddMealPageAIProps> = ({ onBack, language, onAddMeal }) => {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [conversationState, setConversationState] = useState<ConversationState>("speaking");
   const [transcript, setTranscript] = useState("");
@@ -95,7 +95,7 @@ const AddMealPageAI: React.FC<AddMealPageAIProps> = ({ language, onAddMeal }) =>
   const timerRef = useRef<number | null>(null);
 
   const handleBack = () => {
-    window.location.assign("/home");
+    onBack();
   };
 
   useEffect(() => {
@@ -161,9 +161,7 @@ const AddMealPageAI: React.FC<AddMealPageAIProps> = ({ language, onAddMeal }) =>
     return (
       <div style={styles.page}>
         <header style={styles.header}>
-          <button type="button" onClick={handleBack} style={styles.backButton} aria-label="Retour">
-            <ArrowLeft size={20} strokeWidth={2.5} aria-hidden="true" />
-          </button>
+          <BackButton onClick={handleBack} />
           <h1 style={styles.title}>Ajouter un repas</h1>
           <div style={styles.headerSpacer} />
         </header>
@@ -180,9 +178,7 @@ const AddMealPageAI: React.FC<AddMealPageAIProps> = ({ language, onAddMeal }) =>
   return (
     <div style={styles.page}>
       <header style={styles.header}>
-        <button type="button" onClick={handleBack} style={styles.backButton} aria-label="Retour">
-          <ArrowLeft size={20} strokeWidth={2.5} aria-hidden="true" />
-        </button>
+        <BackButton onClick={handleBack} />
         <h1 style={styles.title}>Ajouter un repas</h1>
         <div style={styles.headerSpacer} />
       </header>
@@ -256,7 +252,6 @@ const AddMealPageAI: React.FC<AddMealPageAIProps> = ({ language, onAddMeal }) =>
 const styles: Record<string, React.CSSProperties> = {
   page: { width: "100%", minHeight: "100vh", background: "#fff9e8", color: "#333", overflowX: "hidden" },
   header: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", background: "#ffc000", boxShadow: "0 2px 10px rgba(217,119,6,0.2)", position: "sticky", top: 0, zIndex: 2, boxSizing: "border-box" },
-  backButton: { width: 40, height: 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, border: 0, borderRadius: 8, background: "rgba(51,51,51,0.14)", color: "#333", fontSize: "1.6rem", lineHeight: 1, cursor: "pointer", appearance: "none" },
   title: { margin: 0, fontSize: "1.2rem", fontWeight: 700 },
   headerSpacer: { width: 40 },
   content: { width: "100%", maxWidth: 680, margin: "0 auto", padding: "1.25rem 1rem 3rem", boxSizing: "border-box" },
