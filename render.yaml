@@ -6,5 +6,8 @@ services:
     staticPublishPath: ./dist
     routes:
       - type: rewrite
+        source: /add-meal-ai
+        destination: /index.html
+      - type: rewrite
         source: /*
         destination: /index.html
