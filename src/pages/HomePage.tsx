@@ -7,7 +7,7 @@ type Page =
   | "auth"
   | "register"
   | "home"
-  | "addMealAI"
+  | "mascotSelection"
   | "addMeal"
   | "profile"
   | "notifications"
@@ -157,7 +157,8 @@ const HomePage: React.FC<HomePageProps> = ({
             cursor: 'pointer',
             boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
             transition: 'all 0.3s ease',
-            width: '100%'
+            width: '100%',
+            display: 'none'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = '#555';
@@ -174,7 +175,7 @@ const HomePage: React.FC<HomePageProps> = ({
         </button>
 
         <button
-          onClick={() => onNavigate('addMealAI')}
+          onClick={() => onNavigate('mascotSelection')}
           style={{
             backgroundColor: '#333',
             color: 'white',

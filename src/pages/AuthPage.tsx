@@ -175,7 +175,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin, onRegister, onAdmin }) => 
             cursor: 'pointer',
             boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
             transition: 'all 0.3s ease',
-            width: '100%'
+            width: '100%',
+            display: 'none'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = '#333';

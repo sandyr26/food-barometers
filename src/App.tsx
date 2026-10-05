@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import './App.css';
 import SplashScreen from './pages/SplashScreen';
 import AuthPage from './pages/AuthPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
-import AddMealPageAI from './pages/AddMealPageAI';
 import AddMealPage from './pages/AddMealPage';
 import ProfilePage from './pages/ProfilePage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -16,9 +16,12 @@ import DayMealsPage from './pages/DayMealsPage';
 import ComingSoonPage from './pages/ComingSoonPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './pages/AdminDashboard';
+import MascotSelectionPage from './pages/MascotSelectionPage';
+import PresentationPage from './pages/PresentationPage';
+import VoiceSurveyPage from './pages/VoiceSurveyPage';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'addMealAI' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon' | 'adminLogin' | 'adminDashboard';
+type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'mascotSelection' | 'presentation' | 'survey' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon' | 'adminLogin' | 'adminDashboard';
 
 interface MealData {
   id: number;
@@ -47,8 +50,14 @@ const App: React.FC = () => {
         return 'register';
       case '/home':
         return 'home';
+      case '/mascot-selection':
+        return 'mascotSelection';
+      case '/presentation':
+        return 'presentation';
       case '/add-meal-ai':
-        return 'addMealAI';
+        return 'mascotSelection';
+      case '/survey':
+        return 'survey';
       default:
         return 'splash';
     }
@@ -59,6 +68,10 @@ const App: React.FC = () => {
   const [notificationCount] = useState(3);
   const [selectedMeal, setSelectedMeal] = useState<MealData | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [authToken, setAuthToken] = useState<string | null>(localStorage.getItem('authToken'));
+  const [meals, setMeals] = useState<MealData[]>([]);
+  const [selectedMascot, setSelectedMascot] = useState<'boy' | 'girl' | null>(null);
+  const [hasAcceptedSurveyConsent, setHasAcceptedSurveyConsent] = useState(false);
 
   // URL routing effect
   useEffect(() => {
@@ -69,6 +82,40 @@ const App: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Fetch meals from API when token is available
+  useEffect(() => {
+    if (authToken) {
+      const fetchMeals = async () => {
+        try {
+          const response = await axios.get('http://localhost:5000/api/meals', {
+            headers: {
+              'Authorization': `Bearer ${authToken}`
+            }
+          });
+          
+          if (Array.isArray(response.data)) {
+            // Convert API meals to frontend format
+            const formattedMeals: MealData[] = response.data.map((meal: any, index: number) => ({
+              id: index + 1,
+              time: meal.time,
+              name: meal.name,
+              duration: meal.duration || '0 min',
+              answers: meal.answers || [],
+              method: meal.method || 'text',
+              date: meal.date
+            }));
+            setMeals(formattedMeals);
+          }
+        } catch (error) {
+          console.error('Failed to fetch meals:', error);
+          // Keep meals as empty array if fetch fails
+        }
+      };
+      
+      fetchMeals();
+    }
+  }, [authToken]);
 
   // Function to navigate and update URL
   const navigateToPage = (page: Page) => {
@@ -92,8 +139,14 @@ const App: React.FC = () => {
       case 'home':
         url = '/home';
         break;
-      case 'addMealAI':
-        url = '/add-meal-ai';
+      case 'mascotSelection':
+        url = '/mascot-selection';
+        break;
+      case 'presentation':
+        url = '/presentation';
+        break;
+      case 'survey':
+        url = '/survey';
         break;
       case 'splash':
       default:
@@ -104,50 +157,6 @@ const App: React.FC = () => {
     window.history.pushState({}, '', url);
     setCurrentPage(page);
   };
-  const [meals, setMeals] = useState<MealData[]>([
-    // Sample meals for September 1-15, 2025
-    { id: 1, time: '2025-09-01T08:00:00', name: 'Breakfast', duration: '15 min', answers: ['Bread', 'Coffee'], method: 'text', date: '2025-09-01' },
-    { id: 2, time: '2025-09-01T12:30:00', name: 'Lunch', duration: '25 min', answers: ['Rice', 'Fish curry'], method: 'text', date: '2025-09-01' },
-    { id: 3, time: '2025-09-02T07:45:00', name: 'Breakfast', duration: '10 min', answers: ['Cereal', 'Milk'], method: 'text', date: '2025-09-02' },
-    { id: 4, time: '2025-09-02T13:00:00', name: 'Lunch', duration: '20 min', answers: ['Sandwich', 'Juice'], method: 'voice', date: '2025-09-02' },
-    { id: 5, time: '2025-09-02T19:30:00', name: 'Dinner', duration: '30 min', answers: ['Pasta', 'Salad'], method: 'text', date: '2025-09-02' },
-    { id: 6, time: '2025-09-03T08:15:00', name: 'Breakfast', duration: '12 min', answers: ['Toast', 'Jam'], method: 'text', date: '2025-09-03' },
-    { id: 7, time: '2025-09-04T12:45:00', name: 'Lunch', duration: '35 min', answers: ['Curry', 'Rice', 'Vegetables'], method: 'text', date: '2025-09-04' },
-    { id: 8, time: '2025-09-04T19:00:00', name: 'Dinner', duration: '40 min', answers: ['Grilled chicken', 'Potatoes'], method: 'text', date: '2025-09-04' },
-    { id: 9, time: '2025-09-04T20:30:00', name: 'Snack', duration: '5 min', answers: ['Fruit'], method: 'voice', date: '2025-09-04' },
-    { id: 10, time: '2025-09-05T08:30:00', name: 'Breakfast', duration: '18 min', answers: ['Pancakes', 'Syrup'], method: 'text', date: '2025-09-05' },
-    { id: 11, time: '2025-09-05T13:15:00', name: 'Lunch', duration: '28 min', answers: ['Soup', 'Bread'], method: 'text', date: '2025-09-05' },
-    { id: 12, time: '2025-09-06T07:50:00', name: 'Breakfast', duration: '8 min', answers: ['Yogurt'], method: 'voice', date: '2025-09-06' },
-    { id: 13, time: '2025-09-07T12:20:00', name: 'Lunch', duration: '22 min', answers: ['Salad', 'Chicken'], method: 'text', date: '2025-09-07' },
-    { id: 14, time: '2025-09-07T19:45:00', name: 'Dinner', duration: '45 min', answers: ['Pizza', 'Soda'], method: 'text', date: '2025-09-07' },
-    { id: 15, time: '2025-09-08T08:10:00', name: 'Breakfast', duration: '14 min', answers: ['Oatmeal', 'Berries'], method: 'text', date: '2025-09-08' },
-    { id: 16, time: '2025-09-08T12:50:00', name: 'Lunch', duration: '30 min', answers: ['Burger', 'Fries'], method: 'text', date: '2025-09-08' },
-    { id: 17, time: '2025-09-08T18:30:00', name: 'Dinner', duration: '25 min', answers: ['Fish', 'Rice'], method: 'voice', date: '2025-09-08' },
-    { id: 18, time: '2025-09-09T09:00:00', name: 'Breakfast', duration: '16 min', answers: ['Eggs', 'Bacon'], method: 'text', date: '2025-09-09' },
-    { id: 19, time: '2025-09-09T13:30:00', name: 'Lunch', duration: '20 min', answers: ['Wrap', 'Chips'], method: 'text', date: '2025-09-09' },
-    { id: 20, time: '2025-09-10T08:20:00', name: 'Breakfast', duration: '11 min', answers: ['Smoothie'], method: 'voice', date: '2025-09-10' },
-    { id: 21, time: '2025-09-10T12:40:00', name: 'Lunch', duration: '35 min', answers: ['Stir fry', 'Noodles'], method: 'text', date: '2025-09-10' },
-    { id: 22, time: '2025-09-10T19:15:00', name: 'Dinner', duration: '50 min', answers: ['Steak', 'Vegetables', 'Wine'], method: 'text', date: '2025-09-10' },
-    { id: 23, time: '2025-09-11T07:40:00', name: 'Breakfast', duration: '9 min', answers: ['Coffee', 'Croissant'], method: 'voice', date: '2025-09-11' },
-    { id: 24, time: '2025-09-12T13:10:00', name: 'Lunch', duration: '24 min', answers: ['Tacos', 'Salsa'], method: 'text', date: '2025-09-12' },
-    { id: 25, time: '2025-09-12T20:00:00', name: 'Dinner', duration: '38 min', answers: ['Curry', 'Naan'], method: 'text', date: '2025-09-12' },
-    { id: 26, time: '2025-09-13T08:35:00', name: 'Breakfast', duration: '13 min', answers: ['Granola', 'Yogurt'], method: 'text', date: '2025-09-13' },
-    { id: 27, time: '2025-09-13T12:25:00', name: 'Lunch', duration: '27 min', answers: ['Sushi', 'Miso soup'], method: 'text', date: '2025-09-13' },
-    { id: 28, time: '2025-09-14T08:05:00', name: 'Breakfast', duration: '17 min', answers: ['French toast'], method: 'voice', date: '2025-09-14' },
-    { id: 29, time: '2025-09-14T13:45:00', name: 'Lunch', duration: '32 min', answers: ['Ramen', 'Vegetables'], method: 'text', date: '2025-09-14' },
-    { id: 30, time: '2025-09-14T19:20:00', name: 'Dinner', duration: '42 min', answers: ['Roast beef', 'Potatoes'], method: 'text', date: '2025-09-14' },
-    { id: 31, time: '2025-09-15T08:25:00', name: 'Breakfast', duration: '15 min', answers: ['Muesli', 'Fruit'], method: 'text', date: '2025-09-15' },
-    { id: 32, time: '2025-09-15T12:15:00', name: 'Lunch', duration: '26 min', answers: ['Quinoa bowl', 'Avocado'], method: 'voice', date: '2025-09-15' },
-    // Additional recent meals to make data more robust
-    { id: 33, time: '2025-10-01T08:00:00', name: 'Breakfast', duration: '12 min', answers: ['Coffee', 'Croissant'], method: 'text', date: '2025-10-01' },
-    { id: 34, time: '2025-10-01T12:30:00', name: 'Lunch', duration: '25 min', answers: ['Salad', 'Grilled chicken'], method: 'text', date: '2025-10-01' },
-    { id: 35, time: '2025-10-01T19:00:00', name: 'Dinner', duration: '35 min', answers: ['Pasta', 'Wine'], method: 'voice', date: '2025-10-01' },
-    { id: 36, time: '2025-10-02T07:45:00', name: 'Breakfast', duration: '10 min', answers: ['Cereal', 'Milk'], method: 'text', date: '2025-10-02' },
-    { id: 37, time: '2025-10-02T13:00:00', name: 'Lunch', duration: '20 min', answers: ['Sandwich', 'Juice'], method: 'text', date: '2025-10-02' },
-    { id: 38, time: '2025-10-03T08:15:00', name: 'Breakfast', duration: '15 min', answers: ['Toast', 'Jam', 'Orange juice'], method: 'voice', date: '2025-10-03' },
-    { id: 39, time: '2025-10-03T12:45:00', name: 'Lunch', duration: '30 min', answers: ['Fish curry', 'Rice'], method: 'text', date: '2025-10-03' },
-    { id: 40, time: '2025-10-03T19:30:00', name: 'Dinner', duration: '40 min', answers: ['Steak', 'Vegetables'], method: 'text', date: '2025-10-03' }
-  ]);
 
 
 
@@ -155,7 +164,8 @@ const App: React.FC = () => {
     navigateToPage('login');
   };
 
-  const handleLoginSubmit = () => {
+  const handleLoginSubmit = (token: string) => {
+    setAuthToken(token);
     navigateToPage('home');
   };
 
@@ -178,6 +188,16 @@ const App: React.FC = () => {
   const handleAddMeal = (mealData: MealData) => {
     setMeals(prevMeals => [...prevMeals, mealData]);
     // Don't navigate immediately - let AddMealPage show success page first
+  };
+
+  const handleMascotSelect = (mascot: 'boy' | 'girl') => {
+    setSelectedMascot(mascot);
+    navigateToPage('presentation');
+  };
+
+  const handlePresentationConsent = (accepted: boolean) => {
+    setHasAcceptedSurveyConsent(accepted);
+    navigateToPage(accepted ? 'survey' : 'home');
   };
 
   const handleMealSelect = (meal: MealData) => {
@@ -228,6 +248,26 @@ const App: React.FC = () => {
           />
         );
 
+      case 'mascotSelection':
+        return (
+          <MascotSelectionPage
+            onBack={() => navigateToPage('home')}
+            onSelectMascot={handleMascotSelect}
+            language={language}
+            authToken={authToken}
+          />
+        );
+
+      case 'presentation':
+        return (
+          <PresentationPage
+            onBack={() => navigateToPage('mascotSelection')}
+            onContinue={handlePresentationConsent}
+            authToken={authToken}
+            selectedMascot={selectedMascot ?? 'girl'}
+          />
+        );
+
       case 'home':
         return (
           <>
@@ -259,14 +299,20 @@ const App: React.FC = () => {
           </>
         );
 
-      case 'addMealAI':
-        return (
-          <AddMealPageAI
-              language={language}
+      case 'survey':
+        return hasAcceptedSurveyConsent ? (
+          <VoiceSurveyPage
+            authToken={authToken}
+            selectedMascot={selectedMascot ?? 'girl'}
             onBack={() => handleNavigate('home')}
-            onAddMeal={handleAddMeal}
-              onNavigate={handleNavigate}
-            />
+          />
+        ) : (
+          <PresentationPage
+            onBack={() => navigateToPage('mascotSelection')}
+            onContinue={handlePresentationConsent}
+            authToken={authToken}
+            selectedMascot={selectedMascot ?? 'girl'}
+          />
         );
 
       case 'addMeal':
