@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { api } from '../api';
 import BackButton from '../components/BackButton';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
@@ -58,7 +59,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await api.post('/api/auth/login', {
         username,
         password
       });

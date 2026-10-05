@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { api } from '../api';
 import BackButton from '../components/BackButton';
 import mascotIdle from '../assets/Mascotte1.png';
 import mascotQuestion from '../assets/Mascotte2.png';
@@ -240,7 +241,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       }
 
       try {
-        const response = await axios.post('http://localhost:5000/api/ai/speech', {
+        const response = await api.post('/api/ai/speech', {
           text: currentQuestion,
           language: 'fr',
           mascot: voiceMascot,
@@ -406,7 +407,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     if (presetGroups.length > 0) formData.append('presetGroups', JSON.stringify(presetGroups));
 
     try {
-      const response = await axios.post('http://localhost:5000/api/ai/turn', formData, {
+      const response = await api.post('/api/ai/turn', formData, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       const nextTranscript = response.data.transcript?.trim();
@@ -483,7 +484,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setConversationState('saving');
     setError('');
     try {
-      await axios.post('http://localhost:5000/api/surveys', {
+      await api.post('/api/surveys', {
         consentGiven: true,
         selectedMascot: voiceMascot,
         answers: {
@@ -563,7 +564,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setError('');
     setConversationState('speaking');
     try {
-      const response = await axios.post('http://localhost:5000/api/ai/speech', {
+      const response = await api.post('/api/ai/speech', {
         text: currentQuestion,
         language: 'fr',
         mascot: voiceMascot,

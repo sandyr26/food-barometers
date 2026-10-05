@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import { api } from '../api';
 import BackButton from '../components/BackButton';
 
 interface PresentationPageProps {
@@ -85,7 +85,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
       }
 
       try {
-        const response = await axios.post('http://localhost:5000/api/ai/speech', {
+        const response = await api.post('/api/ai/speech', {
           text: speechText,
           language: 'fr',
           mascot: selectedMascot,

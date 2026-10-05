@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import { api } from '../api';
 import BackButton from '../components/BackButton';
 import mascotteGirl from '../assets/Mascotte1.png';
 import mascotteBoy from '../assets/mascotte-boy.png';
@@ -57,7 +57,7 @@ const MascotSelectionPage: React.FC<MascotSelectionPageProps> = ({
     let cancelled = false;
 
     const speak = async (text: string, mascot: 'narrator' | 'boy' | 'girl', speechLanguage: Language) => {
-      const response = await axios.post('http://localhost:5000/api/ai/speech', {
+      const response = await api.post('/api/ai/speech', {
         text,
         language: speechLanguage,
         mascot

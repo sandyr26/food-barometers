@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from './api';
 import './App.css';
 import SplashScreen from './pages/SplashScreen';
 import AuthPage from './pages/AuthPage';
@@ -88,7 +88,7 @@ const App: React.FC = () => {
     if (authToken) {
       const fetchMeals = async () => {
         try {
-          const response = await axios.get('http://localhost:5000/api/meals', {
+          const response = await api.get('/api/meals', {
             headers: {
               'Authorization': `Bearer ${authToken}`
             }
