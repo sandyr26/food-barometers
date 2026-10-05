@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { api } from '../api';
+import { loadNarration, preloadNarration } from '../narration';
 import BackButton from '../components/BackButton';
 import mascotIdle from '../assets/Mascotte1.png';
 import mascotQuestion from '../assets/Mascotte2.png';
@@ -159,9 +160,9 @@ const playBlob = (blob: Blob, audioRef: React.MutableRefObject<HTMLAudioElement 
     URL.revokeObjectURL(url);
     if (audioRef.current === audio) audioRef.current = null;
   };
-  audio.onended = () => { cleanup(); onEnded(); };
-  audio.onerror = () => { cleanup(); onError(); };
-  void audio.play().catch(() => { cleanup(); onError(); });
+  audio.onended = () => { const active = audioRef.current === audio; cleanup(); if (active) onEnded(); };
+  audio.onerror = () => { const active = audioRef.current === audio; cleanup(); if (active) onError(); };
+  void audio.play().catch(() => { const active = audioRef.current === audio; cleanup(); if (active) onError(); });
 };
 
 const playBase64Audio = (audioData: string, audioRef: React.MutableRefObject<HTMLAudioElement | null>, onEnded: () => void, onError: () => void) => {
@@ -234,24 +235,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     let cancelled = false;
 
     const requestQuestionAudio = async () => {
-      if (!authToken) {
-        setError('Connecte-toi pour utiliser le questionnaire vocal.');
-        setConversationState('listening');
-        return;
-      }
-
       try {
-        const response = await api.post('/api/ai/speech', {
-          text: currentQuestion,
-          language: 'fr',
-          mascot: voiceMascot,
-        }, {
-          headers: { Authorization: `Bearer ${authToken}` },
-          responseType: 'blob',
-          signal: controller.signal,
-        });
+        const audio = await loadNarration(currentQuestion, 'fr', voiceMascot, authToken, controller.signal);
         if (cancelled) return;
-        playBlob(response.data, audioRef, () => setConversationState('listening'), () => {
+        playBlob(audio, audioRef, () => setConversationState('listening'), () => {
           setError('La synthèse vocale a échoué. Tu peux lire la question et répondre.');
           setConversationState('listening');
         });
@@ -274,6 +261,18 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     return () => speechCleanupRef.current();
   }, [authToken, currentQuestion, voiceMascot]);
 
+  useEffect(() => {
+    if (phase === 'questions') {
+      const nextText = questionIndex === 7 ? intakePrompt : questions[questionIndex + 1]?.text;
+      if (nextText) preloadNarration(nextText, 'fr', voiceMascot);
+    } else if (phase === 'intake') {
+      preloadNarration(moreIntakesPrompt, 'fr', voiceMascot);
+    } else if (phase === 'moreIntakes') {
+      preloadNarration(intakePrompt, 'fr', voiceMascot);
+      preloadNarration(questions[8].text, 'fr', voiceMascot);
+    }
+  }, [phase, questionIndex, voiceMascot]);
+
   useEffect(() => () => {
     stopAudio(audioRef);
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -286,12 +285,21 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const answeredQuestionCount = phase === 'intake' || phase === 'moreIntakes' ? questionIndex + 1 : questionIndex;
   const allPreviousAnswers = [...responses.slice(0, answeredQuestionCount).map(answer => answer.text), ...intakes.map(intake => intake.text)];
 
+  const interruptNarration = () => {
+    speechCleanupRef.current();
+    speechCleanupRef.current = () => {};
+    stopAudio(audioRef);
+    if (conversationState === 'speaking') setConversationState('listening');
+  };
+
   const setSelection = (key: string, values: string[]) => {
+    interruptNarration();
     setSelectedOptions(current => ({ ...current, [key]: values }));
     setRequiresRepeat(false);
   };
 
   const updateParentOccupation = (role: string, update: Partial<{ occupation: string; notWorking: boolean }>) => {
+    interruptNarration();
     setParentOccupations(current => ({ ...current, [role]: { ...current[role], ...update } }));
   };
 
@@ -447,8 +455,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       setConversationState('thinking');
       return;
     }
-    if (conversationState !== 'listening' && conversationState !== 'ready') return;
+    if (!['speaking', 'listening', 'ready'].includes(conversationState)) return;
 
+    interruptNarration();
+    setConversationState('thinking');
     setError('');
     setRequiresRepeat(false);
     setAiReply('');
@@ -501,6 +511,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   };
 
   const advanceWithAnswer = (answer: RecordedAnswer) => {
+    interruptNarration();
     if (phase === 'intake') {
       setIntakes(current => answer.text.trim() ? [...current, answer] : current);
       clearCurrentAnswer();
@@ -560,17 +571,20 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const handleSkip = () => advanceWithAnswer({ text: '', mode: 'skipped', selections: {} });
 
   const handleRepeatQuestion = async () => {
-    if (!authToken) return;
+    interruptNarration();
+    const controller = new AbortController();
+    speechCleanupRef.current = () => {
+      controller.abort();
+      stopAudio(audioRef);
+    };
     setError('');
     setConversationState('speaking');
     try {
-      const response = await api.post('/api/ai/speech', {
-        text: currentQuestion,
-        language: 'fr',
-        mascot: voiceMascot,
-      }, { headers: { Authorization: `Bearer ${authToken}` }, responseType: 'blob' });
-      playBlob(response.data, audioRef, () => setConversationState('listening'), () => setConversationState('listening'));
+      const audio = await loadNarration(currentQuestion, 'fr', voiceMascot, authToken, controller.signal);
+      if (controller.signal.aborted) return;
+      playBlob(audio, audioRef, () => setConversationState('listening'), () => setConversationState('listening'));
     } catch {
+      if (controller.signal.aborted) return;
       setError('Impossible de relire la question. Tu peux quand même répondre.');
       setConversationState('listening');
     }
@@ -621,10 +635,12 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
           <h2 style={styles.question}>{currentQuestion}</h2>
           <button type="button" onClick={() => void handleRepeatQuestion()} style={styles.repeatButton}>🔊 Réécouter la question</button>
         </section>
-        {presetAnswers}
+        <div onChangeCapture={interruptNarration}>
+          {presetAnswers}
+        </div>
         {showTypedAnswer && <label style={styles.typedAnswer}>
           <span>Ou écris ta réponse</span>
-          <textarea value={typedAnswer} onChange={event => { setTypedAnswer(event.target.value); setRequiresRepeat(false); }} placeholder="Écris ta réponse ici…" rows={3} style={styles.answerInput} />
+          <textarea value={typedAnswer} onChange={event => { interruptNarration(); setTypedAnswer(event.target.value); setRequiresRepeat(false); }} placeholder="Écris ta réponse ici…" rows={3} style={styles.answerInput} />
         </label>}
         <section style={styles.transcriptCard}>
           <div style={styles.transcriptHeader}><span>Ta réponse</span>{conversationState === 'thinking' && <span style={styles.processing}>Transcription…</span>}</div>
@@ -633,12 +649,12 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         </section>
         <p style={styles.privacyNotice}>Ton enregistrement est envoyé à OpenAI pour transcription et traitement. Tu peux passer une question.</p>
         {error && <p role="alert" style={styles.errorMessage}>{error}</p>}
-        <button type="button" onClick={() => void handleMicClick()} disabled={conversationState === 'speaking' || conversationState === 'thinking' || conversationState === 'saving'} style={{ ...styles.micButton, ...(conversationState === 'recording' ? styles.micButtonActive : {}) }} aria-label="Répondre avec le microphone">
+        <button type="button" onClick={() => void handleMicClick()} disabled={conversationState === 'thinking' || conversationState === 'saving'} style={{ ...styles.micButton, ...(conversationState === 'recording' ? styles.micButtonActive : {}) }} aria-label="Répondre avec le microphone">
           <span style={styles.micIcon}>{conversationState === 'recording' ? '■' : '🎙'}</span><span>{conversationState === 'recording' ? 'Terminer l’enregistrement' : 'Répondre'}</span>
         </button>
         <div style={styles.actions}>
-          <button type="button" onClick={handleSkip} disabled={conversationState === 'saving' || conversationState === 'speaking' || conversationState === 'thinking' || conversationState === 'recording'} style={styles.skipButton}>Passer cette question</button>
-          <button type="button" onClick={handleNext} disabled={!hasCurrentAnswer || requiresRepeat || !['ready', 'listening'].includes(conversationState)} style={{ ...styles.nextButton, ...(!hasCurrentAnswer || requiresRepeat || !['ready', 'listening'].includes(conversationState) ? styles.disabledButton : {}) }}>
+          <button type="button" onClick={handleSkip} disabled={conversationState === 'saving' || conversationState === 'thinking' || conversationState === 'recording'} style={styles.skipButton}>Passer cette question</button>
+          <button type="button" onClick={handleNext} disabled={!hasCurrentAnswer || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState)} style={{ ...styles.nextButton, ...(!hasCurrentAnswer || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState) ? styles.disabledButton : {}) }}>
             {phase === 'intake' ? 'Valider cette prise' : phase === 'moreIntakes' ? 'Continuer' : questionIndex === questions.length - 1 ? 'Terminer' : 'Question suivante'} →
           </button>
         </div>

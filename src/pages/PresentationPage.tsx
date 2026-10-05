@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { api } from '../api';
+import { loadNarration } from '../narration';
 import BackButton from '../components/BackButton';
 
 interface PresentationPageProps {
@@ -78,29 +78,15 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
     let cancelled = false;
 
     const loadAndPlay = async () => {
-      if (!authToken) {
-        setSpeechError('Connecte-toi pour écouter la présentation.');
-        setIsLoadingAudio(false);
-        return;
-      }
-
       try {
-        const response = await api.post('/api/ai/speech', {
-          text: speechText,
-          language: 'fr',
-          mascot: selectedMascot,
-        }, {
-          headers: { Authorization: `Bearer ${authToken}` },
-          responseType: 'blob',
-          signal: controller.signal,
-        });
+        const audio = await loadNarration(speechText, 'fr', selectedMascot, authToken, controller.signal);
         if (cancelled) return;
 
-        audioBlobRef.current = response.data;
+        audioBlobRef.current = audio;
         setIsLoadingAudio(false);
         setIsPlayingAudio(true);
         playAudioBlob(
-          response.data,
+          audio,
           audioRef,
           audioUrlRef,
           () => setIsPlayingAudio(false),

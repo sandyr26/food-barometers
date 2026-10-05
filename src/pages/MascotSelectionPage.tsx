@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { api } from '../api';
+import { loadNarration, preloadNarration } from '../narration';
 import BackButton from '../components/BackButton';
 import mascotteGirl from '../assets/Mascotte1.png';
 import mascotteBoy from '../assets/mascotte-boy.png';
@@ -57,18 +57,10 @@ const MascotSelectionPage: React.FC<MascotSelectionPageProps> = ({
     let cancelled = false;
 
     const speak = async (text: string, mascot: 'narrator' | 'boy' | 'girl', speechLanguage: Language) => {
-      const response = await api.post('/api/ai/speech', {
-        text,
-        language: speechLanguage,
-        mascot
-      }, {
-        headers: { Authorization: `Bearer ${authToken}` },
-        responseType: 'blob',
-        signal: controller.signal
-      });
+      const audioBlob = await loadNarration(text, speechLanguage, mascot, authToken, controller.signal);
 
       if (cancelled) return;
-      const audioUrl = URL.createObjectURL(response.data);
+      const audioUrl = URL.createObjectURL(audioBlob);
       audioUrlRef.current = audioUrl;
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
@@ -86,7 +78,6 @@ const MascotSelectionPage: React.FC<MascotSelectionPageProps> = ({
 
     const introduceMascots = async () => {
       try {
-        if (!authToken) throw new Error('Authentication is required for mascot audio.');
         setSpeechError('');
         await speak(`${t.title}. ${t.subtitle}`, 'narrator', language);
         if (cancelled) return;
@@ -104,6 +95,8 @@ const MascotSelectionPage: React.FC<MascotSelectionPageProps> = ({
       }
     };
 
+    preloadNarration('Tu peux me choisir !', 'fr', 'girl');
+    preloadNarration('Tu peux me choisir !', 'fr', 'boy');
     void introduceMascots();
 
     return () => {
