@@ -9,36 +9,79 @@ import mascotSpeaking from '../assets/Mascotte3.png';
 import mascotListening from '../assets/Mascotte4.png';
 import mascotThinking from '../assets/Mascotte5.png';
 import mascotteBoy from '../assets/mascotte-boy.png';
+import {
+  INTAKE_MAX,
+  RECALL_ENABLED,
+  RECALL_QUESTION_COUNT,
+  intakeFields,
+  parentRoleNames,
+  stepSpeech,
+  surveySteps,
+  validateTypedAnswer,
+} from '../surveyConfig';
+import type { IntakeFieldId, Mascot, PresetGroup, SurveyStep } from '../surveyConfig';
+import {
+  applyExtraction,
+  emptyIntake,
+  intakeHasContent,
+  intakeSummary,
+  intakeText,
+  skipStage,
+  stageIntro,
+  stageQuestion,
+  stageSpeech,
+  stageTargetField,
+} from '../intakeFlow';
+import type { IntakeEntry, IntakeExtraction, IntakeOutcome, IntakeStage } from '../intakeFlow';
+import { beginSurvey, flushSurveys, initSurveySync, recordSurvey, subscribeSurveySync } from '../surveySync';
+import type { SurveyPatch, SyncStatus } from '../surveySync';
 
-type Mascot = 'boy' | 'girl';
-type FlowPhase = 'questions' | 'intake' | 'moreIntakes' | 'saving' | 'complete';
+type FlowPhase = 'questions' | 'intake' | 'saving' | 'complete';
 type ConversationState = 'speaking' | 'listening' | 'recording' | 'thinking' | 'ready' | 'saving' | 'complete';
 
 interface VoiceSurveyPageProps {
   authToken: string | null;
   selectedMascot: Mascot;
+  aiEnabled?: boolean;
   onBack: () => void;
 }
 
-interface SurveyQuestion {
-  number: number;
-  text: string;
-}
-
-interface PresetGroup {
-  id: string;
-  label: string;
-  options: string[];
-  allowFreeText?: boolean;
-}
-
 type AnswerMode = 'voice' | 'text' | 'preset' | 'mixed' | 'skipped';
+type Occupations = Record<string, { occupation: string; notWorking: boolean }>;
+
+interface AiTurn {
+  transcript: string;
+  answer: string;
+  reply: string;
+  followUp: boolean;
+  needsRepeat: boolean;
+  selectedGroups: Record<string, string[]>;
+  freeTextGroups: Record<string, string>;
+  at: string;
+}
 
 interface RecordedAnswer {
   text: string;
   mode: AnswerMode;
   selections: Record<string, string[]>;
-  parentOccupations?: Record<string, { occupation: string; notWorking: boolean }>;
+  parentOccupations?: Occupations;
+  typed?: string;
+  voice?: string;
+  aiReply?: string;
+  aiTurns?: AiTurn[];
+}
+
+interface HistoryEntry {
+  phase: FlowPhase;
+  questionIndex: number;
+  selectedOptions: Record<string, string[]>;
+  parentOccupations: Occupations;
+  typedAnswer: string;
+  transcript: string;
+  intakes: IntakeEntry[];
+  currentIntake: IntakeEntry;
+  intakeStage: IntakeStage;
+  aiTurns: AiTurn[];
 }
 
 interface PresetChoicesProps {
@@ -50,90 +93,26 @@ interface PresetChoicesProps {
   onChange: (values: string[]) => void;
 }
 
-const questions: SurveyQuestion[] = [
-  { number: 1, text: 'Es-tu une fille, un garçon, ou préfères-tu ne pas répondre ?' },
-  { number: 2, text: 'Quelle est ton année de naissance ?' },
-  { number: 3, text: 'Dans quelle classe es-tu ?' },
-  { number: 4, text: 'Quel est ton quartier de résidence ?' },
-  { number: 5, text: 'Combien de personnes vivent chez toi, en t’incluant ?' },
-  { number: 6, text: 'Parmi les personnes qui vivent chez toi, qui sont-elles ? Tu peux citer ton papa ou ton premier représentant légal, ta maman ou ton deuxième représentant légal, un beau-parent, tes frères ou sœurs, tes grands-parents, tes oncles ou tantes, d’autres personnes, des personnes sans lien familial, ou dire que tu vis en foyer d’accueil ou que tu préfères ne pas répondre. Tu peux donner plusieurs réponses.' },
-  { number: 7, text: 'Si tes parents ou représentants légaux travaillent, quels sont leurs métiers ? Pour chacun, tu peux aussi dire qu’il ou elle ne travaille pas. Pense à ton papa, ta maman, ton représentant légal 1 et ton représentant légal 2.' },
-  { number: 8, text: 'Est-ce que tu as de l’argent de poche ? Tu peux répondre : oui, de manière régulière ; de temps en temps ; ou non.' },
-  { number: 9, text: 'Y a-t-il des choses que tu ne manges pas ou ne bois pas, quelle que soit la raison ?' },
-  { number: 10, text: 'Lesquelles et quelles sont les raisons ? Si tu ne manges pas certaines viandes, précise lesquelles. Précise aussi les légumes, les grains et les légumes-racines concernés, comme le manioc ou le songe.' },
-  { number: 11, text: 'Pour chacun de ces aliments — jus de fruits en brique, sodas, pizzas, pain bouchons ou Lord, hamburgers, biscuits, pâtisseries et gâteaux — pourquoi le consommes-tu ? Tu peux dire que tu trouves cela bon et que c’est un plaisir, que c’est facile à acheter, qu’il y en a à la maison, ou que tu n’en consommes pas. Tu peux donner plusieurs raisons pour chaque aliment.' },
-  { number: 12, text: 'Pour chacun de ces aliments — jus de fruits en brique, sodas, pizzas, pain bouchons ou Lord, hamburgers, biscuits, pâtisseries et gâteaux — à quelle fréquence les consommes-tu : tous les jours ou presque, régulièrement dans la semaine, une à deux fois par mois, ou jamais ?' },
-  { number: 13, text: 'Pour chacun de ces aliments — jus de fruits en brique, sodas, pizzas, pain bouchons ou Lord, hamburgers, biscuits, pâtisseries et gâteaux — avec qui les consommes-tu : en famille, avec des amis, seul ou seule, ou tu n’en consommes pas ? Tu peux choisir plusieurs réponses.' },
-  { number: 14, text: 'Parmi les changements suivants, lesquels te sembleraient faciles ou difficiles ? Pour chacun, réponds : très difficile, difficile, ni difficile ni facile, facile, ou très facile. Manger moins de produits sucrés, moins de produits gras, moins de viande, boire moins de boissons sucrées, manger moins salé, manger moins de riz, manger plus de légumes, plus de fruits, plus de légumes-racines comme le manioc ou la patate douce, plus de grains ou légumineuses comme les lentilles, pois du Cap ou haricots secs, et manger plus de poissons ou fruits de mer.' },
-  { number: 15, text: 'Qu’est-ce que c’est pour toi, bien manger, en une phrase ?' },
-  { number: 16, text: 'Est-ce que tu peux décrire la composition d’un bon repas pour toi ?' },
-  { number: 17, text: 'Y a-t-il selon toi des aliments qui sont bons pour la santé ? Si oui, peux-tu en citer trois ?' },
-  { number: 18, text: 'Y a-t-il selon toi des aliments dont il faut limiter la consommation pour être en bonne santé ? Si oui, peux-tu en citer trois ?' },
-  { number: 19, text: 'Lorsque tu fais un choix important, notamment dans ce que tu manges, qui sont les personnes dont l’avis compte le plus pour toi ou t’influence ? Classe jusqu’à trois réponses, de la plus importante à la moins importante : tes camarades ou amis, ta famille ou tes parents, les réseaux sociaux, les coachs sportifs, les professionnels de santé, toi-même, ou une autre personne que tu peux préciser.' },
-  { number: 20, text: 'Cite trois plats ou aliments que tu aimes et qui sont faits-maison par tes proches.' },
-  { number: 21, text: 'Cite trois plats ou aliments que tu aimes et que tu achètes à l’extérieur.' },
-  { number: 22, text: 'Cite trois boissons que tu aimes.' },
-  { number: 23, text: 'Est-ce que tu manges à la cantine ?' },
-  { number: 24, text: 'En général, comment trouves-tu les repas proposés à la cantine : très bons, plutôt bons, plutôt pas bons, ou pas bons du tout ?' },
-  { number: 25, text: 'Est-ce que tu dirais que la cantine est un lieu où on partage un bon moment avec des amis ? Tu peux répondre : tout à fait d’accord, plutôt d’accord, plutôt pas d’accord, ou pas d’accord.' },
-  { number: 26, text: 'En général, le bruit à la cantine te gêne-t-il : pas du tout, un peu, ou beaucoup ?' },
-  { number: 27, text: 'Est-ce que tu as déjà été concerné ou concernée par des actions de sensibilisation sur l’alimentation, par exemple pour connaître les familles d’aliments ou pour manger équilibré ?' },
-  { number: 28, text: 'Si oui, est-ce que cela t’a amené ou amenée à changer des choses dans ton alimentation ?' },
-];
+const INTAKE_QUESTION_NUMBER = 9;
+const stepNumberShift = RECALL_ENABLED ? RECALL_QUESTION_COUNT : 0;
+const displayNumber = (number: number) => (RECALL_ENABLED && number >= INTAKE_QUESTION_NUMBER ? number + stepNumberShift : number);
+const displayLabel = (step: SurveyStep) => `${displayNumber(step.number)}${step.label.slice(String(step.number).length)}`;
+const displayTotal = 28 + stepNumberShift;
 
-const intakePrompt = 'Nous allons maintenant remonter dans ta journée d’hier, depuis le moment où tu t’es levé ou levée jusqu’au moment où tu t’es couché ou couchée. Essaie de te rappeler de tout ce que tu as mangé et bu, même si cette journée était différente de tes habitudes. Une prise alimentaire correspond à chaque moment où tu as mangé ou bu quelque chose, y compris entre les repas. Décris une prise à la fois. Pour chacune, indique ce que tu as mangé de solide avec les accompagnements, ce que tu as bu, l’heure, le nom de cette prise, comment les aliments ont été cuisinés, où tu les as consommés, si tu étais seul ou accompagné, et si tu étais assis, debout ou en train de faire autre chose. Commence par la première chose consommée après ton réveil.';
-const moreIntakesPrompt = 'As-tu eu une autre prise alimentaire hier ? Si oui, réponds oui et décris la prise suivante. Si tu as tout indiqué, réponds non.';
+const stepIndexById = new Map(surveySteps.map((step, index) => [step.id, index]));
+const blankAnswer = (): RecordedAnswer => ({ text: '', mode: 'skipped', selections: {} });
+const emptyOccupations = (): Occupations => Object.fromEntries(parentRoleNames.map(role => [role, { occupation: '', notWorking: false }]));
+const serializeStep = (surveyStep: SurveyStep, answer: RecordedAnswer) => ({ id: surveyStep.id, number: surveyStep.number, question: surveyStep.text, ...answer });
+const serializeIntake = (entry: IntakeEntry, index: number, ai: boolean) => ({ intake: index + 1, text: intakeText(entry), mode: ai ? 'ai' : 'form', fields: entry.fields, skipped: entry.skipped, heard: entry.heard, turns: entry.turns });
 
-const householdChoices = ['Papa (ou représentant légal cité en premier)', 'Maman (ou représentant légal cité en deuxième)', 'Beau-père', 'Belle-mère', 'Frères/demi-frères', 'Sœurs/demi-sœurs', 'Grands-parents', 'Oncles/tantes', 'Autres', 'Personnes sans lien familial', 'Vit en foyer d’accueil', 'Ne préfère pas répondre'];
-const parentRoles = ['Papa', 'Maman', 'Représentant légal 1', 'Représentant légal 2'];
-const foodItems = ['Jus de fruits en brique', 'Sodas', 'Pizzas', 'Pain bouchons / Lord', 'Hamburger', 'Biscuits, pâtisseries, gâteaux'];
-const motivationOptions = ['Je trouve ça bon et c’est un plaisir d’en manger/boire', 'C’est facile d’en acheter', 'Il y en a à la maison à disposition', 'Je n’en consomme pas'];
-const frequencyOptions = ['Tous les jours ou presque', 'Régulièrement dans la semaine', 'Une à deux fois par mois', 'Jamais'];
-const socialOptions = ['En famille', 'Avec des amis', 'Seul(e)', 'Je n’en consomme pas'];
-const difficultyItems = ['Manger moins de produits sucrés', 'Manger moins de produits gras', 'Manger moins de viande', 'Boire moins de boissons sucrées', 'Manger moins salé', 'Manger moins de riz', 'Manger plus de légumes', 'Manger plus de fruits', 'Manger plus de légumes-racines (manioc, patate douce)', 'Manger plus de grains/légumineuses (lentilles, pois du Cap, haricots secs)', 'Manger plus de poissons ou fruits de mer'];
-const difficultyOptions = ['Très difficile', 'Difficile', 'Ni difficile, ni facile', 'Facile', 'Très facile'];
-const influenceOptions = ['Mes camarades, mes ami.e.s', 'Ma famille, mes parents', 'Les réseaux sociaux', 'Les coachs sportifs et équivalents', 'Les professionnels de santé (médecins…)', 'Moi-même', 'Autre'];
-
-const getPresetGroups = (phase: FlowPhase, questionIndex: number): PresetGroup[] => {
-  if (phase === 'moreIntakes') return [{ id: 'moreIntakes', label: 'Autres prises alimentaires', options: ['Oui', 'Non'] }];
-  if (phase !== 'questions') return [];
-
-  switch (questionIndex) {
-    case 0:
-      return [{ id: 'q1', label: questions[0].text, options: ['Fille', 'Garçon', 'Préfère ne pas répondre'] }];
-    case 5:
-      return [{ id: 'q6-personnes-du-foyer', label: questions[5].text, options: householdChoices, multiple: true } as PresetGroup];
-    case 6:
-      return parentRoles.map(role => ({ id: `q7-${role}`, label: `Situation professionnelle de ${role}`, options: ['Ne travaille pas'], allowFreeText: true }));
-    case 7:
-      return [{ id: 'q8-argent-de-poche', label: questions[7].text, options: ['Oui, de manière régulière', 'De temps en temps', 'Non'] }];
-    case 8:
-      return [{ id: 'q9-evictions', label: questions[8].text, options: ['Oui', 'Non'] }];
-    case 10:
-      return foodItems.map(food => ({ id: `q11-${food}`, label: food, options: motivationOptions, multiple: true } as PresetGroup));
-    case 11:
-      return foodItems.map(food => ({ id: `q12-${food}`, label: food, options: frequencyOptions }));
-    case 12:
-      return foodItems.map(food => ({ id: `q13-${food}`, label: food, options: socialOptions, multiple: true } as PresetGroup));
-    case 13:
-      return difficultyItems.map(item => ({ id: `q14-${item}`, label: item, options: difficultyOptions }));
-    case 18:
-      return [0, 1, 2].map(rank => ({ id: `q19-rang-${rank + 1}`, label: `Rang ${rank + 1}`, options: influenceOptions }));
-    case 22:
-      return [{ id: 'q23-cantine', label: questions[22].text, options: ['Oui', 'Non'] }];
-    case 23:
-      return [{ id: 'q24-qualite-cantine', label: questions[23].text, options: ['Très bons', 'Plutôt bons', 'Plutôt pas bons', 'Pas bons du tout'] }];
-    case 24:
-      return [{ id: 'q25-moment-amis', label: questions[24].text, options: ['Tout à fait d’accord', 'Plutôt d’accord', 'Plutôt pas d’accord', 'Pas d’accord'] }];
-    case 25:
-      return [{ id: 'q26-bruit-cantine', label: questions[25].text, options: ['Pas du tout', 'Un peu', 'Beaucoup'] }];
-    case 26:
-      return [{ id: 'q27-sensibilisation', label: questions[26].text, options: ['Oui', 'Non'] }];
-    case 27:
-      return [{ id: 'q28-changement', label: questions[27].text, options: ['Oui', 'Non'] }];
-    default:
-      return [];
-  }
+const findNextStep = (from: number, answers: RecordedAnswer[]) => {
+  const get = (id: string) => {
+    const index = stepIndexById.get(id);
+    return index === undefined ? undefined : answers[index];
+  };
+  let next = from + 1;
+  while (next < surveySteps.length && surveySteps[next].skipIf?.(get)) next++;
+  return next;
 };
 
 const mascotByState: Record<Mascot, Record<ConversationState, string>> = {
@@ -141,9 +120,7 @@ const mascotByState: Record<Mascot, Record<ConversationState, string>> = {
   boy: { speaking: mascotteBoy, listening: mascotteBoy, recording: mascotteBoy, thinking: mascotteBoy, ready: mascotteBoy, saving: mascotteBoy, complete: mascotteBoy },
 };
 
-const yesAnswer = (answer: string) => /^(oui|ouais|oui\b)/i.test(answer.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-
-const stopAudio = (audioRef: React.MutableRefObject<HTMLAudioElement | null>) => {
+const stopAudio = (audioRef: React.RefObject<HTMLAudioElement | null>) => {
   if (!audioRef.current) return;
   audioRef.current.pause();
   audioRef.current.onended = null;
@@ -151,7 +128,7 @@ const stopAudio = (audioRef: React.MutableRefObject<HTMLAudioElement | null>) =>
   audioRef.current = null;
 };
 
-const playBlob = (blob: Blob, audioRef: React.MutableRefObject<HTMLAudioElement | null>, onEnded: () => void, onError: () => void) => {
+const playBlob = (blob: Blob, audioRef: React.RefObject<HTMLAudioElement | null>, onEnded: () => void, onError: () => void) => {
   stopAudio(audioRef);
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
@@ -165,8 +142,8 @@ const playBlob = (blob: Blob, audioRef: React.MutableRefObject<HTMLAudioElement 
   void audio.play().catch(() => { const active = audioRef.current === audio; cleanup(); if (active) onError(); });
 };
 
-const playBase64Audio = (audioData: string, audioRef: React.MutableRefObject<HTMLAudioElement | null>, onEnded: () => void, onError: () => void) => {
-  const bytes = Uint8Array.from(atob(audioData), character => character.charCodeAt(0));
+const playBase64Audio = (audioData: string, audioRef: React.RefObject<HTMLAudioElement | null>, onEnded: () => void, onError: () => void) => {
+  const bytes = Uint8Array.from(atob(audioData), character => character.codePointAt(0) ?? 0);
   playBlob(new Blob([bytes], { type: 'audio/mpeg' }), audioRef, onEnded, onError);
 };
 
@@ -200,7 +177,30 @@ const PresetChoices: React.FC<PresetChoicesProps> = ({ name, options, values, mu
   </fieldset>
 );
 
-const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMascot, onBack }) => {
+const MicIcon: React.FC = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.93V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.07A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0Z" />
+  </svg>
+);
+
+const StopIcon: React.FC = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <rect x="6" y="6" width="12" height="12" rx="2" />
+  </svg>
+);
+
+const LEVEL_BAR_COUNT = 32;
+const emptyLevels = () => new Array<number>(LEVEL_BAR_COUNT).fill(0);
+
+const formatElapsed = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+const voiceStatusText: Record<'heard' | 'listening' | 'quiet', string> = {
+  heard: 'Je t’entends',
+  listening: 'Parle, je t’écoute…',
+  quiet: 'Je n’entends pas ta voix. Parle plus près du micro.',
+};
+
+const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMascot, aiEnabled = true, onBack }) => {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [phase, setPhase] = useState<FlowPhase>('questions');
   const [conversationState, setConversationState] = useState<ConversationState>('speaking');
@@ -208,29 +208,52 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [typedAnswer, setTypedAnswer] = useState('');
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
   const [requiresRepeat, setRequiresRepeat] = useState(false);
-  const [parentOccupations, setParentOccupations] = useState<Record<string, { occupation: string; notWorking: boolean }>>(
-    () => Object.fromEntries(parentRoles.map(role => [role, { occupation: '', notWorking: false }]))
-  );
+  const [followUpsDone, setFollowUpsDone] = useState(0);
+  const [aiTurns, setAiTurns] = useState<AiTurn[]>([]);
+  const [parentOccupations, setParentOccupations] = useState<Occupations>(emptyOccupations);
   const [aiReply, setAiReply] = useState('');
   const [error, setError] = useState('');
-  const [responses, setResponses] = useState<RecordedAnswer[]>(() => Array.from({ length: questions.length }, () => ({ text: '', mode: 'skipped', selections: {} })));
-  const [intakes, setIntakes] = useState<RecordedAnswer[]>([]);
+  const [responses, setResponses] = useState<RecordedAnswer[]>(() => surveySteps.map(blankAnswer));
+  const [intakes, setIntakes] = useState<IntakeEntry[]>([]);
+  const [currentIntake, setCurrentIntake] = useState<IntakeEntry>(emptyIntake);
+  const [intakeStage, setIntakeStage] = useState<IntakeStage>({ kind: 'opening' });
+  const [intakeHeard, setIntakeHeard] = useState('');
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const speechCleanupRef = useRef<() => void>(() => {});
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const levelFrameRef = useRef(0);
+  const [levels, setLevels] = useState<number[]>(emptyLevels);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [voiceStatus, setVoiceStatus] = useState<'heard' | 'listening' | 'quiet'>('listening');
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ pending: false, failed: false });
+  const [offlineNotice, setOfflineNotice] = useState(false);
 
-  const currentQuestion = phase === 'intake'
-    ? intakePrompt
-    : phase === 'moreIntakes'
-      ? moreIntakesPrompt
-      : questions[questionIndex].text;
+  const step = surveySteps[questionIndex];
+  const isFirstIntake = intakes.length === 0;
+  const intakeFieldDefinition = phase === 'intake' ? intakeFields.find(field => field.id === stageTargetField(intakeStage)) : undefined;
+  const intakeChoiceField = intakeFieldDefinition && intakeFieldDefinition.kind !== 'text' ? intakeFieldDefinition : undefined;
+  let currentQuestion = stepSpeech(step);
+  if (phase === 'intake') currentQuestion = stageSpeech(intakeStage, isFirstIntake);
   const voiceMascot = selectedMascot;
 
   useEffect(() => {
-    setConversationState('speaking');
+    initSurveySync();
+    beginSurvey(aiEnabled ? voiceMascot : 'none');
+    return subscribeSurveySync(setSyncStatus);
+  }, [aiEnabled, voiceMascot]);
+
+  useEffect(() => {
     setError('');
+    if (!aiEnabled) {
+      setConversationState('listening');
+      return;
+    }
+    setConversationState('speaking');
     const controller = new AbortController();
     let cancelled = false;
 
@@ -259,22 +282,21 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     };
 
     return () => speechCleanupRef.current();
-  }, [authToken, currentQuestion, voiceMascot]);
+  }, [aiEnabled, authToken, currentQuestion, voiceMascot]);
 
   useEffect(() => {
+    if (!aiEnabled) return;
     if (phase === 'questions') {
-      const nextText = questionIndex === 7 ? intakePrompt : questions[questionIndex + 1]?.text;
-      if (nextText) preloadNarration(nextText, 'fr', voiceMascot);
-    } else if (phase === 'intake') {
-      preloadNarration(moreIntakesPrompt, 'fr', voiceMascot);
-    } else if (phase === 'moreIntakes') {
-      preloadNarration(intakePrompt, 'fr', voiceMascot);
-      preloadNarration(questions[8].text, 'fr', voiceMascot);
+      const nextStep = surveySteps[questionIndex + 1];
+      if (RECALL_ENABLED && step.id === '8') preloadNarration(stageSpeech({ kind: 'opening' }, true), 'fr', voiceMascot);
+      else if (nextStep) preloadNarration(stepSpeech(nextStep), 'fr', voiceMascot);
     }
-  }, [phase, questionIndex, voiceMascot]);
+  }, [aiEnabled, phase, questionIndex, step.id, voiceMascot]);
 
   useEffect(() => () => {
     stopAudio(audioRef);
+    cancelAnimationFrame(levelFrameRef.current);
+    void audioContextRef.current?.close();
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.onstop = null;
       mediaRecorderRef.current.stop();
@@ -282,8 +304,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     mediaStreamRef.current?.getTracks().forEach(track => track.stop());
   }, []);
 
-  const answeredQuestionCount = phase === 'intake' || phase === 'moreIntakes' ? questionIndex + 1 : questionIndex;
-  const allPreviousAnswers = [...responses.slice(0, answeredQuestionCount).map(answer => answer.text), ...intakes.map(intake => intake.text)];
+  const allPreviousAnswers = [
+    ...responses.slice(0, questionIndex).map(answer => answer.text),
+    ...intakes.map(intake => intakeText(intake)),
+  ].filter(Boolean).slice(-12);
 
   const interruptNarration = () => {
     speechCleanupRef.current();
@@ -298,7 +322,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setRequiresRepeat(false);
   };
 
-  const updateParentOccupation = (role: string, update: Partial<{ occupation: string; notWorking: boolean }>) => {
+  const updateParentOccupation = (role: string, update: Partial<Occupations[string]>) => {
     interruptNarration();
     setParentOccupations(current => ({ ...current, [role]: { ...current[role], ...update } }));
   };
@@ -307,97 +331,180 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setTranscript('');
     setTypedAnswer('');
     setRequiresRepeat(false);
+    setFollowUpsDone(0);
+    setAiTurns([]);
     setAiReply('');
     setSelectedOptions({});
-    setParentOccupations(Object.fromEntries(parentRoles.map(role => [role, { occupation: '', notWorking: false }])));
+    setParentOccupations(emptyOccupations());
     setError('');
   };
 
-  const makeCurrentAnswer = (): RecordedAnswer => {
+  const makeCurrentAnswer = (typedOverride?: string): RecordedAnswer => {
+    const typed = (typedOverride ?? typedAnswer).trim();
+    const voice = transcript.trim();
     const selections = Object.fromEntries(Object.entries(selectedOptions).filter(([, values]) => values.length > 0));
     const answeredParentOccupations = Object.fromEntries(Object.entries(parentOccupations).filter(([, value]) => value.occupation.trim() || value.notWorking));
     const parts = [
       ...Object.entries(selections).map(([key, values]) => `${key}: ${values.join(', ')}`),
       ...Object.entries(answeredParentOccupations).map(([role, value]) => `${role}: ${value.notWorking ? 'ne travaille pas' : value.occupation}`),
-      typedAnswer.trim() ? `Réponse écrite: ${typedAnswer.trim()}` : '',
-      transcript.trim() ? `Réponse vocale: ${transcript.trim()}` : '',
+      typed ? `Réponse écrite: ${typed}` : '',
+      voice ? `Réponse vocale: ${voice}` : '',
     ].filter(Boolean);
     const inputMethods = [
       Object.keys(selections).length || Object.keys(answeredParentOccupations).length ? 'preset' : '',
-      typedAnswer.trim() ? 'text' : '',
-      transcript.trim() ? 'voice' : '',
+      typed ? 'text' : '',
+      voice ? 'voice' : '',
     ].filter(Boolean);
-    const mode: AnswerMode = inputMethods.length === 0 ? 'skipped' : inputMethods.length > 1 ? 'mixed' : inputMethods[0] as AnswerMode;
-    return { text: parts.join('\n'), mode, selections, parentOccupations: answeredParentOccupations };
+    let mode: AnswerMode = 'skipped';
+    if (inputMethods.length === 1) mode = inputMethods[0] as AnswerMode;
+    if (inputMethods.length > 1) mode = 'mixed';
+    return { text: parts.join('\n'), mode, selections, parentOccupations: answeredParentOccupations, typed, voice, aiReply: aiTurns.at(-1)?.reply ?? '', aiTurns };
+  };
+
+  const renderChoices = (group: PresetGroup) => (
+    <PresetChoices
+      key={group.id}
+      name={group.id}
+      options={group.options}
+      values={selectedOptions[group.id] || []}
+      multiple={group.multiple}
+      exclusiveOption={group.exclusiveOption}
+      onChange={values => setSelection(group.id, values)}
+    />
+  );
+
+  const renderTextPrompt = () => {
+    const prompt = step.textPrompt;
+    if (!prompt || (prompt.when && !prompt.when(selectedOptions))) return null;
+    return <label style={styles.fieldLabel}>{prompt.label}<input style={styles.textInput} value={typedAnswer} onChange={event => setTypedAnswer(event.target.value)} /></label>;
+  };
+
+  const renderOccupations = () => (
+    <div style={styles.presetCard}>
+      {step.hint && <p style={styles.presetHeading}>{step.hint}</p>}
+      {parentRoleNames.map(role => (
+        <div key={role} style={styles.parentOccupation}>
+          <strong>{role}</strong>
+          <input style={styles.textInput} aria-label={`Métier de ${role}`} disabled={parentOccupations[role].notWorking} value={parentOccupations[role].occupation} onChange={event => updateParentOccupation(role, { occupation: event.target.value })} />
+          <label style={styles.presetOption}>
+            <input type="checkbox" checked={parentOccupations[role].notWorking} onChange={event => updateParentOccupation(role, { notWorking: event.target.checked, occupation: event.target.checked ? '' : parentOccupations[role].occupation })} />
+            <span>Ne travaille pas</span>
+          </label>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderRanking = () => (
+    <div style={styles.presetCard}>
+      {step.hint && <p style={styles.presetHeading}>{step.hint}</p>}
+      {step.groups.map(group => {
+        const otherRanks = new Set(step.groups.filter(other => other.id !== group.id).flatMap(other => selectedOptions[other.id] || []));
+        return (
+          <label key={group.id} style={styles.fieldLabel}>{group.label}
+            <select style={styles.textInput} value={selectedOptions[group.id]?.[0] || ''} onChange={event => setSelection(group.id, event.target.value ? [event.target.value] : [])}>
+              <option value="">Choisir</option>
+              {group.options.filter(option => !otherRanks.has(option)).map(option => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </label>
+        );
+      })}
+      {renderTextPrompt()}
+    </div>
+  );
+
+  const updateIntakeField = (id: IntakeFieldId, value: string | string[]) => {
+    interruptNarration();
+    setCurrentIntake(current => ({ ...current, fields: { ...current.fields, [id]: value } }));
+  };
+
+  const renderIntakeForm = () => (
+    <div style={styles.presetCard}>
+      <p style={styles.presetHeading}>Décris cette prise alimentaire.</p>
+      {intakeFields.map(field => {
+        const value = currentIntake.fields[field.id];
+        if (field.kind === 'text') {
+          return (
+            <label key={field.id} style={styles.fieldLabel}>{field.label}
+              <input style={styles.textInput} value={typeof value === 'string' ? value : ''} onChange={event => updateIntakeField(field.id, event.target.value)} />
+            </label>
+          );
+        }
+        const values = Array.isArray(value) ? value : (value ? [value] : []);
+        return (
+          <div key={field.id} style={styles.fieldLabel}>
+            <span>{field.label}</span>
+            <PresetChoices name={`intake-${field.id}`} options={field.options ?? []} values={values} multiple={field.kind === 'multi'} onChange={chosen => updateIntakeField(field.id, field.kind === 'multi' ? chosen : (chosen[0] ?? ''))} />
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderIntakeAssistant = () => {
+    const summary = intakeSummary(currentIntake);
+    return (
+      <>
+        {summary.length > 0 && (
+          <div style={styles.presetCard}>
+            <p style={styles.presetHeading}>Prise {intakes.length + 1} en cours</p>
+            {summary.map(line => <div key={line.id} style={styles.summaryRow}><strong>{line.label}</strong><span>{line.value}</span></div>)}
+          </div>
+        )}
+        {intakeChoiceField && (
+          <div style={styles.presetCard}>
+            <PresetChoices
+              name={`intake-${intakeChoiceField.id}`}
+              options={intakeChoiceField.options ?? []}
+              values={selectedOptions[intakeChoiceField.id] || []}
+              multiple={intakeChoiceField.kind === 'multi'}
+              onChange={values => setSelection(intakeChoiceField.id, values)}
+            />
+          </div>
+        )}
+        {intakeStage.kind === 'opening' && <button type="button" onClick={() => handleNoMoreIntakes()} disabled={busy} style={styles.shortcutButton}>{isFirstIntake ? 'Je n’ai rien mangé ni bu' : 'Je n’ai plus rien mangé ni bu jusqu’au coucher'}</button>}
+        {(intakeStage.kind === 'solidsMore' || intakeStage.kind === 'endCheck') && <button type="button" onClick={() => handleNothingMore()} disabled={busy} style={styles.shortcutButton}>Non, rien d’autre</button>}
+      </>
+    );
   };
 
   const renderPresetAnswers = () => {
-    const choices = (key: string, options: string[], multiple = false, exclusiveOption?: string) => (
-      <PresetChoices
-        key={key}
-        name={key}
-        options={options}
-        values={selectedOptions[key] || []}
-        multiple={multiple}
-        exclusiveOption={exclusiveOption}
-        onChange={values => setSelection(key, values)}
-      />
-    );
-
-    if (phase === 'moreIntakes') return <>{choices('moreIntakes', ['Oui', 'Non'])}</>;
+    if (phase === 'intake') return aiEnabled ? renderIntakeAssistant() : renderIntakeForm();
     if (phase !== 'questions') return null;
-    switch (questionIndex) {
-      case 0:
-        return <>{choices('q1', ['Fille', 'Garçon', 'Préfère ne pas répondre'])}</>;
-      case 5:
-        return <div style={styles.presetCard}>{choices('q6-personnes-du-foyer', householdChoices, true)}{selectedOptions['q6-personnes-du-foyer']?.includes('Autres') && <label style={styles.fieldLabel}>Précise qui<input style={styles.textInput} value={typedAnswer} onChange={event => setTypedAnswer(event.target.value)} /></label>}</div>;
-      case 6:
-        return <div style={styles.presetCard}><p style={styles.presetHeading}>Pour chaque personne, indique son métier ou coche « Ne travaille pas ».</p>{parentRoles.map(role => <div key={role} style={styles.parentOccupation}><strong>{role}</strong><input style={styles.textInput} aria-label={`Métier de ${role}`} disabled={parentOccupations[role].notWorking} value={parentOccupations[role].occupation} onChange={event => updateParentOccupation(role, { occupation: event.target.value })} /><label style={styles.presetOption}><input type="checkbox" checked={parentOccupations[role].notWorking} onChange={event => updateParentOccupation(role, { notWorking: event.target.checked, occupation: event.target.checked ? '' : parentOccupations[role].occupation })} /><span>Ne travaille pas</span></label></div>)}</div>;
-      case 7:
-        return <>{choices('q8-argent-de-poche', ['Oui, de manière régulière', 'De temps en temps', 'Non'])}</>;
-      case 8:
-        return <>{choices('q9-evictions', ['Oui', 'Non'])}</>;
-      case 10:
-        return <div style={styles.presetCard}><p style={styles.presetHeading}>Sélectionne une ou plusieurs raisons pour chaque aliment.</p>{foodItems.map(food => <div key={food} style={styles.presetRow}><strong>{food}</strong>{choices(`q11-${food}`, motivationOptions, true, 'Je n’en consomme pas')}</div>)}</div>;
-      case 11:
-        return <div style={styles.presetCard}><p style={styles.presetHeading}>Choisis une fréquence pour chaque aliment.</p>{foodItems.map(food => <div key={food} style={styles.presetRow}><strong>{food}</strong>{choices(`q12-${food}`, frequencyOptions)}</div>)}</div>;
-      case 12:
-        return <div style={styles.presetCard}><p style={styles.presetHeading}>Choisis avec qui tu consommes chaque aliment.</p>{foodItems.map(food => <div key={food} style={styles.presetRow}><strong>{food}</strong>{choices(`q13-${food}`, socialOptions, true, 'Je n’en consomme pas')}</div>)}</div>;
-      case 13:
-        return <div style={styles.presetCard}><p style={styles.presetHeading}>Choisis une réponse pour chaque changement.</p>{difficultyItems.map(item => <div key={item} style={styles.presetRow}><strong>{item}</strong>{choices(`q14-${item}`, difficultyOptions)}</div>)}</div>;
-      case 18:
-        return <div style={styles.presetCard}><p style={styles.presetHeading}>Classe jusqu’à trois réponses, de la plus importante à la moins importante.</p>{[0, 1, 2].map(rank => {
-          const key = `q19-rang-${rank + 1}`;
-          const otherRanks = [0, 1, 2].filter(index => index !== rank).flatMap(index => selectedOptions[`q19-rang-${index + 1}`] || []);
-          return <React.Fragment key={key}><label style={styles.fieldLabel}>Rang {rank + 1}<select style={styles.textInput} value={selectedOptions[key]?.[0] || ''} onChange={event => setSelection(key, event.target.value ? [event.target.value] : [])}><option value="">Choisir</option>{influenceOptions.filter(option => !otherRanks.includes(option)).map(option => <option key={option} value={option}>{option}</option>)}</select></label>{selectedOptions[key]?.[0] === 'Autre' && <label style={styles.fieldLabel}>Précise l’autre influence<input style={styles.textInput} value={typedAnswer} onChange={event => setTypedAnswer(event.target.value)} /></label>}</React.Fragment>;
-        })}</div>;
-      case 22:
-        return <>{choices('q23-cantine', ['Oui', 'Non'])}</>;
-      case 23:
-        return <>{choices('q24-qualite-cantine', ['Très bons', 'Plutôt bons', 'Plutôt pas bons', 'Pas bons du tout'])}</>;
-      case 24:
-        return <>{choices('q25-moment-amis', ['Tout à fait d’accord', 'Plutôt d’accord', 'Plutôt pas d’accord', 'Pas d’accord'])}</>;
-      case 25:
-        return <>{choices('q26-bruit-cantine', ['Pas du tout', 'Un peu', 'Beaucoup'])}</>;
-      case 26:
-        return <>{choices('q27-sensibilisation', ['Oui', 'Non'])}</>;
-      case 27:
-        return <>{choices('q28-changement', ['Oui', 'Non'])}</>;
-      default:
-        return null;
+    if (step.ui === 'occupations') return renderOccupations();
+    if (step.ui === 'ranking') return renderRanking();
+    if (step.ui === 'choices') {
+      return (
+        <div style={styles.presetCard}>
+          {step.hint && <p style={styles.presetHeading}>{step.hint}</p>}
+          {step.groups.map(renderChoices)}
+          {renderTextPrompt()}
+        </div>
+      );
     }
+    return null;
   };
 
-  const hasCurrentAnswer = Boolean(
+  let hasCurrentAnswer = Boolean(
     transcript.trim()
     || typedAnswer.trim()
     || Object.values(selectedOptions).some(values => values.length > 0)
     || Object.values(parentOccupations).some(value => value.occupation.trim() || value.notWorking)
   );
+  if (phase === 'intake') {
+    if (!aiEnabled) hasCurrentAnswer = intakeHasContent(currentIntake);
+    else if (intakeChoiceField) hasCurrentAnswer = (selectedOptions[intakeChoiceField.id]?.length ?? 0) > 0;
+    else hasCurrentAnswer = Boolean(typedAnswer.trim());
+  }
+  const busy = conversationState === 'saving' || conversationState === 'thinking' || conversationState === 'recording';
   const presetAnswers = renderPresetAnswers();
-  const showTypedAnswer = phase === 'intake' || presetAnswers === null;
+  const showTypedAnswer = (phase === 'intake' && aiEnabled && !intakeChoiceField) || (phase === 'questions' && step.ui === 'text');
+  const hasReplied = hasCurrentAnswer && !requiresRepeat;
+  let micLabel = hasCurrentAnswer && phase === 'questions' ? 'Compléter ou corriger' : 'Répondre';
+  if (conversationState === 'recording') micLabel = 'Terminer l’enregistrement';
+  if (isSendingVoice) micLabel = 'Envoi de la voix…';
 
-  const transcribeAnswer = async (audio: Blob) => {
+  const transcribeAnswer = async (audio: Blob, previous: { transcript: string; selections: Record<string, string[]> } | null) => {
     if (!authToken) {
       setError('Ta session a expiré. Reconnecte-toi pour répondre.');
       setConversationState('listening');
@@ -405,53 +512,300 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
 
     const formData = new FormData();
-    const extension = audio.type.includes('ogg') ? 'ogg' : audio.type.includes('mp4') ? 'mp4' : audio.type.includes('wav') ? 'wav' : 'webm';
+    let extension = 'webm';
+    if (audio.type.includes('ogg')) extension = 'ogg';
+    else if (audio.type.includes('mp4')) extension = 'mp4';
+    else if (audio.type.includes('wav')) extension = 'wav';
     formData.append('audio', audio, `survey-answer.${extension}`);
     formData.append('question', currentQuestion);
     formData.append('language', 'fr');
     formData.append('mascot', voiceMascot);
     formData.append('previousAnswers', JSON.stringify(allPreviousAnswers));
-    const presetGroups = getPresetGroups(phase, questionIndex);
+    const presetGroups = phase === 'questions' ? step.groups : [];
     if (presetGroups.length > 0) formData.append('presetGroups', JSON.stringify(presetGroups));
+    if (phase === 'questions') {
+      formData.append('rules', JSON.stringify({
+        guidance: step.guidance,
+        expected: step.expected,
+        maxFollowUps: step.maxFollowUps,
+        followUpsDone,
+        numeric: step.numeric,
+        allowedValues: step.allowedValues,
+      }));
+    }
+    if (previous) {
+      formData.append('currentTranscript', previous.transcript);
+      formData.append('currentSelections', JSON.stringify(previous.selections));
+    }
 
     try {
       const response = await api.post('/api/ai/turn', formData, {
         headers: { Authorization: `Bearer ${authToken}` },
+        timeout: 60000,
       });
-      const nextTranscript = response.data.transcript?.trim();
+      const nextTranscript = (response.data.answer ?? response.data.transcript)?.trim();
       const nextReply = response.data.reply?.trim();
       if (!nextTranscript || !nextReply || !response.data.audio) throw new Error('Incomplete AI response');
       const matchedGroups = response.data.selectedGroups as Record<string, string[]> | undefined;
+      const freeTextGroups = (response.data.freeTextGroups ?? {}) as Record<string, string>;
       const needsRepeat = response.data.needsRepeat === true;
-      setTranscript(nextTranscript);
+      const followUp = response.data.followUp === true;
+      const keepPrevious = needsRepeat && previous !== null;
+      const blocksNext = needsRepeat && !keepPrevious;
+      const expectsMore = blocksNext || followUp;
+      if (!keepPrevious) setTranscript(nextTranscript);
+      setAiTurns(current => [...current, {
+        transcript: String(response.data.transcript ?? ''),
+        answer: nextTranscript,
+        reply: nextReply,
+        followUp,
+        needsRepeat,
+        selectedGroups: matchedGroups ?? {},
+        freeTextGroups,
+        at: new Date().toISOString(),
+      }]);
+      if (followUp) setFollowUpsDone(count => count + 1);
+      if (!needsRepeat && Object.keys(freeTextGroups).length > 0) {
+        setSelectedOptions(current => {
+          const updated = { ...current };
+          for (const key of Object.keys(freeTextGroups)) delete updated[key];
+          return updated;
+        });
+        setParentOccupations(current => {
+          const updated = { ...current };
+          for (const role of parentRoleNames) {
+            const occupation = freeTextGroups[`q7-${role}`];
+            if (occupation) updated[role] = { occupation, notWorking: false };
+          }
+          return updated;
+        });
+      }
       if (!needsRepeat && matchedGroups) {
         setSelectedOptions(current => ({ ...current, ...matchedGroups }));
         setParentOccupations(current => {
           const updated = { ...current };
-          for (const role of parentRoles) {
-            if (matchedGroups[`q7-${role}`]?.includes('Ne travaille pas')) {
+          for (const role of parentRoleNames) {
+            const roleSelection = matchedGroups[`q7-${role}`];
+            if (roleSelection?.includes('Ne travaille pas')) {
               updated[role] = { occupation: '', notWorking: true };
+            } else if (roleSelection && previous) {
+              updated[role] = { ...updated[role], notWorking: false };
             }
           }
           return updated;
         });
       }
-      setRequiresRepeat(needsRepeat);
+      setRequiresRepeat(blocksNext);
       setAiReply(nextReply);
       setConversationState('speaking');
-      playBase64Audio(response.data.audio, audioRef, () => setConversationState(needsRepeat ? 'listening' : 'ready'), () => {
+      playBase64Audio(response.data.audio, audioRef, () => setConversationState(expectsMore ? 'listening' : 'ready'), () => {
         setError('La réponse vocale a échoué. Tu peux continuer en lisant la réponse.');
-        setConversationState(needsRepeat ? 'listening' : 'ready');
+        setConversationState(expectsMore ? 'listening' : 'ready');
       });
     } catch (requestError) {
-      setError(axios.isAxiosError(requestError) ? requestError.response?.data?.error || 'Impossible de traiter cet enregistrement. Réessaie.' : 'Impossible de traiter cet enregistrement. Réessaie.');
+      let message = 'Impossible de traiter cet enregistrement. Réessaie.';
+      if (axios.isAxiosError(requestError)) {
+        message = requestError.code === 'ECONNABORTED'
+          ? 'Le serveur met trop de temps à répondre. Réessaie.'
+          : requestError.response?.data?.error || message;
+      }
+      setError(message);
       setConversationState('listening');
     }
+  };
+
+  const saveInBackground = (patch: SurveyPatch) => recordSurvey(patch);
+
+  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, typedAnswer, transcript, intakes, currentIntake, intakeStage, aiTurns }]);
+
+  const finishIntakes = (finished: IntakeEntry[]) => {
+    clearCurrentAnswer();
+    setIntakeHeard('');
+    setIntakes(finished);
+    setCurrentIntake(emptyIntake());
+    setIntakeStage({ kind: 'opening' });
+    setPhase('questions');
+    setQuestionIndex(stepIndexById.get('9') ?? 0);
+  };
+
+  const settleIntake = (entry: IntakeEntry, outcome: IntakeOutcome) => {
+    if (outcome === 'clarify') {
+      setCurrentIntake(entry);
+      return;
+    }
+    interruptNarration();
+    pushHistory();
+    if (outcome === 'endOfDay') {
+      saveInBackground({ yesterdayIntakes: intakes.map((item, index) => serializeIntake(item, index, aiEnabled)), currentIntake: null });
+      finishIntakes(intakes);
+      return;
+    }
+    clearCurrentAnswer();
+    if (outcome === 'complete') {
+      const finished = [...intakes, entry];
+      saveInBackground({ yesterdayIntakes: finished.map((item, index) => serializeIntake(item, index, aiEnabled)), currentIntake: null });
+      if (finished.length >= INTAKE_MAX) {
+        finishIntakes(finished);
+        return;
+      }
+      setIntakes(finished);
+      setCurrentIntake(emptyIntake());
+      setIntakeStage({ kind: 'opening' });
+      return;
+    }
+    saveInBackground({ currentIntake: serializeIntake(entry, intakes.length, aiEnabled) });
+    setCurrentIntake(entry);
+    setIntakeStage(outcome);
+  };
+
+  const sendIntake = async (audio: Blob | null, text: string) => {
+    if (!authToken) {
+      setError('Ta session a expiré. Reconnecte-toi pour répondre.');
+      setConversationState('listening');
+      return;
+    }
+
+    const formData = new FormData();
+    if (audio) {
+      let extension = 'webm';
+      if (audio.type.includes('ogg')) extension = 'ogg';
+      else if (audio.type.includes('mp4')) extension = 'mp4';
+      else if (audio.type.includes('wav')) extension = 'wav';
+      formData.append('audio', audio, `intake-answer.${extension}`);
+    } else {
+      formData.append('text', text);
+    }
+    formData.append('language', 'fr');
+    formData.append('mascot', voiceMascot);
+    formData.append('payload', JSON.stringify({ stage: intakeStage.kind, targetField: stageTargetField(intakeStage), record: currentIntake.fields, fields: intakeFields }));
+    setConversationState('thinking');
+    setError('');
+
+    try {
+      const response = await api.post('/api/ai/intake', formData, { headers: { Authorization: `Bearer ${authToken}` }, timeout: 60000 });
+      const result = response.data as IntakeExtraction & { reply?: string; audio?: string };
+      setIntakeHeard(result.transcript);
+      const { entry, outcome } = applyExtraction(currentIntake, intakeStage, result);
+      if (outcome === 'clarify' && result.audio) {
+        setAiReply(result.reply ?? '');
+        setCurrentIntake(entry);
+        setConversationState('speaking');
+        playBase64Audio(result.audio, audioRef, () => setConversationState('listening'), () => setConversationState('listening'));
+        return;
+      }
+      setAiReply('');
+      setConversationState('listening');
+      settleIntake(entry, outcome);
+    } catch (requestError) {
+      let message = 'Impossible de traiter cette réponse. Réessaie.';
+      if (axios.isAxiosError(requestError)) {
+        message = requestError.code === 'ECONNABORTED' ? 'Le serveur met trop de temps à répondre. Réessaie.' : requestError.response?.data?.error || message;
+      }
+      setError(message);
+      setConversationState('listening');
+    }
+  };
+
+  const handleNothingMore = () => {
+    const { entry, outcome } = applyExtraction(currentIntake, intakeStage, { transcript: 'Non', updates: {}, nothingMore: true });
+    settleIntake(entry, outcome);
+  };
+
+  const handleNoMoreIntakes = () => settleIntake(currentIntake, 'endOfDay');
+
+  const handleIntakeNext = () => {
+    const target = stageTargetField(intakeStage);
+    if (intakeChoiceField && target) {
+      const values = selectedOptions[target] ?? [];
+      if (values.length === 0) return;
+      const value = intakeChoiceField.kind === 'multi' ? values : values[0];
+      const { entry, outcome } = applyExtraction(currentIntake, intakeStage, { transcript: '', updates: { [target]: value } });
+      settleIntake(entry, outcome);
+      return;
+    }
+    const text = typedAnswer.trim();
+    if (!text) return;
+    if (target) {
+      const { entry, outcome } = applyExtraction(currentIntake, intakeStage, { transcript: text, updates: { [target]: text } });
+      settleIntake(entry, outcome);
+    } else if (intakeStage.kind === 'solidsMore') {
+      const { entry, outcome } = applyExtraction(currentIntake, intakeStage, { transcript: text, updates: {}, additions: { solids: text } });
+      settleIntake(entry, outcome);
+    } else {
+      void sendIntake(null, text);
+    }
+  };
+
+  const finishFormIntakes = () => {
+    pushHistory();
+    const finished = intakeHasContent(currentIntake) ? [...intakes, currentIntake] : intakes;
+    saveInBackground({ yesterdayIntakes: finished.map((item, index) => serializeIntake(item, index, aiEnabled)), currentIntake: null });
+    finishIntakes(finished);
+  };
+
+  const handleFormNext = () => {
+    if (!intakeHasContent(currentIntake)) return;
+    pushHistory();
+    const finished = [...intakes, currentIntake];
+    saveInBackground({ yesterdayIntakes: finished.map((item, index) => serializeIntake(item, index, aiEnabled)), currentIntake: null });
+    if (finished.length >= INTAKE_MAX) {
+      finishIntakes(finished);
+      return;
+    }
+    clearCurrentAnswer();
+    setIntakes(finished);
+    setCurrentIntake(emptyIntake());
+  };
+
+  const stopLevelMeter = () => {
+    cancelAnimationFrame(levelFrameRef.current);
+    void audioContextRef.current?.close();
+    audioContextRef.current = null;
+  };
+
+  const startLevelMeter = (stream: MediaStream) => {
+    const context = new AudioContext();
+    void context.resume();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 512;
+    context.createMediaStreamSource(stream).connect(analyser);
+    audioContextRef.current = context;
+
+    const samples = new Uint8Array(analyser.fftSize);
+    const startedAt = performance.now();
+    let lastVoiceAt = startedAt;
+    let lastTick = 0;
+    setLevels(emptyLevels());
+    setElapsedSeconds(0);
+    setVoiceStatus('listening');
+
+    const tick = (now: number) => {
+      levelFrameRef.current = requestAnimationFrame(tick);
+      if (now - lastTick < 70) return;
+      lastTick = now;
+      analyser.getByteTimeDomainData(samples);
+      let sum = 0;
+      for (const sample of samples) {
+        const normalized = (sample - 128) / 128;
+        sum += normalized * normalized;
+      }
+      const level = Math.min(1, Math.sqrt(sum / samples.length) * 5);
+      if (level > 0.12) lastVoiceAt = now;
+      const silentFor = now - lastVoiceAt;
+      let status: 'heard' | 'listening' | 'quiet' = 'listening';
+      if (silentFor < 700) status = 'heard';
+      else if (silentFor > 3000) status = 'quiet';
+      setLevels(current => [...current.slice(1), level]);
+      setElapsedSeconds(Math.floor((now - startedAt) / 1000));
+      setVoiceStatus(status);
+    };
+    levelFrameRef.current = requestAnimationFrame(tick);
   };
 
   const handleMicClick = async () => {
     if (conversationState === 'recording') {
       mediaRecorderRef.current?.stop();
+      setIsSendingVoice(true);
       setConversationState('thinking');
       return;
     }
@@ -462,6 +816,15 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setError('');
     setRequiresRepeat(false);
     setAiReply('');
+    const occupationLines = phase === 'questions' && step.ui === 'occupations'
+      ? Object.entries(parentOccupations).filter(([, value]) => value.occupation.trim()).map(([role, value]) => `${role}: ${value.occupation.trim()}`)
+      : [];
+    const previous = phase === 'questions' && hasReplied
+      ? {
+        transcript: [transcript.trim(), ...occupationLines].filter(Boolean).join('\n'),
+        selections: Object.fromEntries(Object.entries(selectedOptions).filter(([, values]) => values.length > 0)),
+      }
+      : null;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
@@ -471,12 +834,16 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = event => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
       recorder.onstop = () => {
+        stopLevelMeter();
         stream.getTracks().forEach(track => track.stop());
         mediaStreamRef.current = null;
-        void transcribeAnswer(new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' }));
+        const recorded = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        const request = phase === 'intake' ? sendIntake(recorded, '') : transcribeAnswer(recorded, previous);
+        void request.finally(() => setIsSendingVoice(false));
       };
       recorder.start();
-      setTranscript('');
+      startLevelMeter(stream);
+      if (!previous) setTranscript('');
       setConversationState('recording');
     } catch {
       setError('L’accès au microphone a échoué. Vérifie les autorisations du navigateur.');
@@ -484,91 +851,111 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
   };
 
-  const saveSurvey = async (numberedAnswers: RecordedAnswer[], intakeAnswers: RecordedAnswer[]) => {
-    if (!authToken) {
-      setError('Ta session a expiré. Reconnecte-toi pour envoyer le questionnaire.');
-      setConversationState('ready');
-      return;
-    }
-
+  const saveSurvey = async (stepAnswers: RecordedAnswer[], intakeAnswers: IntakeEntry[]) => {
     setConversationState('saving');
     setError('');
-    try {
-      await api.post('/api/surveys', {
-        consentGiven: true,
-        selectedMascot: voiceMascot,
-        answers: {
-          questions: questions.map((question, index) => ({ ...question, ...(numberedAnswers[index] || { text: '', mode: 'skipped', selections: {} }) })),
-          yesterdayIntakes: intakeAnswers.map((answer, index) => ({ intake: index + 1, ...answer })),
-        },
-      }, { headers: { Authorization: `Bearer ${authToken}` } });
-      setPhase('complete');
-      setConversationState('complete');
-    } catch (requestError) {
-      setError(axios.isAxiosError(requestError) ? requestError.response?.data?.error || 'Impossible d’envoyer le questionnaire. Réessaie.' : 'Impossible d’envoyer le questionnaire. Réessaie.');
-      setConversationState('ready');
-    }
+    recordSurvey({
+      questions: surveySteps.map((surveyStep, index) => serializeStep(surveyStep, stepAnswers[index] || blankAnswer())),
+      yesterdayIntakes: intakeAnswers.map((entry, index) => serializeIntake(entry, index, aiEnabled)),
+      currentIntake: null,
+      complete: true,
+    });
+    setOfflineNotice(!(await flushSurveys()));
+    setPhase('complete');
+    setConversationState('complete');
+  };
+
+  const handlePrevious = () => {
+    const entry = history.at(-1);
+    if (!entry) return;
+    interruptNarration();
+    setHistory(current => current.slice(0, -1));
+    setPhase(entry.phase);
+    setQuestionIndex(entry.questionIndex);
+    setSelectedOptions(entry.selectedOptions);
+    setParentOccupations(entry.parentOccupations);
+    setTypedAnswer(entry.typedAnswer);
+    setTranscript(entry.transcript);
+    setIntakes(entry.intakes);
+    setCurrentIntake(entry.currentIntake);
+    setIntakeStage(entry.intakeStage);
+    setIntakeHeard('');
+    setRequiresRepeat(false);
+    setFollowUpsDone(0);
+    setAiTurns(entry.aiTurns);
+    setAiReply('');
+    setError('');
+    setConversationState('listening');
   };
 
   const advanceWithAnswer = (answer: RecordedAnswer) => {
     interruptNarration();
-    if (phase === 'intake') {
-      setIntakes(current => answer.text.trim() ? [...current, answer] : current);
-      clearCurrentAnswer();
-      setPhase('moreIntakes');
-      return;
-    }
-
-    if (phase === 'moreIntakes') {
-      const moreIntakesAnswer = selectedOptions.moreIntakes?.[0] || transcript.trim() || typedAnswer.trim() || answer.text;
-      if (yesAnswer(moreIntakesAnswer)) {
-        clearCurrentAnswer();
-        setPhase('intake');
-      } else {
-        clearCurrentAnswer();
-        setPhase('questions');
-        setQuestionIndex(8);
-      }
-      return;
-    }
+    pushHistory();
 
     const updatedAnswers = [...responses];
     updatedAnswers[questionIndex] = answer;
 
-    if (questionIndex === 7) {
+    if (RECALL_ENABLED && step.id === '8') {
+      saveInBackground({ questions: [serializeStep(step, answer)] });
       setResponses(updatedAnswers);
       clearCurrentAnswer();
+      setIntakeHeard('');
+      setIntakes([]);
+      setCurrentIntake(emptyIntake());
+      setIntakeStage({ kind: 'opening' });
       setPhase('intake');
       return;
     }
 
-    const q9Answer = selectedOptions['q9-evictions']?.[0] || typedAnswer.trim() || transcript.trim();
-    const q23Answer = selectedOptions['q23-cantine']?.[0] || typedAnswer.trim() || transcript.trim();
-    const q27Answer = selectedOptions['q27-sensibilisation']?.[0] || typedAnswer.trim() || transcript.trim();
-    if (questionIndex === 8 && q9Answer.trim() && !yesAnswer(q9Answer)) updatedAnswers[9] = { text: '', mode: 'skipped', selections: {} };
-    if (questionIndex === 22 && q23Answer.trim() && !yesAnswer(q23Answer)) updatedAnswers.splice(23, 3, { text: '', mode: 'skipped', selections: {} }, { text: '', mode: 'skipped', selections: {} }, { text: '', mode: 'skipped', selections: {} });
-    if (questionIndex === 26 && q27Answer.trim() && !yesAnswer(q27Answer)) updatedAnswers[27] = { text: '', mode: 'skipped', selections: {} };
+    const next = findNextStep(questionIndex, updatedAnswers);
+    for (let index = questionIndex + 1; index < Math.min(next, surveySteps.length); index++) updatedAnswers[index] = blankAnswer();
 
-    if (questionIndex === questions.length - 1 || (questionIndex === 26 && q27Answer.trim() && !yesAnswer(q27Answer))) {
+    if (next >= surveySteps.length) {
       void saveSurvey(updatedAnswers, intakes);
       return;
     }
 
-    const nextQuestionIndex = questionIndex === 8 && q9Answer.trim() && !yesAnswer(q9Answer)
-      ? 10
-      : questionIndex === 22 && q23Answer.trim() && !yesAnswer(q23Answer)
-        ? 26
-        : questionIndex + 1;
+    saveInBackground({
+      questions: Array.from({ length: next - questionIndex }, (_, offset) => questionIndex + offset).map(index => serializeStep(surveySteps[index], updatedAnswers[index])),
+    });
+
     setResponses(updatedAnswers);
     clearCurrentAnswer();
-    setQuestionIndex(nextQuestionIndex);
+    setQuestionIndex(next);
   };
 
   const handleNext = () => {
+    if (phase === 'intake') {
+      if (aiEnabled) handleIntakeNext();
+      else handleFormNext();
+      return;
+    }
+    if (phase === 'questions') {
+      const validation = validateTypedAnswer(step, typedAnswer);
+      if (!validation.ok) {
+        setError(validation.message);
+        return;
+      }
+      advanceWithAnswer(makeCurrentAnswer(validation.value));
+      return;
+    }
     advanceWithAnswer(makeCurrentAnswer());
   };
 
-  const handleSkip = () => advanceWithAnswer({ text: '', mode: 'skipped', selections: {} });
+  const handleSkip = () => {
+    if (phase !== 'intake') {
+      advanceWithAnswer(aiTurns.length > 0 ? { ...blankAnswer(), aiReply: aiTurns.at(-1)?.reply ?? '', aiTurns } : blankAnswer());
+      return;
+    }
+    if (!aiEnabled) {
+      finishFormIntakes();
+    } else if (intakeStage.kind === 'opening') {
+      handleNoMoreIntakes();
+    } else {
+      const { entry, outcome } = skipStage(currentIntake, intakeStage);
+      settleIntake(entry, outcome);
+    }
+  };
 
   const handleRepeatQuestion = async () => {
     interruptNarration();
@@ -590,15 +977,23 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
   };
 
-  const questionLabel = phase === 'questions'
-    ? `Question ${questions[questionIndex].number} sur 28`
-    : phase === 'intake'
-      ? `Rappel d’hier · prise ${intakes.length + 1}`
-      : phase === 'moreIntakes'
-        ? 'Rappel des prises alimentaires'
-        : phase === 'saving'
-          ? 'Enregistrement du questionnaire…'
-          : 'Questionnaire terminé';
+  let questionLabel = 'Questionnaire terminé';
+  let kicker = 'Rappel de la journée d’hier';
+  if (phase === 'questions') {
+    questionLabel = `Question ${displayNumber(step.number)} sur ${displayTotal}`;
+    kicker = `Question ${displayLabel(step)}`;
+  } else if (phase === 'intake') {
+    questionLabel = `Question ${INTAKE_QUESTION_NUMBER} sur ${displayTotal} · prise ${intakes.length + 1}`;
+    kicker = `Question ${INTAKE_QUESTION_NUMBER} · Rappel de la journée d’hier`;
+  } else if (phase === 'saving') {
+    questionLabel = 'Enregistrement du questionnaire…';
+  }
+
+  const projectedAnswers = [...responses];
+  projectedAnswers[questionIndex] = makeCurrentAnswer();
+  const isLastStep = phase === 'questions' && findNextStep(questionIndex, projectedAnswers) >= surveySteps.length;
+  let nextLabel = isLastStep ? 'Terminer' : 'Question suivante';
+  if (phase === 'intake') nextLabel = aiEnabled ? 'Valider' : 'Valider cette prise';
 
   const stateLabel: Record<ConversationState, string> = {
     speaking: 'La mascotte pose la question…',
@@ -614,48 +1009,66 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     return (
       <div style={styles.page}>
         <header style={styles.header}><BackButton onClick={onBack} /><h1 style={styles.title}>Questionnaire terminé</h1><div style={styles.headerSpacer} /></header>
-        <main style={styles.completePanel}><img src={mascotByState[voiceMascot].complete} alt="Mascotte" style={styles.completeMascot} /><h2 style={styles.completeTitle}>Merci d’avoir répondu aux questions.</h2><button type="button" onClick={onBack} style={styles.primaryButton}>Retour à l’accueil</button></main>
+        <main style={styles.completePanel}><img src={mascotByState[voiceMascot].complete} alt="Mascotte" style={styles.completeMascot} /><h2 style={styles.completeTitle}>Merci d’avoir répondu aux questions.</h2>{offlineNotice && <p style={styles.errorMessage}>Pas de connexion : tes réponses sont enregistrées sur cet appareil et seront envoyées automatiquement dès que la connexion revient.</p>}<button type="button" onClick={onBack} style={styles.primaryButton}>Retour à l’accueil</button></main>
       </div>
     );
   }
+
+  const nextDisabled = !hasCurrentAnswer || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState);
 
   return (
     <div style={styles.page}>
       <header style={styles.header}><BackButton onClick={onBack} /><h1 style={styles.title}>Questionnaire OR-ALIM</h1><div style={styles.headerSpacer} /></header>
       <main style={styles.content}>
-        <div style={styles.progressRow}><span>{questionLabel}</span><span style={styles.liveBadge}>Questionnaire vocal</span></div>
-        <section style={styles.mascotPanel} aria-live="polite">
+        <div style={styles.progressRow}><span>{questionLabel}</span>{aiEnabled && <span style={styles.liveBadge}>Questionnaire vocal</span>}</div>
+        {aiEnabled && <section style={styles.mascotPanel} aria-live="polite">
           <div style={{ ...styles.mascotGlow, ...(conversationState === 'listening' ? styles.listeningGlow : {}) }}>
             <img src={mascotByState[voiceMascot][conversationState]} alt="Mascotte FOOD BAROMETER" style={{ ...styles.mascot, ...(conversationState === 'thinking' ? styles.thinkingMascot : {}) }} />
           </div>
           <div style={styles.stateLabel}>{stateLabel[conversationState]}</div>
-        </section>
+        </section>}
         <section style={styles.questionCard}>
-          <span style={styles.questionKicker}>{phase === 'questions' ? `Question ${questions[questionIndex].number}` : 'Rappel de la journée d’hier'}</span>
-          <h2 style={styles.question}>{currentQuestion}</h2>
-          <button type="button" onClick={() => void handleRepeatQuestion()} style={styles.repeatButton}>🔊 Réécouter la question</button>
+          <span style={styles.questionKicker}>{kicker}</span>
+          {phase === 'questions' && step.intro && <p style={styles.intro}>{step.intro}</p>}
+          {phase === 'intake' && stageIntro(intakeStage, isFirstIntake) && <p style={styles.intro}>{stageIntro(intakeStage, isFirstIntake)}</p>}
+          <h2 style={styles.question}>{phase === 'questions' ? step.text : stageQuestion(intakeStage, isFirstIntake)}</h2>
+          {aiEnabled && <button type="button" onClick={() => void handleRepeatQuestion()} style={styles.repeatButton}>🔊 Réécouter la question</button>}
         </section>
         <div onChangeCapture={interruptNarration}>
           {presetAnswers}
         </div>
         {showTypedAnswer && <label style={styles.typedAnswer}>
-          <span>Ou écris ta réponse</span>
-          <textarea value={typedAnswer} onChange={event => { interruptNarration(); setTypedAnswer(event.target.value); setRequiresRepeat(false); }} placeholder="Écris ta réponse ici…" rows={3} style={styles.answerInput} />
+          <span>{aiEnabled ? 'Ou écris ta réponse' : 'Écris ta réponse'}</span>
+          <textarea value={typedAnswer} onChange={event => { interruptNarration(); setTypedAnswer(event.target.value); setRequiresRepeat(false); setError(''); }} placeholder="Écris ta réponse ici…" rows={3} style={styles.answerInput} />
         </label>}
-        <section style={styles.transcriptCard}>
+        {aiEnabled && <section style={styles.transcriptCard}>
           <div style={styles.transcriptHeader}><span>Ta réponse</span>{conversationState === 'thinking' && <span style={styles.processing}>Transcription…</span>}</div>
-          <p style={transcript ? styles.transcript : styles.transcriptPlaceholder}>{transcript || 'Appuie sur le micro et réponds naturellement.'}</p>
+          <p style={(phase === 'intake' ? intakeHeard : transcript) ? styles.transcript : styles.transcriptPlaceholder}>{(phase === 'intake' ? intakeHeard : transcript) || 'Appuie sur le micro et réponds naturellement.'}</p>
           {aiReply && <p style={styles.aiReply}>{aiReply}</p>}
-        </section>
-        <p style={styles.privacyNotice}>Ton enregistrement est envoyé à OpenAI pour transcription et traitement. Tu peux passer une question.</p>
+        </section>}
+        {aiEnabled && <p style={styles.privacyNotice}>Ton enregistrement est envoyé à OpenAI pour transcription et traitement. Tu peux passer une question.</p>}
         {error && <p role="alert" style={styles.errorMessage}>{error}</p>}
-        <button type="button" onClick={() => void handleMicClick()} disabled={conversationState === 'thinking' || conversationState === 'saving'} style={{ ...styles.micButton, ...(conversationState === 'recording' ? styles.micButtonActive : {}) }} aria-label="Répondre avec le microphone">
-          <span style={styles.micIcon}>{conversationState === 'recording' ? '■' : '🎙'}</span><span>{conversationState === 'recording' ? 'Terminer l’enregistrement' : 'Répondre'}</span>
-        </button>
+        {syncStatus.pending && syncStatus.failed && <output style={styles.errorMessage}>Connexion perdue : tes réponses sont gardées sur cet appareil et seront envoyées automatiquement dès que la connexion revient.</output>}
+        {aiEnabled && conversationState === 'recording' && (
+          <div style={styles.recordingPanel}>
+            <div style={styles.recordingRow}>
+              <span style={styles.recordingDot} aria-hidden="true" />
+              <span style={styles.recordingTimer}>{formatElapsed(elapsedSeconds)}</span>
+              <div style={styles.waveform} aria-hidden="true">
+                {levels.map((level, index) => <span key={`${index}-bar`} style={{ ...styles.waveBar, height: `${Math.max(10, Math.round(level * 100))}%` }} />)}
+              </div>
+            </div>
+            <output style={voiceStatus === 'quiet' ? styles.voiceHintWarning : styles.voiceHint}>{voiceStatusText[voiceStatus]}</output>
+          </div>
+        )}
+        {aiEnabled && <button type="button" onClick={() => void handleMicClick()} disabled={conversationState === 'thinking' || conversationState === 'saving'} style={{ ...styles.micButton, ...(conversationState === 'recording' ? styles.micButtonActive : {}), ...(conversationState === 'thinking' || conversationState === 'saving' ? styles.micButtonDisabled : {}) }} aria-label={micLabel}>
+          <span style={styles.micIcon}>{conversationState === 'recording' ? <StopIcon /> : <MicIcon />}</span><span>{micLabel}</span>
+        </button>}
         <div style={styles.actions}>
-          <button type="button" onClick={handleSkip} disabled={conversationState === 'saving' || conversationState === 'thinking' || conversationState === 'recording'} style={styles.skipButton}>Passer cette question</button>
-          <button type="button" onClick={handleNext} disabled={!hasCurrentAnswer || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState)} style={{ ...styles.nextButton, ...(!hasCurrentAnswer || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState) ? styles.disabledButton : {}) }}>
-            {phase === 'intake' ? 'Valider cette prise' : phase === 'moreIntakes' ? 'Continuer' : questionIndex === questions.length - 1 ? 'Terminer' : 'Question suivante'} →
+          {history.length > 0 && <button type="button" onClick={handlePrevious} disabled={busy} style={styles.skipButton}>← Précédent</button>}
+          <button type="button" onClick={handleSkip} disabled={busy} style={styles.skipButton}>{phase === 'intake' && !aiEnabled ? 'Aucune autre prise' : 'Passer cette question'}</button>
+          <button type="button" onClick={handleNext} disabled={nextDisabled} style={{ ...styles.nextButton, ...(nextDisabled ? styles.disabledButton : {}) }}>
+            {nextLabel} →
           </button>
         </div>
       </main>
@@ -679,12 +1092,14 @@ const styles: Record<string, React.CSSProperties> = {
   stateLabel: { color: '#765800', fontSize: '0.95rem', fontWeight: 600 },
   questionCard: { padding: '1rem 1.1rem', background: '#fff', border: '1px solid #f1d681', borderRadius: 10, boxShadow: '0 6px 20px rgba(120,88,0,0.08)' },
   questionKicker: { display: 'block', marginBottom: '0.35rem', color: '#a87900', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' },
+  intro: { margin: '0 0 0.7rem', color: '#5c4a12', fontSize: '0.95rem', lineHeight: 1.5, fontStyle: 'italic' },
+  summaryRow: { display: 'grid', gridTemplateColumns: 'minmax(90px, 0.35fr) 1fr', gap: '0.5rem', fontSize: '0.9rem', lineHeight: 1.4 },
+  shortcutButton: { marginTop: '0.6rem', minHeight: 44, padding: '0.55rem 0.8rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
   question: { margin: 0, fontSize: '1.1rem', lineHeight: 1.45, overflowWrap: 'break-word' },
   presetCard: { display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.75rem', padding: '0.9rem', border: '1px solid #ead9a2', borderRadius: 8, background: '#fffdf6' },
   presetHeading: { margin: 0, color: '#765800', fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.45 },
   presetGroup: { display: 'flex', flexDirection: 'column', gap: '0.45rem', margin: 0, padding: '0.65rem', border: '1px solid #eee4c5', borderRadius: 6, background: '#fff' },
   presetOption: { display: 'flex', alignItems: 'flex-start', gap: '0.55rem', fontSize: '0.9rem', lineHeight: 1.4, cursor: 'pointer' },
-  presetRow: { display: 'grid', gap: '0.35rem', padding: '0.65rem 0', borderTop: '1px solid #eee4c5' },
   parentOccupation: { display: 'grid', gridTemplateColumns: 'minmax(115px, 0.6fr) minmax(130px, 1fr)', alignItems: 'center', gap: '0.5rem' },
   fieldLabel: { display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.9rem', fontWeight: 700 },
   textInput: { width: '100%', minHeight: 40, padding: '0.5rem 0.6rem', boxSizing: 'border-box', border: '1px solid #c8b879', borderRadius: 6, background: '#fff', color: '#332d1c', font: 'inherit' },
@@ -701,7 +1116,16 @@ const styles: Record<string, React.CSSProperties> = {
   errorMessage: { margin: '0.5rem 0', color: '#a52a20', fontSize: '0.9rem', lineHeight: 1.4, textAlign: 'center' },
   micButton: { width: '100%', marginTop: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.7rem', minHeight: 56, border: 0, borderRadius: 10, background: '#332d1c', color: '#fff', fontSize: '1rem', fontWeight: 800, cursor: 'pointer' },
   micButtonActive: { background: '#c83f32', boxShadow: '0 0 0 8px rgba(200,63,50,0.14)' },
-  micIcon: { fontSize: '1.25rem' },
+  micButtonDisabled: { opacity: 0.6, cursor: 'not-allowed' },
+  micIcon: { display: 'flex', alignItems: 'center' },
+  recordingPanel: { marginTop: '0.4rem', padding: '0.75rem 0.9rem', background: '#fff', border: '1px solid #f0b4ae', borderRadius: 10 },
+  recordingRow: { display: 'flex', alignItems: 'center', gap: '0.7rem' },
+  recordingDot: { width: 12, height: 12, flex: '0 0 auto', borderRadius: '50%', background: '#c83f32', animation: 'recordingPulse 1s ease-in-out infinite' },
+  recordingTimer: { flex: '0 0 auto', minWidth: 40, color: '#332d1c', fontSize: '0.95rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
+  waveform: { flex: '1 1 auto', height: 36, display: 'flex', alignItems: 'center', gap: 3 },
+  waveBar: { flex: '1 1 0', minWidth: 2, maxWidth: 6, borderRadius: 3, background: '#c83f32', transition: 'height 70ms linear' },
+  voiceHint: { display: 'block', margin: '0.5rem 0 0', color: '#765800', fontSize: '0.85rem', fontWeight: 700 },
+  voiceHintWarning: { display: 'block', margin: '0.5rem 0 0', color: '#a52a20', fontSize: '0.85rem', fontWeight: 700 },
   actions: { display: 'flex', justifyContent: 'space-between', gap: '0.6rem', marginTop: '0.6rem' },
   skipButton: { minHeight: 44, padding: '0.55rem 0.7rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
   nextButton: { flex: 1, minHeight: 44, border: 0, borderRadius: 8, background: '#ffc000', color: '#332d1c', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer' },

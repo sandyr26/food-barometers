@@ -19,9 +19,12 @@ import AdminDashboard from './pages/AdminDashboard';
 import MascotSelectionPage from './pages/MascotSelectionPage';
 import PresentationPage from './pages/PresentationPage';
 import VoiceSurveyPage from './pages/VoiceSurveyPage';
+import SurveyModePage from './pages/SurveyModePage';
+import { clearAdminToken, getAdminToken } from './adminApi';
+import { initSurveySync } from './surveySync';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
-type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'mascotSelection' | 'presentation' | 'survey' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon' | 'adminLogin' | 'adminDashboard';
+type Page = 'splash' | 'auth' | 'login' | 'register' | 'home' | 'surveyMode' | 'mascotSelection' | 'presentation' | 'survey' | 'addMeal' | 'profile' | 'notifications' | 'supplies' | 'calendar' | 'mealDetail' | 'dayMeals' | 'comingSoon' | 'adminLogin' | 'adminDashboard';
 
 interface MealData {
   id: number;
@@ -50,6 +53,8 @@ const App: React.FC = () => {
         return 'register';
       case '/home':
         return 'home';
+      case '/survey-mode':
+        return 'surveyMode';
       case '/mascot-selection':
         return 'mascotSelection';
       case '/presentation':
@@ -72,6 +77,12 @@ const App: React.FC = () => {
   const [meals, setMeals] = useState<MealData[]>([]);
   const [selectedMascot, setSelectedMascot] = useState<'boy' | 'girl' | null>(null);
   const [hasAcceptedSurveyConsent, setHasAcceptedSurveyConsent] = useState(false);
+  const [useAi, setUseAi] = useState(true);
+
+  // Flush answers saved on this device while offline
+  useEffect(() => {
+    if (authToken) initSurveySync();
+  }, [authToken]);
 
   // URL routing effect
   useEffect(() => {
@@ -139,6 +150,9 @@ const App: React.FC = () => {
       case 'home':
         url = '/home';
         break;
+      case 'surveyMode':
+        url = '/survey-mode';
+        break;
       case 'mascotSelection':
         url = '/mascot-selection';
         break;
@@ -188,6 +202,11 @@ const App: React.FC = () => {
   const handleAddMeal = (mealData: MealData) => {
     setMeals(prevMeals => [...prevMeals, mealData]);
     // Don't navigate immediately - let AddMealPage show success page first
+  };
+
+  const handleSurveyModeSelect = (withAi: boolean) => {
+    setUseAi(withAi);
+    navigateToPage(withAi ? 'mascotSelection' : 'presentation');
   };
 
   const handleMascotSelect = (mascot: 'boy' | 'girl') => {
@@ -248,10 +267,19 @@ const App: React.FC = () => {
           />
         );
 
+      case 'surveyMode':
+        return (
+          <SurveyModePage
+            onBack={() => navigateToPage('home')}
+            onSelectMode={handleSurveyModeSelect}
+            language={language}
+          />
+        );
+
       case 'mascotSelection':
         return (
           <MascotSelectionPage
-            onBack={() => navigateToPage('home')}
+            onBack={() => navigateToPage('surveyMode')}
             onSelectMascot={handleMascotSelect}
             language={language}
             authToken={authToken}
@@ -261,10 +289,11 @@ const App: React.FC = () => {
       case 'presentation':
         return (
           <PresentationPage
-            onBack={() => navigateToPage('mascotSelection')}
+            onBack={() => navigateToPage(useAi ? 'mascotSelection' : 'surveyMode')}
             onContinue={handlePresentationConsent}
             authToken={authToken}
             selectedMascot={selectedMascot ?? 'girl'}
+            audioEnabled={useAi}
           />
         );
 
@@ -304,14 +333,16 @@ const App: React.FC = () => {
           <VoiceSurveyPage
             authToken={authToken}
             selectedMascot={selectedMascot ?? 'girl'}
+            aiEnabled={useAi}
             onBack={() => handleNavigate('home')}
           />
         ) : (
           <PresentationPage
-            onBack={() => navigateToPage('mascotSelection')}
+            onBack={() => navigateToPage(useAi ? 'mascotSelection' : 'surveyMode')}
             onContinue={handlePresentationConsent}
             authToken={authToken}
             selectedMascot={selectedMascot ?? 'girl'}
+            audioEnabled={useAi}
           />
         );
 
@@ -422,10 +453,17 @@ const App: React.FC = () => {
         );
 
       case 'adminDashboard':
-        return (
+        return getAdminToken() ? (
           <AdminDashboard
-            meals={meals}
-            onLogout={() => navigateToPage('splash')}
+            onLogout={() => {
+              clearAdminToken();
+              navigateToPage('splash');
+            }}
+          />
+        ) : (
+          <AdminLoginPage
+            onLogin={() => navigateToPage('adminDashboard')}
+            onBack={() => navigateToPage('splash')}
           />
         );
 

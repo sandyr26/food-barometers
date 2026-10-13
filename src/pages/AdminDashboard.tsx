@@ -1,1662 +1,324 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Settings as SettingsIcon, Sun, Moon, User, LogOut, Globe, ArrowLeft, Eye, Download, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { Sun, Moon, LogOut, RefreshCw, Download } from 'lucide-react';
 import logo from '../assets/LOGO.png';
-import QuestionManager from './QuestionManager';
 import { getTheme, THEME_STORAGE_KEY } from '../theme';
-
-interface MealData {
-  id: number;
-  time: string;
-  name: string;
-  duration: string;
-  answers: string[];
-  method: 'text' | 'voice';
-  date: string;
-}
+import type { Theme } from '../theme';
+import { adminDownload, adminGet } from '../adminApi';
+import type { AdminQuestion, AdminSummary, AdminSurveyDetail, AdminSurveyItem } from '../adminApi';
 
 interface AdminDashboardProps {
-  meals: MealData[];
   onLogout: () => void;
 }
 
-interface DashboardStats {
-  totalMeals: number;
-  totalUsers: number;
-  averageMealDuration: number;
-  textVsVoiceRatio: { text: number; voice: number };
-  mealsByDay: { [date: string]: number };
-  mealsByType: { [name: string]: number };
-  dailyAverage: number;
+type Tab = 'overview' | 'responses' | 'questions';
+
+interface SurveyList {
+  total: number;
+  page: number;
+  limit: number;
+  items: AdminSurveyItem[];
 }
 
-const MEAL_QUESTIONS = [
-  'What time did you start your meal?',
-  'What do you call this moment?',
-  'Indicate the ingredients consumed',
-  'Was this meal cooked by yourself or by a family member?',
-  'Where did you have your meal?',
-  'Were you alone or accompanied?',
-  'Were you standing or sitting? Were you doing something else while eating?',
-  'How long did this meal last?',
-  'How does this meal differ from your eating habits?'
-];
+const PAGE_SIZE = 15;
+const REFRESH_MS = 30000;
+const formatDate = (value: string | null) => (value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
-const getDummyAnswers = (meal: MealData): string[] => {
-  const mealTime = new Date(meal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return [
-    mealTime,
-    meal.name,
-    meal.answers.join(', ') || 'No details provided',
-    'Cooked at home by a family member',
-    'At home',
-    'With family',
-    'Sitting at the table, watching TV',
-    meal.duration,
-    'No significant differences from usual habits'
-  ];
+const answerOf = (question: AdminQuestion) => {
+  const selected = Object.values(question.selections ?? {}).flat().join(', ');
+  const occupations = Object.entries(question.parentOccupations ?? {})
+    .map(([role, value]) => `${role}: ${value.notWorking ? 'ne travaille pas' : value.occupation}`)
+    .join(' · ');
+  return [selected, occupations, question.typed].filter(Boolean).join(' · ') || question.voice || '';
 };
 
-const formatAudioTime = (progress: number): string => {
-  const totalSeconds = Math.round((progress / 100) * 30);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+const StatCard: React.FC<{ theme: Theme; title: string; value: string | number; subtitle?: string; color?: string }> = ({ theme, title, value, subtitle, color }) => (
+  <div style={{ backgroundColor: theme.cardBg, borderRadius: 12, padding: '1.25rem', border: `2px solid ${color ?? theme.accent}`, boxShadow: `0 4px 20px ${theme.shadow}` }}>
+    <h3 style={{ color: color ?? theme.accent, fontSize: '0.95rem', margin: '0 0 0.4rem', fontWeight: 600 }}>{title}</h3>
+    <div style={{ color: theme.textPrimary, fontSize: '1.9rem', fontWeight: 700 }}>{value}</div>
+    {subtitle && <p style={{ color: theme.textSecondary, fontSize: '0.85rem', margin: '0.3rem 0 0' }}>{subtitle}</p>}
+  </div>
+);
+
+const Bars: React.FC<{ theme: Theme; rows: { label: string; value: number }[]; max?: number }> = ({ theme, rows, max }) => {
+  const top = max ?? Math.max(1, ...rows.map(row => row.value));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      {rows.map(row => (
+        <div key={row.label} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px, 220px) 1fr 40px', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ color: theme.textPrimary, fontSize: '0.85rem' }}>{row.label}</span>
+          <div style={{ height: 16, backgroundColor: theme.barBg, borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(row.value / top) * 100}%`, backgroundColor: theme.accent }} />
+          </div>
+          <span style={{ color: theme.textSecondary, fontSize: '0.85rem', textAlign: 'right' }}>{row.value}</span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
-const MEALS_PER_PAGE = 10;
-
-const DUMMY_MEALS: MealData[] = [
-  { id: 1, time: '2026-02-16T07:30:00', name: 'Breakfast', duration: '20 min', answers: ['Toast', 'Orange juice', 'Butter'], method: 'text', date: '2026-02-16' },
-  { id: 2, time: '2026-02-16T12:15:00', name: 'Lunch', duration: '35 min', answers: ['Rice', 'Grilled chicken', 'Salad'], method: 'text', date: '2026-02-16' },
-  { id: 3, time: '2026-02-16T19:00:00', name: 'Dinner', duration: '40 min', answers: ['Fish curry', 'Roti', 'Lentils'], method: 'voice', date: '2026-02-16' },
-  { id: 4, time: '2026-02-17T08:00:00', name: 'Breakfast', duration: '15 min', answers: ['Cereal', 'Milk', 'Banana'], method: 'text', date: '2026-02-17' },
-  { id: 5, time: '2026-02-17T12:30:00', name: 'Lunch', duration: '30 min', answers: ['Pasta', 'Tomato sauce', 'Cheese'], method: 'voice', date: '2026-02-17' },
-  { id: 6, time: '2026-02-17T16:00:00', name: 'Snack', duration: '10 min', answers: ['Apple', 'Yogurt'], method: 'text', date: '2026-02-17' },
-  { id: 7, time: '2026-02-17T19:30:00', name: 'Dinner', duration: '45 min', answers: ['Biryani', 'Raita', 'Salad'], method: 'text', date: '2026-02-17' },
-  { id: 8, time: '2026-02-18T07:45:00', name: 'Breakfast', duration: '20 min', answers: ['Eggs', 'Toast', 'Coffee'], method: 'voice', date: '2026-02-18' },
-  { id: 9, time: '2026-02-18T12:00:00', name: 'Lunch', duration: '25 min', answers: ['Sandwich', 'Chips', 'Juice'], method: 'text', date: '2026-02-18' },
-  { id: 10, time: '2026-02-18T18:30:00', name: 'Dinner', duration: '35 min', answers: ['Steak', 'Mashed potatoes', 'Green beans'], method: 'text', date: '2026-02-18' },
-  { id: 11, time: '2026-02-19T08:15:00', name: 'Breakfast', duration: '15 min', answers: ['Pancakes', 'Syrup', 'Tea'], method: 'voice', date: '2026-02-19' },
-  { id: 12, time: '2026-02-19T13:00:00', name: 'Lunch', duration: '30 min', answers: ['Fried noodles', 'Vegetables', 'Soy sauce'], method: 'text', date: '2026-02-19' },
-  { id: 13, time: '2026-02-19T15:30:00', name: 'Goûter', duration: '10 min', answers: ['Biscuits', 'Tea'], method: 'text', date: '2026-02-19' },
-  { id: 14, time: '2026-02-19T19:00:00', name: 'Dinner', duration: '40 min', answers: ['Grilled fish', 'Rice', 'Chutney'], method: 'voice', date: '2026-02-19' },
-  { id: 15, time: '2026-02-20T07:30:00', name: 'Breakfast', duration: '20 min', answers: ['Oatmeal', 'Berries', 'Honey'], method: 'text', date: '2026-02-20' },
-  { id: 16, time: '2026-02-20T12:30:00', name: 'Lunch', duration: '35 min', answers: ['Dal', 'Rice', 'Pickle'], method: 'text', date: '2026-02-20' },
-  { id: 17, time: '2026-02-20T19:15:00', name: 'Dinner', duration: '30 min', answers: ['Pizza', 'Salad'], method: 'voice', date: '2026-02-20' },
-  { id: 18, time: '2026-02-21T08:00:00', name: 'Breakfast', duration: '15 min', answers: ['Croissant', 'Coffee', 'Jam'], method: 'text', date: '2026-02-21' },
-  { id: 19, time: '2026-02-21T10:30:00', name: 'Brunch', duration: '25 min', answers: ['Eggs Benedict', 'Hash browns', 'Orange juice'], method: 'text', date: '2026-02-21' },
-  { id: 20, time: '2026-02-21T13:00:00', name: 'Lunch', duration: '30 min', answers: ['Chicken wrap', 'Fries', 'Cola'], method: 'voice', date: '2026-02-21' },
-  { id: 21, time: '2026-02-21T19:00:00', name: 'Dinner', duration: '45 min', answers: ['Lamb curry', 'Naan', 'Rice'], method: 'text', date: '2026-02-21' },
-  { id: 22, time: '2026-02-22T07:45:00', name: 'Breakfast', duration: '20 min', answers: ['Smoothie bowl', 'Granola'], method: 'voice', date: '2026-02-22' },
-  { id: 23, time: '2026-02-22T12:15:00', name: 'Lunch', duration: '25 min', answers: ['Sushi', 'Miso soup', 'Green tea'], method: 'text', date: '2026-02-22' },
-  { id: 24, time: '2026-02-22T16:00:00', name: 'Apéro', duration: '15 min', answers: ['Crackers', 'Cheese', 'Wine'], method: 'text', date: '2026-02-22' },
-  { id: 25, time: '2026-02-22T19:30:00', name: 'Dinner', duration: '40 min', answers: ['Rougaille', 'Rice', 'Salad', 'Lentils'], method: 'voice', date: '2026-02-22' },
-];
-
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ meals, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'meals' | 'users' | 'analytics' | 'questions'>('overview');
-  const [fullScreenView, setFullScreenView] = useState<'settings' | 'profile' | null>(null);
-  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('fr');
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    return stored !== 'false';
-  });
-  const [viewingMeal, setViewingMeal] = useState<MealData | null>(null);
-  const [localMeals, setLocalMeals] = useState<MealData[]>(meals.length > 0 ? meals : DUMMY_MEALS);
-  const [deleteConfirmMeal, setDeleteConfirmMeal] = useState<MealData | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [audioPlaying, setAudioPlaying] = useState(false);
-  const [audioProgress, setAudioProgress] = useState(0);
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
+  const [tab, setTab] = useState<Tab>('overview');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => localStorage.getItem(THEME_STORAGE_KEY) !== 'false');
+  const [summary, setSummary] = useState<AdminSummary | null>(null);
+  const [list, setList] = useState<SurveyList | null>(null);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [detail, setDetail] = useState<AdminSurveyDetail | null>(null);
+  const [showSkipped, setShowSkipped] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   const theme = useMemo(() => getTheme(isDarkMode), [isDarkMode]);
 
-  useEffect(() => {
-    if (meals.length > 0) {
-      setLocalMeals(meals);
+  const handleFailure = useCallback((failure: unknown) => {
+    if (axios.isAxiosError(failure) && (failure.response?.status === 401 || failure.response?.status === 403)) {
+      onLogout();
+      return;
     }
-  }, [meals]);
+    setError('Unable to load data from the server.');
+  }, [onLogout]);
+
+  const load = useCallback(async () => {
+    try {
+      const query = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      if (statusFilter) query.set('status', statusFilter);
+      const [nextSummary, nextList] = await Promise.all([
+        adminGet<AdminSummary>('/summary'),
+        adminGet<SurveyList>(`/surveys?${query.toString()}`),
+      ]);
+      setSummary(nextSummary);
+      setList(nextList);
+      setError('');
+      setUpdatedAt(new Date());
+    } catch (failure) {
+      handleFailure(failure);
+    } finally {
+      setLoading(false);
+    }
+  }, [handleFailure, page, statusFilter]);
 
   useEffect(() => {
-    if (viewingMeal) {
-      setAudioPlaying(false);
-      setAudioProgress(0);
-    }
-  }, [viewingMeal]);
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (audioPlaying && audioProgress < 100) {
-      interval = setInterval(() => {
-        setAudioProgress(prev => {
-          if (prev >= 100) {
-            setAudioPlaying(false);
-            return 100;
-          }
-          return prev + 1;
-        });
-      }, 300);
-    }
+    void load();
+    const interval = setInterval(() => void load(), REFRESH_MS);
     return () => clearInterval(interval);
-  }, [audioPlaying, audioProgress]);
+  }, [load]);
 
-  const toggleTheme = () => {
-    setIsDarkMode(prev => {
-      const next = !prev;
-      localStorage.setItem(THEME_STORAGE_KEY, String(next));
-      return next;
-    });
+  const openSurvey = async (id: string) => {
+    try {
+      setDetail(await adminGet<AdminSurveyDetail>(`/surveys/${id}`));
+      setShowSkipped(false);
+    } catch (failure) {
+      handleFailure(failure);
+    }
   };
 
-  const handleExportMeal = (meal: MealData) => {
-    const exportData = {
-      ...meal,
-      exportDate: new Date().toISOString(),
-      questions: MEAL_QUESTIONS.map((q, i) => ({
-        question: q,
-        answer: getDummyAnswers(meal)[i]
-      }))
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `meal-${meal.id}-${meal.date}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const download = (path: string, filename: string) => void adminDownload(path, filename).catch(handleFailure);
+
+  const downloadDetail = () => {
+    if (!detail) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(detail, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `survey-${detail.id}.json`;
+    link.click();
     URL.revokeObjectURL(url);
   };
 
-  const handleDeleteMeal = (meal: MealData) => {
-    setLocalMeals(prev => {
-      const updated = prev.filter(m => m.id !== meal.id);
-      const newTotalPages = Math.ceil(updated.length / MEALS_PER_PAGE);
-      if (currentPage > newTotalPages && newTotalPages > 0) {
-        setCurrentPage(newTotalPages);
-      }
-      return updated;
-    });
-    setDeleteConfirmMeal(null);
-  };
+  const toggleTheme = () => setIsDarkMode(previous => {
+    localStorage.setItem(THEME_STORAGE_KEY, String(!previous));
+    return !previous;
+  });
 
-  // Calculate dashboard statistics
-  const stats: DashboardStats = useMemo(() => {
-    const totalMeals = localMeals.length;
-    const totalUsers = 156; // Simulated user count
+  const card: React.CSSProperties = { backgroundColor: theme.cardBg, borderRadius: 12, padding: '1.25rem', border: `2px solid ${theme.borderAccent}`, boxShadow: `0 4px 20px ${theme.shadow}` };
+  const button: React.CSSProperties = { backgroundColor: 'transparent', color: theme.textPrimary, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '0.45rem 0.9rem', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' };
+  const cell: React.CSSProperties = { padding: '0.6rem 0.75rem', borderBottom: `1px solid ${theme.border}`, textAlign: 'left', fontSize: '0.88rem', color: theme.textPrimary };
+  const head: React.CSSProperties = { ...cell, color: theme.textSecondary, fontWeight: 600 };
 
-    // Calculate average meal duration
-    const totalDuration = localMeals.reduce((acc, meal) => {
-      const duration = parseInt(meal.duration.replace(/\D/g, '')) || 0;
-      return acc + duration;
-    }, 0);
-    const averageMealDuration = Math.round(totalDuration / totalMeals);
+  const totals = summary?.totals;
+  const last14Days = (summary?.byDay ?? []).slice(-14).map(day => ({ label: day.date, value: day.count }));
+  const totalPages = Math.max(1, Math.ceil((list?.total ?? 0) / PAGE_SIZE));
 
-    // Calculate text vs voice ratio
-    const textMeals = localMeals.filter(meal => meal.method === 'text').length;
-    const voiceMeals = localMeals.filter(meal => meal.method === 'voice').length;
-    const textVsVoiceRatio = {
-      text: Math.round((textMeals / totalMeals) * 100),
-      voice: Math.round((voiceMeals / totalMeals) * 100)
-    };
-
-    // Group meals by day
-    const mealsByDay = localMeals.reduce((acc, meal) => {
-      const date = meal.date;
-      acc[date] = (acc[date] || 0) + 1;
-      return acc;
-    }, {} as { [date: string]: number });
-
-    // Group meals by type
-    const mealsByType = localMeals.reduce((acc, meal) => {
-      const type = meal.name.toLowerCase();
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as { [name: string]: number });
-
-    // Calculate daily average
-    const uniqueDays = Object.keys(mealsByDay).length;
-    const dailyAverage = Math.round(totalMeals / uniqueDays * 10) / 10;
-
-    return {
-      totalMeals,
-      totalUsers,
-      averageMealDuration,
-      textVsVoiceRatio,
-      mealsByDay,
-      mealsByType,
-      dailyAverage
-    };
-  }, [localMeals]);
-
-  const renderStatsCard = (title: string, value: string | number, subtitle?: string, color: string = theme.accent) => (
-    <div style={{
-      backgroundColor: theme.cardBg,
-      borderRadius: '12px',
-      padding: '1.5rem',
-      border: `2px solid ${color}`,
-      boxShadow: `0 4px 20px ${theme.shadow}`,
-      transition: 'transform 0.3s ease'
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = 'translateY(-5px)';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = 'translateY(0)';
-    }}
-    >
-      <h3 style={{
-        color: color,
-        fontSize: '1rem',
-        margin: '0 0 0.5rem 0',
-        fontWeight: '600'
-      }}>
-        {title}
-      </h3>
-      <div style={{
-        color: theme.textPrimary,
-        fontSize: '2rem',
-        fontWeight: '700',
-        margin: '0 0 0.5rem 0'
-      }}>
-        {value}
+  const renderOverview = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
+        <StatCard theme={theme} title="Surveys" value={totals?.surveys ?? 0} subtitle="Started by participants" />
+        <StatCard theme={theme} title="Completed" value={totals?.completed ?? 0} subtitle={`${totals?.completionRate ?? 0}% completion rate`} color={theme.success} />
+        <StatCard theme={theme} title="In progress" value={totals?.inProgress ?? 0} subtitle="Saved after every question" color={theme.warning} />
+        <StatCard theme={theme} title="Average duration" value={`${summary?.averages.durationMinutes ?? 0} min`} subtitle="Completed surveys" color={theme.info} />
+        <StatCard theme={theme} title="Questions answered" value={`${summary?.averages.answeredQuestions ?? 0}`} subtitle={`${totals?.answerRate ?? 0}% of all questions`} color={theme.purple} />
+        <StatCard theme={theme} title="Meals recorded" value={totals?.meals ?? 0} subtitle={`${summary?.averages.mealsPerSurvey ?? 0} per survey (yesterday recall)`} />
+        <StatCard theme={theme} title="With AI" value={totals?.withAi ?? 0} subtitle="Voice assistant" color={theme.info} />
+        <StatCard theme={theme} title="Without AI" value={totals?.withoutAi ?? 0} subtitle="Typed answers" color={theme.info} />
       </div>
-      {subtitle && (
-        <p style={{
-          color: theme.textSecondary,
-          fontSize: '0.9rem',
-          margin: 0
-        }}>
-          {subtitle}
-        </p>
-      )}
+      <div style={card}>
+        <h3 style={{ color: theme.accent, margin: '0 0 1rem', fontSize: '1.1rem' }}>Surveys started per day</h3>
+        {last14Days.length > 0 ? <Bars theme={theme} rows={last14Days} /> : <p style={{ color: theme.textSecondary, margin: 0 }}>No survey has been started yet.</p>}
+      </div>
     </div>
   );
 
-  const renderBarChart = (data: { [key: string]: number }, title: string) => {
-    const maxValue = Math.max(...Object.values(data));
-    const sortedData = Object.entries(data).sort(([,a], [,b]) => b - a).slice(0, 10);
+  const renderResponses = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+        <select
+          aria-label="Filter by status"
+          value={statusFilter}
+          onChange={event => { setStatusFilter(event.target.value); setPage(1); }}
+          style={{ ...button, backgroundColor: theme.inputBg }}
+        >
+          <option value="">All surveys</option>
+          <option value="completed">Completed</option>
+          <option value="in_progress">In progress</option>
+        </select>
+        <button type="button" style={button} onClick={() => download('/export.csv', 'surveys.csv')}><Download size={14} /> Export CSV</button>
+        <button type="button" style={button} onClick={() => download('/export.json', 'surveys.json')}><Download size={14} /> Export JSON (full data)</button>
+      </div>
+      <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>{['Started', 'Last update', 'Mode', 'Status', 'Answered', 'Meals', ''].map(label => <th key={label} style={head}>{label}</th>)}</tr>
+          </thead>
+          <tbody>
+            {(list?.items ?? []).map(item => (
+              <tr key={item.id}>
+                <td style={cell}>{formatDate(item.createdAt)}</td>
+                <td style={cell}>{formatDate(item.updatedAt)}</td>
+                <td style={cell}>{item.mode}</td>
+                <td style={{ ...cell, color: item.status === 'completed' ? theme.success : theme.warning }}>{item.status === 'completed' ? 'Completed' : 'In progress'}</td>
+                <td style={cell}>{item.answered} / {item.total}</td>
+                <td style={cell}>{item.intakes}</td>
+                <td style={cell}><button type="button" style={button} onClick={() => void openSurvey(item.id)}>View</button></td>
+              </tr>
+            ))}
+            {(list?.items.length ?? 0) === 0 && <tr><td style={{ ...cell, color: theme.textSecondary }} colSpan={7}>No survey to show.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: theme.textSecondary, fontSize: '0.85rem' }}>
+        <button type="button" style={button} disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
+        <span>Page {page} of {totalPages} ({list?.total ?? 0} surveys)</span>
+        <button type="button" style={button} disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button>
+      </div>
+    </div>
+  );
 
+  const renderQuestions = () => (
+    <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>{['Q', 'Question', 'Answered', 'Skipped', 'Rate', 'Answers given'].map(label => <th key={label} style={head}>{label}</th>)}</tr>
+        </thead>
+        <tbody>
+          {(summary?.questions ?? []).map(question => {
+            const total = question.answered + question.skipped;
+            const choices = Object.entries(question.choices).sort(([, a], [, b]) => b - a).slice(0, 6).map(([label, value]) => ({ label, value }));
+            return (
+              <tr key={question.id}>
+                <td style={cell}>{question.id}</td>
+                <td style={{ ...cell, maxWidth: 380 }}>{question.question}</td>
+                <td style={cell}>{question.answered}</td>
+                <td style={cell}>{question.skipped}</td>
+                <td style={cell}>{total ? Math.round((question.answered / total) * 100) : 0}%</td>
+                <td style={{ ...cell, minWidth: 260 }}>{choices.length > 0 ? <Bars theme={theme} rows={choices} max={question.answered} /> : <span style={{ color: theme.textMuted }}>Open answers</span>}</td>
+              </tr>
+            );
+          })}
+          {(summary?.questions.length ?? 0) === 0 && <tr><td style={{ ...cell, color: theme.textSecondary }} colSpan={6}>No answers yet.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const renderDetail = () => {
+    if (!detail) return null;
+    const questions = detail.questions.filter(question => showSkipped || question.mode !== 'skipped' || (question.aiTurns?.length ?? 0) > 0);
     return (
-      <div style={{
-        backgroundColor: theme.cardBg,
-        borderRadius: '12px',
-        padding: '1.5rem',
-        border: `2px solid ${theme.borderAccent}`,
-        boxShadow: `0 4px 20px ${theme.shadow}`
-      }}>
-        <h3 style={{
-          color: theme.accent,
-          fontSize: '1.2rem',
-          margin: '0 0 1rem 0',
-          fontWeight: '600'
-        }}>
-          {title}
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          {sortedData.map(([key, value]) => (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{
-                color: theme.textPrimary,
-                fontSize: '0.9rem',
-                minWidth: '100px',
-                textAlign: 'left',
-                textTransform: 'capitalize'
-              }}>
-                {key}
-              </div>
-              <div style={{
-                flex: 1,
-                height: '24px',
-                backgroundColor: theme.barBg,
-                borderRadius: '12px',
-                overflow: 'hidden',
-                position: 'relative'
-              }}>
-                <div style={{
-                  height: '100%',
-                  width: `${(value / maxValue) * 100}%`,
-                  backgroundColor: theme.accent,
-                  borderRadius: '12px',
-                  transition: 'width 1s ease'
-                }} />
-              </div>
-              <div style={{
-                color: theme.textSecondary,
-                fontSize: '0.9rem',
-                minWidth: '40px',
-                textAlign: 'right'
-              }}>
-                {value}
-              </div>
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: theme.overlayBg, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflowY: 'auto', padding: '2rem', zIndex: 100 }}>
+        <div style={{ ...card, width: 'min(960px, 100%)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+            <div>
+              <h2 style={{ color: theme.accent, margin: 0 }}>Survey {detail.id.slice(-6)}</h2>
+              <p style={{ color: theme.textSecondary, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>
+                {detail.mode} · {detail.status === 'completed' ? 'Completed' : 'In progress'} · started {formatDate(detail.createdAt)} · updated {formatDate(detail.updatedAt)}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <label style={{ ...button, cursor: 'pointer' }}><input type="checkbox" checked={showSkipped} onChange={event => setShowSkipped(event.target.checked)} /> Show skipped</label>
+              <button type="button" style={button} onClick={downloadDetail}><Download size={14} /> JSON</button>
+              <button type="button" style={button} onClick={() => setDetail(null)}>Close</button>
+            </div>
+          </div>
+          {questions.map(question => (
+            <div key={question.id} style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '0.75rem' }}>
+              <div style={{ color: theme.textSecondary, fontSize: '0.8rem' }}>Q{question.id} · {question.mode}</div>
+              <div style={{ color: theme.textPrimary, fontWeight: 600, margin: '0.2rem 0' }}>{question.question}</div>
+              <div style={{ color: question.mode === 'skipped' ? theme.textMuted : theme.success }}>{answerOf(question) || (question.mode === 'skipped' ? 'Skipped' : '—')}</div>
+              {(question.aiTurns ?? []).map(turn => (
+                <div key={turn.at} style={{ marginTop: '0.4rem', padding: '0.5rem 0.75rem', backgroundColor: theme.inputBg, borderRadius: 8, fontSize: '0.85rem', color: theme.textPrimary }}>
+                  <div><strong>Transcribed:</strong> {turn.transcript}</div>
+                  <div><strong>AI reply:</strong> {turn.reply}{turn.followUp ? ' (follow-up)' : ''}{turn.needsRepeat ? ' (asked to repeat)' : ''}</div>
+                </div>
+              ))}
             </div>
           ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderPieChart = (data: { text: number; voice: number }) => (
-    <div style={{
-      backgroundColor: theme.cardBg,
-      borderRadius: '12px',
-      padding: '1.5rem',
-      border: `2px solid ${theme.borderAccent}`,
-      boxShadow: `0 4px 20px ${theme.shadow}`
-    }}>
-      <h3 style={{
-        color: theme.accent,
-        fontSize: '1.2rem',
-        margin: '0 0 1rem 0',
-        fontWeight: '600'
-      }}>
-        Input Method Distribution
-      </h3>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '2rem'
-      }}>
-        <div style={{
-          width: '120px',
-          height: '120px',
-          borderRadius: '50%',
-          background: `conic-gradient(${theme.accent} 0deg ${data.text * 3.6}deg, ${theme.pieSecondary} ${data.text * 3.6}deg 360deg)`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative'
-        }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            backgroundColor: theme.pieCenter,
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: theme.textPrimary,
-            fontSize: '0.9rem',
-            fontWeight: '600'
-          }}>
-            {data.text}%
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              backgroundColor: theme.accent,
-              borderRadius: '3px'
-            }} />
-            <span style={{ color: theme.textPrimary, fontSize: '0.9rem' }}>
-              Text ({data.text}%)
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              backgroundColor: theme.pieSecondary,
-              borderRadius: '3px'
-            }} />
-            <span style={{ color: theme.textPrimary, fontSize: '0.9rem' }}>
-              Voice ({data.voice}%)
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderLineChart = (data: { [date: string]: number }) => {
-    const sortedEntries = Object.entries(data).sort(([a], [b]) => a.localeCompare(b));
-    const values = sortedEntries.map(([, value]) => value);
-    const maxValue = Math.max(...values);
-    const minValue = Math.min(...values);
-    const range = maxValue - minValue || 1;
-
-    return (
-      <div style={{
-        backgroundColor: theme.cardBg,
-        borderRadius: '12px',
-        padding: '1.5rem',
-        border: `2px solid ${theme.borderAccent}`,
-        boxShadow: `0 4px 20px ${theme.shadow}`
-      }}>
-        <h3 style={{
-          color: theme.accent,
-          fontSize: '1.2rem',
-          margin: '0 0 1rem 0',
-          fontWeight: '600'
-        }}>
-          Daily Meal Trends
-        </h3>
-        <div style={{
-          height: '200px',
-          position: 'relative',
-          backgroundColor: theme.inputBg,
-          borderRadius: '8px',
-          padding: '1rem',
-          overflow: 'hidden'
-        }}>
-          <svg width="100%" height="100%" viewBox="0 0 400 150">
-            {/* Grid lines */}
-            {[0, 1, 2, 3, 4].map(i => (
-              <line
-                key={i}
-                x1="0"
-                y1={i * 30}
-                x2="400"
-                y2={i * 30}
-                stroke={theme.barBg}
-                strokeWidth="1"
-              />
-            ))}
-
-            {/* Line chart */}
-            <polyline
-              fill="none"
-              stroke={theme.accent}
-              strokeWidth="3"
-              points={values.map((value, index) => {
-                const x = (index / (values.length - 1)) * 380 + 10;
-                const y = 140 - ((value - minValue) / range) * 120;
-                return `${x},${y}`;
-              }).join(' ')}
-            />
-
-            {/* Data points */}
-            {values.map((value, index) => {
-              const x = (index / (values.length - 1)) * 380 + 10;
-              const y = 140 - ((value - minValue) / range) * 120;
-              return (
-                <circle
-                  key={index}
-                  cx={x}
-                  cy={y}
-                  r="4"
-                  fill={theme.accent}
-                  stroke={theme.cardBg}
-                  strokeWidth="2"
-                />
-              );
-            })}
-          </svg>
+          <h3 style={{ color: theme.accent, margin: '0.5rem 0 0' }}>Yesterday's meals ({detail.intakes.length})</h3>
+          {[...detail.intakes, ...(detail.currentIntake ? [detail.currentIntake] : [])].map((intake, index) => (
+            <div key={`${intake.intake}-${index}`} style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '0.75rem', color: theme.textPrimary, fontSize: '0.88rem' }}>
+              <strong>Meal {intake.intake}{detail.currentIntake === intake ? ' (in progress)' : ''}</strong>
+              <div style={{ whiteSpace: 'pre-line' }}>{intake.text || '—'}</div>
+              {(intake.turns ?? []).map(turn => (
+                <div key={turn.at} style={{ marginTop: '0.3rem', padding: '0.4rem 0.7rem', backgroundColor: theme.inputBg, borderRadius: 8 }}>
+                  <div><strong>{turn.stage}:</strong> {turn.transcript}</div>
+                  {turn.reply && <div><strong>AI reply:</strong> {turn.reply}</div>}
+                </div>
+              ))}
+            </div>
+          ))}
+          {detail.intakes.length === 0 && !detail.currentIntake && <p style={{ color: theme.textSecondary, margin: 0 }}>No meal recorded.</p>}
         </div>
       </div>
     );
   };
 
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      backgroundColor: theme.pageBg,
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
-      {/* Header */}
-      <header style={{
-        backgroundColor: theme.cardBg,
-        borderBottom: `2px solid ${theme.borderAccent}`,
-        padding: '1rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: `0 2px 10px ${theme.shadow}`
-      }}>
+    <div style={{ width: '100vw', height: '100vh', backgroundColor: theme.pageBg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <header style={{ backgroundColor: theme.cardBg, borderBottom: `2px solid ${theme.borderAccent}`, padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            backgroundColor: 'white',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: `2px solid ${theme.borderAccent}`
-          }}>
-            <img src={logo} alt="Logo" style={{
-              width: '100%',
-              height: '100%',
-              borderRadius: '50%',
-              objectFit: 'cover'
-            }} />
-          </div>
-          <h1 style={{
-            color: theme.accent,
-            fontSize: '1.5rem',
-            fontWeight: '700',
-            margin: 0
-          }}>
-            Food Barometer Admin
-          </h1>
+          <img src={logo} alt="Logo" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', backgroundColor: 'white' }} />
+          <h1 style={{ color: theme.accent, fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>Food Barometer Admin</h1>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button
-            onClick={() => {
-              setFullScreenView('settings');
-            }}
-            title="Settings"
-            style={{
-              backgroundColor: 'transparent',
-              color: theme.textSecondary,
-              border: `2px solid ${theme.textSecondary}`,
-              borderRadius: '50%',
-              padding: '0.5rem',
-              width: '36px',
-              height: '36px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease',
-            }}
-          >
-            <SettingsIcon size={20} />
-          </button>
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowAvatarMenu(prev => !prev)}
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '50%',
-                backgroundColor: theme.accent,
-                color: theme.textOnAccent,
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'opacity 0.3s ease',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-            >
-              <span style={{ fontSize: '0.85rem', fontWeight: '700', lineHeight: 1 }}>SR</span>
-            </button>
-
-            {showAvatarMenu && (
-              <>
-                <div
-                  onClick={() => setShowAvatarMenu(false)}
-                  style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    zIndex: 49,
-                  }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
-                  backgroundColor: theme.cardBg,
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: '8px',
-                  boxShadow: `0 4px 20px ${theme.shadow}`,
-                  minWidth: '160px',
-                  zIndex: 50,
-                  overflow: 'hidden',
-                }}>
-                  <button
-                    onClick={() => {
-                      setShowAvatarMenu(false);
-                      setFullScreenView('profile');
-                    }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      backgroundColor: 'transparent',
-                      color: theme.textPrimary,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      transition: 'background-color 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.inputBg; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  >
-                    <User size={16} />
-                    Profile
-                  </button>
-                  <div style={{ height: '1px', backgroundColor: theme.border }} />
-                  <button
-                    onClick={() => {
-                      setShowAvatarMenu(false);
-                      onLogout();
-                    }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      backgroundColor: 'transparent',
-                      color: theme.danger,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      transition: 'background-color 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.inputBg; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  >
-                    <LogOut size={16} />
-                    Logout
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ color: theme.textMuted, fontSize: '0.8rem' }}>{updatedAt ? `Updated ${updatedAt.toLocaleTimeString('fr-FR')}` : ''}</span>
+          <button type="button" style={button} onClick={() => void load()} aria-label="Refresh"><RefreshCw size={14} /> Refresh</button>
+          <button type="button" style={button} onClick={toggleTheme} aria-label="Toggle theme">{isDarkMode ? <Sun size={14} /> : <Moon size={14} />}</button>
+          <button type="button" style={{ ...button, color: theme.danger }} onClick={onLogout}><LogOut size={14} /> Logout</button>
         </div>
       </header>
-
-      {/* Navigation Tabs */}
-      <nav style={{
-        backgroundColor: theme.cardBg,
-        borderBottom: `1px solid ${theme.border}`,
-        padding: '0.5rem 2rem',
-        display: 'flex',
-        gap: '0.5rem',
-        alignItems: 'center'
-      }}>
-        {[
-          { key: 'overview', label: 'Overview' },
-          { key: 'meals', label: 'Meals Data' },
-          { key: 'users', label: 'User Stats' },
-          { key: 'analytics', label: 'Analytics' },
-          { key: 'questions', label: 'Questions' }
-        ].map(tab => (
+      <nav style={{ backgroundColor: theme.cardBg, borderBottom: `1px solid ${theme.border}`, padding: '0.5rem 2rem', display: 'flex', gap: '0.5rem' }}>
+        {([['overview', 'Overview'], ['responses', 'Responses'], ['questions', 'Questions']] as [Tab, string][]).map(([key, label]) => (
           <button
-            key={tab.key}
-            onClick={() => {
-              setActiveTab(tab.key as any);
-            }}
-            style={{
-              backgroundColor: activeTab === tab.key ? theme.accent : 'transparent',
-              color: activeTab === tab.key ? theme.textOnAccent : theme.textSecondary,
-              border: 'none',
-              borderRadius: '8px',
-              padding: '0.5rem 1rem',
-              fontSize: '0.9rem',
-              fontWeight: activeTab === tab.key ? '600' : '400',
-              cursor: 'pointer',
-              outline: 'none',
-              transition: 'all 0.3s ease',
-            }}
-            onMouseEnter={(e) => {
-              if (activeTab !== tab.key) {
-                e.currentTarget.style.backgroundColor = theme.inputBg;
-                e.currentTarget.style.color = theme.textPrimary;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeTab !== tab.key) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = theme.textSecondary;
-              }
-            }}
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            style={{ backgroundColor: tab === key ? theme.accent : 'transparent', color: tab === key ? theme.textOnAccent : theme.textSecondary, border: 'none', borderRadius: 8, padding: '0.5rem 1rem', fontWeight: tab === key ? 600 : 400, cursor: 'pointer' }}
           >
-            {tab.label}
+            {label}
           </button>
         ))}
       </nav>
-
-      {/* Content */}
-      <main style={{
-        flex: 1,
-        padding: '2rem',
-        overflow: 'auto'
-      }}>
-        {activeTab === 'overview' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {/* Stats Cards */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-              gap: '1.5rem'
-            }}>
-              {renderStatsCard('Total Meals', stats.totalMeals, 'Recorded entries')}
-              {renderStatsCard('Active Users', stats.totalUsers, 'Registered participants', theme.success)}
-              {renderStatsCard('Avg Duration', `${stats.averageMealDuration} min`, 'Per meal', theme.info)}
-              {renderStatsCard('Daily Average', stats.dailyAverage, 'Meals per day', theme.warning)}
-            </div>
-
-            {/* Charts */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-              gap: '2rem'
-            }}>
-              {renderPieChart(stats.textVsVoiceRatio)}
-              {renderLineChart(stats.mealsByDay)}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'meals' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {renderBarChart(stats.mealsByType, 'Meal Types Distribution')}
-
-            {/* Recent Meals Table */}
-            <div style={{
-              backgroundColor: theme.cardBg,
-              borderRadius: '12px',
-              padding: '1.5rem',
-              border: `2px solid ${theme.borderAccent}`,
-              boxShadow: `0 4px 20px ${theme.shadow}`
-            }}>
-              <h3 style={{
-                color: theme.accent,
-                fontSize: '1.2rem',
-                margin: '0 0 1rem 0',
-                fontWeight: '600'
-              }}>
-                All Meals
-              </h3>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ color: theme.accent, padding: '0.75rem', textAlign: 'left', borderBottom: `2px solid ${theme.border}`, width: '1%', whiteSpace: 'nowrap' }}>Actions</th>
-                      <th style={{ color: theme.accent, padding: '0.75rem', textAlign: 'left', borderBottom: `2px solid ${theme.border}` }}>Meal ID</th>
-                      <th style={{ color: theme.accent, padding: '0.75rem', textAlign: 'left', borderBottom: `2px solid ${theme.border}` }}>Date</th>
-                      <th style={{ color: theme.accent, padding: '0.75rem', textAlign: 'left', borderBottom: `2px solid ${theme.border}` }}>Time</th>
-                      <th style={{ color: theme.accent, padding: '0.75rem', textAlign: 'left', borderBottom: `2px solid ${theme.border}` }}>Meal</th>
-                      <th style={{ color: theme.accent, padding: '0.75rem', textAlign: 'left', borderBottom: `2px solid ${theme.border}` }}>Duration</th>
-                      <th style={{ color: theme.accent, padding: '0.75rem', textAlign: 'left', borderBottom: `2px solid ${theme.border}` }}>User ID</th>
-                      <th style={{ color: theme.accent, padding: '0.75rem', textAlign: 'left', borderBottom: `2px solid ${theme.border}` }}>Method</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const sortedMeals = [...localMeals].reverse();
-                      const paginatedMeals = sortedMeals.slice((currentPage - 1) * MEALS_PER_PAGE, currentPage * MEALS_PER_PAGE);
-                      return paginatedMeals.map(meal => (
-                      <tr key={meal.id}>
-                        <td style={{ color: theme.textPrimary, padding: '0.75rem', borderBottom: `1px solid ${theme.border}`, width: '1%', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                              onClick={() => setViewingMeal(meal)}
-                              title="View"
-                              style={{
-                                backgroundColor: theme.info,
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                padding: '0.4rem',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Eye size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleExportMeal(meal)}
-                              title="Export"
-                              style={{
-                                backgroundColor: theme.success,
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                padding: '0.4rem',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Download size={16} />
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmMeal(meal)}
-                              title="Delete"
-                              style={{
-                                backgroundColor: theme.danger,
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                padding: '0.4rem',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                        <td style={{ color: theme.textSecondary, padding: '0.75rem', borderBottom: `1px solid ${theme.border}`, fontSize: '0.85rem', fontFamily: 'monospace' }}>
-                          #{meal.id}
-                        </td>
-                        <td style={{ color: theme.textPrimary, padding: '0.75rem', borderBottom: `1px solid ${theme.border}` }}>
-                          {new Date(meal.date).toLocaleDateString()}
-                        </td>
-                        <td style={{ color: theme.textPrimary, padding: '0.75rem', borderBottom: `1px solid ${theme.border}` }}>
-                          {new Date(meal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td style={{ color: theme.textPrimary, padding: '0.75rem', borderBottom: `1px solid ${theme.border}` }}>
-                          {meal.name}
-                        </td>
-                        <td style={{ color: theme.textPrimary, padding: '0.75rem', borderBottom: `1px solid ${theme.border}` }}>
-                          {meal.duration}
-                        </td>
-                        <td style={{ color: theme.textSecondary, padding: '0.75rem', borderBottom: `1px solid ${theme.border}`, fontSize: '0.85rem', fontFamily: 'monospace' }}>
-                          USR-{meal.id.toString().padStart(4, '0')}
-                        </td>
-                        <td style={{ color: theme.textPrimary, padding: '0.75rem', borderBottom: `1px solid ${theme.border}` }}>
-                          <span style={{
-                            backgroundColor: meal.method === 'text' ? theme.success : theme.info,
-                            color: 'white',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: '12px',
-                            fontSize: '0.8rem',
-                            textTransform: 'capitalize'
-                          }}>
-                            {meal.method}
-                          </span>
-                        </td>
-                      </tr>
-                    ));
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination Controls */}
-              {(() => {
-                const totalItems = localMeals.length;
-                const totalPages = Math.ceil(totalItems / MEALS_PER_PAGE);
-                const startItem = (currentPage - 1) * MEALS_PER_PAGE + 1;
-                const endItem = Math.min(currentPage * MEALS_PER_PAGE, totalItems);
-
-                return totalPages > 1 ? (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginTop: '1.5rem',
-                    paddingTop: '1rem',
-                    borderTop: `1px solid ${theme.border}`,
-                    flexWrap: 'wrap',
-                    gap: '1rem',
-                  }}>
-                    <span style={{ color: theme.textSecondary, fontSize: '0.9rem' }}>
-                      Showing {startItem}-{endItem} of {totalItems} meals
-                    </span>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '6px',
-                          border: 'none',
-                          backgroundColor: currentPage === 1 ? theme.barBg : theme.accent,
-                          color: currentPage === 1 ? theme.textMuted : theme.textOnAccent,
-                          cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                          fontWeight: '600',
-                          fontSize: '0.85rem',
-                        }}
-                      >
-                        Previous
-                      </button>
-
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: currentPage === page ? theme.accent : 'transparent',
-                            color: currentPage === page ? theme.textOnAccent : theme.textPrimary,
-                            cursor: 'pointer',
-                            fontWeight: currentPage === page ? '700' : '400',
-                            fontSize: '0.9rem',
-                          }}
-                        >
-                          {page}
-                        </button>
-                      ))}
-
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '6px',
-                          border: 'none',
-                          backgroundColor: currentPage === totalPages ? theme.barBg : theme.accent,
-                          color: currentPage === totalPages ? theme.textMuted : theme.textOnAccent,
-                          cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                          fontWeight: '600',
-                          fontSize: '0.85rem',
-                        }}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                ) : null;
-              })()}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'users' && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '2rem'
-          }}>
-            {renderStatsCard('Total Users', 156, 'Registered accounts', theme.success)}
-            {renderStatsCard('Active Today', 23, 'Users with activity', theme.info)}
-            {renderStatsCard('New This Week', 8, 'New registrations', theme.warning)}
-            {renderStatsCard('Avg Sessions', '3.2', 'Per user per day', theme.purple)}
-          </div>
-        )}
-
-        {activeTab === 'analytics' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {renderLineChart(stats.mealsByDay)}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-              gap: '2rem'
-            }}>
-              {renderStatsCard('Completion Rate', '87%', 'Surveys completed', theme.success)}
-              {renderStatsCard('Response Time', '2.3 min', 'Average per question', theme.info)}
-              {renderStatsCard('Data Quality', '92%', 'Complete responses', theme.warning)}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'questions' && (
-          <QuestionManager theme={theme} />
+      <main style={{ flex: 1, padding: '2rem', overflow: 'auto' }}>
+        {error && <p role="alert" style={{ color: theme.danger }}>{error}</p>}
+        {loading && !summary ? <p style={{ color: theme.textSecondary }}>Loading…</p> : (
+          <>
+            {tab === 'overview' && renderOverview()}
+            {tab === 'responses' && renderResponses()}
+            {tab === 'questions' && renderQuestions()}
+          </>
         )}
       </main>
-
-      {/* Full-Screen Settings Overlay */}
-      {fullScreenView === 'settings' && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 100,
-          backgroundColor: theme.pageBg,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <header style={{
-            backgroundColor: theme.cardBg,
-            borderBottom: `2px solid ${theme.borderAccent}`,
-            padding: '1rem 2rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            boxShadow: `0 2px 10px ${theme.shadow}`,
-          }}>
-            <button
-              onClick={() => setFullScreenView(null)}
-              style={{
-                backgroundColor: 'transparent',
-                color: theme.textPrimary,
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '8px',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.inputBg; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <h1 style={{
-              color: theme.accent,
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              margin: 0,
-            }}>
-              Settings
-            </h1>
-          </header>
-
-          <div style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '2rem',
-          }}>
-            <div style={{
-              maxWidth: '600px',
-              margin: '0 auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2rem',
-            }}>
-              <div style={{
-                backgroundColor: theme.cardBg,
-                borderRadius: '12px',
-                padding: '1.5rem',
-                border: `2px solid ${theme.borderAccent}`,
-                boxShadow: `0 4px 20px ${theme.shadow}`,
-              }}>
-                <h3 style={{
-                  color: theme.accent,
-                  fontSize: '1.2rem',
-                  margin: '0 0 1.5rem 0',
-                  fontWeight: '600',
-                }}>
-                  Appearance
-                </h3>
-
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {isDarkMode ? <Moon size={20} color={theme.textPrimary} /> : <Sun size={20} color={theme.textPrimary} />}
-                    <div>
-                      <div style={{ color: theme.textPrimary, fontWeight: '600' }}>
-                        {isDarkMode ? 'Dark Mode' : 'Light Mode'}
-                      </div>
-                      <div style={{ color: theme.textSecondary, fontSize: '0.85rem' }}>
-                        {isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={toggleTheme}
-                    style={{
-                      width: '52px',
-                      height: '28px',
-                      borderRadius: '14px',
-                      border: 'none',
-                      backgroundColor: isDarkMode ? theme.accent : theme.barBg,
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.3s ease',
-                      padding: 0,
-                    }}
-                  >
-                    <div style={{
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '50%',
-                      backgroundColor: '#fff',
-                      position: 'absolute',
-                      top: '3px',
-                      left: isDarkMode ? '27px' : '3px',
-                      transition: 'left 0.3s ease',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                    }} />
-                  </button>
-                </div>
-              </div>
-
-              <div style={{
-                backgroundColor: theme.cardBg,
-                borderRadius: '12px',
-                padding: '1.5rem',
-                border: `2px solid ${theme.borderAccent}`,
-                boxShadow: `0 4px 20px ${theme.shadow}`,
-              }}>
-                <h3 style={{
-                  color: theme.accent,
-                  fontSize: '1.2rem',
-                  margin: '0 0 1.5rem 0',
-                  fontWeight: '600',
-                }}>
-                  Language
-                </h3>
-
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Globe size={20} color={theme.textPrimary} />
-                    <div>
-                      <div style={{ color: theme.textPrimary, fontWeight: '600' }}>
-                        Display Language
-                      </div>
-                      <div style={{ color: theme.textSecondary, fontSize: '0.85rem' }}>
-                        Choose your preferred language
-                      </div>
-                    </div>
-                  </div>
-
-                  <select
-                    value={selectedLanguage}
-                    onChange={(e) => setSelectedLanguage(e.target.value)}
-                    style={{
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '8px',
-                      border: `1px solid ${theme.border}`,
-                      backgroundColor: theme.inputBg,
-                      color: theme.textPrimary,
-                      fontSize: '0.9rem',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <option value="fr">Français</option>
-                    <option value="en">English</option>
-                    <option value="mfe">Kreol Morisien</option>
-                    <option value="rcf">Kreol Réyoné</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Full-Screen Profile Overlay */}
-      {fullScreenView === 'profile' && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 100,
-          backgroundColor: theme.pageBg,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <header style={{
-            backgroundColor: theme.cardBg,
-            borderBottom: `2px solid ${theme.borderAccent}`,
-            padding: '1rem 2rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            boxShadow: `0 2px 10px ${theme.shadow}`,
-          }}>
-            <button
-              onClick={() => setFullScreenView(null)}
-              style={{
-                backgroundColor: 'transparent',
-                color: theme.textPrimary,
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '8px',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.inputBg; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <h1 style={{
-              color: theme.accent,
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              margin: 0,
-            }}>
-              Profile
-            </h1>
-          </header>
-
-          <div style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '2rem',
-          }}>
-            <div style={{
-              maxWidth: '600px',
-              margin: '0 auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2rem',
-            }}>
-              {/* Avatar & Name */}
-              <div style={{
-                backgroundColor: theme.cardBg,
-                borderRadius: '12px',
-                padding: '2rem',
-                border: `2px solid ${theme.borderAccent}`,
-                boxShadow: `0 4px 20px ${theme.shadow}`,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1rem',
-              }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '50%',
-                  backgroundColor: theme.accent,
-                  color: theme.textOnAccent,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.8rem',
-                  fontWeight: '700',
-                }}>
-                  SR
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ color: theme.textPrimary, fontSize: '1.3rem', fontWeight: '700' }}>
-                    SR
-                  </div>
-                  <div style={{ color: theme.textSecondary, fontSize: '0.9rem' }}>
-                    Administrator
-                  </div>
-                </div>
-              </div>
-
-              {/* Account Info */}
-              <div style={{
-                backgroundColor: theme.cardBg,
-                borderRadius: '12px',
-                padding: '1.5rem',
-                border: `2px solid ${theme.borderAccent}`,
-                boxShadow: `0 4px 20px ${theme.shadow}`,
-              }}>
-                <h3 style={{
-                  color: theme.accent,
-                  fontSize: '1.2rem',
-                  margin: '0 0 1.5rem 0',
-                  fontWeight: '600',
-                }}>
-                  Account Information
-                </h3>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  <div>
-                    <label style={{ color: theme.textSecondary, fontSize: '0.85rem', display: 'block', marginBottom: '0.25rem' }}>
-                      Full Name
-                    </label>
-                    <div style={{
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      backgroundColor: theme.inputBg,
-                      color: theme.textPrimary,
-                      border: `1px solid ${theme.border}`,
-                    }}>
-                      SR
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ color: theme.textSecondary, fontSize: '0.85rem', display: 'block', marginBottom: '0.25rem' }}>
-                      Email
-                    </label>
-                    <div style={{
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      backgroundColor: theme.inputBg,
-                      color: theme.textPrimary,
-                      border: `1px solid ${theme.border}`,
-                    }}>
-                      admin@foodbarometer.com
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ color: theme.textSecondary, fontSize: '0.85rem', display: 'block', marginBottom: '0.25rem' }}>
-                      Role
-                    </label>
-                    <div style={{
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      backgroundColor: theme.inputBg,
-                      color: theme.textPrimary,
-                      border: `1px solid ${theme.border}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                    }}>
-                      <span style={{
-                        backgroundColor: theme.accent,
-                        color: theme.textOnAccent,
-                        padding: '0.15rem 0.5rem',
-                        borderRadius: '12px',
-                        fontSize: '0.8rem',
-                        fontWeight: '600',
-                      }}>
-                        Admin
-                      </span>
-                      Administrator
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Full-Screen Meal Detail Overlay */}
-      {viewingMeal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 100,
-          backgroundColor: theme.pageBg,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <header style={{
-            backgroundColor: theme.cardBg,
-            borderBottom: `2px solid ${theme.borderAccent}`,
-            padding: '1rem 2rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            boxShadow: `0 2px 10px ${theme.shadow}`,
-          }}>
-            <button
-              onClick={() => setViewingMeal(null)}
-              style={{
-                backgroundColor: 'transparent',
-                color: theme.textPrimary,
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '8px',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.inputBg; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <h1 style={{
-              color: theme.accent,
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              margin: 0,
-            }}>
-              Meal Details
-            </h1>
-          </header>
-
-          <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
-            <div style={{
-              maxWidth: '700px',
-              margin: '0 auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2rem',
-            }}>
-              {/* Meal Summary Card */}
-              <div style={{
-                backgroundColor: theme.cardBg,
-                borderRadius: '12px',
-                padding: '1.5rem',
-                border: `2px solid ${theme.borderAccent}`,
-                boxShadow: `0 4px 20px ${theme.shadow}`,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                  <div>
-                    <h2 style={{ color: theme.textPrimary, margin: '0 0 0.5rem 0', fontSize: '1.4rem' }}>
-                      {viewingMeal.name}
-                    </h2>
-                    <p style={{ color: theme.textSecondary, margin: '0 0 0.25rem 0' }}>
-                      {new Date(viewingMeal.date).toLocaleDateString()} at {new Date(viewingMeal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                    <p style={{ color: theme.textSecondary, margin: 0 }}>
-                      Duration: {viewingMeal.duration}
-                    </p>
-                    <p style={{ color: theme.textSecondary, margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>
-                      User ID: USR-{viewingMeal.id.toString().padStart(4, '0')}
-                    </p>
-                  </div>
-                  <span style={{
-                    backgroundColor: viewingMeal.method === 'text' ? theme.success : theme.info,
-                    color: 'white',
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: '12px',
-                    fontSize: '0.85rem',
-                    textTransform: 'capitalize',
-                    fontWeight: '600',
-                  }}>
-                    {viewingMeal.method}
-                  </span>
-                </div>
-              </div>
-
-              {/* Text method: Q&A Section */}
-              {viewingMeal.method === 'text' ? (
-                <div style={{
-                  backgroundColor: theme.cardBg,
-                  borderRadius: '12px',
-                  padding: '1.5rem',
-                  border: `2px solid ${theme.borderAccent}`,
-                  boxShadow: `0 4px 20px ${theme.shadow}`,
-                }}>
-                  <h3 style={{ color: theme.accent, fontSize: '1.2rem', margin: '0 0 1.5rem 0', fontWeight: '600' }}>
-                    Detailed Answers
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {MEAL_QUESTIONS.map((question, index) => {
-                      const answers = getDummyAnswers(viewingMeal);
-                      return (
-                        <div key={index} style={{
-                          padding: '1rem',
-                          backgroundColor: theme.inputBg,
-                          borderRadius: '8px',
-                          border: `1px solid ${theme.border}`,
-                        }}>
-                          <div style={{
-                            fontSize: '0.85rem',
-                            color: theme.accent,
-                            marginBottom: '0.5rem',
-                            fontWeight: '600',
-                          }}>
-                            Q{index + 1}: {question}
-                          </div>
-                          <div style={{
-                            fontSize: '0.95rem',
-                            color: theme.textPrimary,
-                            lineHeight: '1.4',
-                          }}>
-                            {answers[index]}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                /* Voice method: Audio Player */
-                <div style={{
-                  backgroundColor: theme.cardBg,
-                  borderRadius: '12px',
-                  padding: '1.5rem',
-                  border: `2px solid ${theme.borderAccent}`,
-                  boxShadow: `0 4px 20px ${theme.shadow}`,
-                }}>
-                  <h3 style={{ color: theme.accent, fontSize: '1.2rem', margin: '0 0 1.5rem 0', fontWeight: '600' }}>
-                    Voice Recording
-                  </h3>
-
-                  {/* Waveform visualization */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '3px',
-                    height: '60px',
-                    marginBottom: '1.5rem',
-                  }}>
-                    {Array.from({ length: 40 }, (_, i) => {
-                      const height = 15 + Math.sin(i * 0.5) * 20 + ((i * 7 + 3) % 15);
-                      const isPlayed = (i / 40) * 100 <= audioProgress;
-                      return (
-                        <div key={i} style={{
-                          width: '4px',
-                          height: `${height}px`,
-                          backgroundColor: isPlayed ? theme.accent : theme.barBg,
-                          borderRadius: '2px',
-                          transition: 'background-color 0.2s ease',
-                        }} />
-                      );
-                    })}
-                  </div>
-
-                  {/* Controls row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <button
-                      onClick={() => {
-                        if (audioProgress >= 100) {
-                          setAudioProgress(0);
-                        }
-                        setAudioPlaying(!audioPlaying);
-                      }}
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '50%',
-                        backgroundColor: theme.accent,
-                        color: theme.textOnAccent,
-                        border: 'none',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.2rem',
-                        fontWeight: '700',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {audioPlaying ? '\u23F8' : '\u25B6'}
-                    </button>
-
-                    <div
-                      style={{ flex: 1, cursor: 'pointer' }}
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const pct = ((e.clientX - rect.left) / rect.width) * 100;
-                        setAudioProgress(Math.min(100, Math.max(0, pct)));
-                      }}
-                    >
-                      <div style={{
-                        height: '6px',
-                        backgroundColor: theme.barBg,
-                        borderRadius: '3px',
-                        overflow: 'hidden',
-                      }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${audioProgress}%`,
-                          backgroundColor: theme.accent,
-                          borderRadius: '3px',
-                          transition: 'width 0.1s linear',
-                        }} />
-                      </div>
-                    </div>
-
-                    <div style={{
-                      color: theme.textSecondary,
-                      fontSize: '0.85rem',
-                      minWidth: '80px',
-                      textAlign: 'right',
-                      fontFamily: 'monospace',
-                    }}>
-                      {formatAudioTime(audioProgress)} / 0:30
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Meal Confirmation */}
-      {deleteConfirmMeal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: theme.overlayBg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 200,
-        }}>
-          <div style={{
-            backgroundColor: theme.cardBg,
-            borderRadius: '12px',
-            padding: '2rem',
-            border: `2px solid ${theme.danger}`,
-            maxWidth: '400px',
-          }}>
-            <h3 style={{ color: theme.danger, margin: '0 0 1rem 0' }}>Delete Meal</h3>
-            <p style={{ color: theme.textPrimary, margin: '0 0 2rem 0' }}>
-              Are you sure you want to delete &quot;{deleteConfirmMeal.name}&quot; from {new Date(deleteConfirmMeal.date).toLocaleDateString()}? This action cannot be undone.
-            </p>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setDeleteConfirmMeal(null)}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '6px',
-                  border: `2px solid ${theme.textMuted}`,
-                  backgroundColor: 'transparent',
-                  color: theme.textMuted,
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDeleteMeal(deleteConfirmMeal)}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: theme.danger,
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {renderDetail()}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import logo from '../assets/LOGO.png';
 import BackButton from '../components/BackButton';
+import { adminLogin } from '../adminApi';
 
 interface AdminLoginPageProps {
   onLogin: () => void;
@@ -18,17 +19,13 @@ const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onLogin, onBack }) => {
     setError('');
     setIsLoading(true);
 
-    // Simple admin credentials validation
-    if (username === 'admin' && password === 'admin123') {
-      setTimeout(() => {
-        setIsLoading(false);
-        onLogin();
-      }, 1000);
-    } else {
-      setTimeout(() => {
-        setIsLoading(false);
-        setError('Invalid username or password');
-      }, 1000);
+    try {
+      await adminLogin(username, password);
+      onLogin();
+    } catch {
+      setError('Invalid username or password');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -214,21 +211,6 @@ const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onLogin, onBack }) => {
           {isLoading ? 'Signing In...' : 'Sign In'}
         </button>
       </form>
-
-      {/* Demo credentials info */}
-      <div style={{
-        marginTop: '2rem',
-        padding: '1rem',
-        backgroundColor: 'rgba(255,192,0,0.1)',
-        borderRadius: '8px',
-        border: '1px solid rgba(255,192,0,0.3)',
-        fontSize: '0.9rem',
-        color: '#ffc000'
-      }}>
-        <strong>Demo Credentials:</strong><br />
-        Username: admin<br />
-        Password: admin123
-      </div>
 
       <style>
         {`

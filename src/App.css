@@ -53,6 +53,11 @@ body {
   to { transform: scale(1.02) rotate(2deg); }
 }
 
+@keyframes recordingPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
 /* Page content */
 .page-content {
   padding: 1rem;

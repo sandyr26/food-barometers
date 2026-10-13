@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadNarration } from '../narration';
 import BackButton from '../components/BackButton';
+import { CONSENT_PAUSE_MS, aiConsentQuestion, consentIntroSpeech, consentParagraphs, consentQuestionSpeech, declineMessage } from '../surveyConfig';
 
 interface PresentationPageProps {
   onBack: () => void;
   onContinue: (accepted: boolean) => void;
   authToken: string | null;
   selectedMascot: 'boy' | 'girl';
+  audioEnabled?: boolean;
 }
 
 const paragraphs = [
@@ -55,40 +57,68 @@ const playAudioBlob = (
   });
 };
 
-const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue, authToken, selectedMascot }) => {
+const playSequence = (
+  blobs: Blob[],
+  audioRef: React.RefObject<HTMLAudioElement | null>,
+  audioUrlRef: React.RefObject<string | null>,
+  timerRef: React.RefObject<number | undefined>,
+  onDone: () => void,
+  onError: () => void,
+  index = 0
+) => {
+  playAudioBlob(
+    blobs[index],
+    audioRef,
+    audioUrlRef,
+    () => {
+      if (index + 1 >= blobs.length) {
+        onDone();
+        return;
+      }
+      timerRef.current = window.setTimeout(() => playSequence(blobs, audioRef, audioUrlRef, timerRef, onDone, onError, index + 1), CONSENT_PAUSE_MS);
+    },
+    onError
+  );
+};
+
+const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue, authToken, selectedMascot, audioEnabled = true }) => {
   const [participation, setParticipation] = useState<'yes' | 'no' | ''>('');
+  const [declined, setDeclined] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(true);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [speechError, setSpeechError] = useState('');
-  const audioBlobRef = useRef<Blob | null>(null);
+  const audioBlobsRef = useRef<Blob[]>([]);
+  const pauseTimerRef = useRef<number | undefined>(undefined);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
-  const speechText = [
-    'Présentation.',
-    'Bonjour,',
-    ...paragraphs,
-    'Le questionnaire dure environ 30 minutes.',
-    consentQuestion,
-    yesOption,
-    noOption,
-  ].join('\n\n');
+  const shownParagraphs = audioEnabled ? consentParagraphs(selectedMascot).slice(1) : paragraphs;
+  const shownQuestion = audioEnabled ? aiConsentQuestion : consentQuestion;
 
   useEffect(() => {
+    if (!audioEnabled) {
+      setIsLoadingAudio(false);
+      return;
+    }
+
     const controller = new AbortController();
     let cancelled = false;
 
     const loadAndPlay = async () => {
       try {
-        const audio = await loadNarration(speechText, 'fr', selectedMascot, authToken, controller.signal);
+        const blobs = await Promise.all([
+          loadNarration(consentIntroSpeech(selectedMascot), 'fr', selectedMascot, authToken, controller.signal),
+          loadNarration(consentQuestionSpeech, 'fr', selectedMascot, authToken, controller.signal),
+        ]);
         if (cancelled) return;
 
-        audioBlobRef.current = audio;
+        audioBlobsRef.current = blobs;
         setIsLoadingAudio(false);
         setIsPlayingAudio(true);
-        playAudioBlob(
-          audio,
+        playSequence(
+          blobs,
           audioRef,
           audioUrlRef,
+          pauseTimerRef,
           () => setIsPlayingAudio(false),
           () => {
             setIsPlayingAudio(false);
@@ -107,21 +137,37 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
     return () => {
       cancelled = true;
       controller.abort();
+      window.clearTimeout(pauseTimerRef.current);
       audioRef.current?.pause();
       audioRef.current = null;
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     };
-  }, [authToken, selectedMascot, speechText]);
+  }, [audioEnabled, authToken, selectedMascot]);
+
+  const handleContinue = () => {
+    if (participation === 'yes') {
+      onContinue(true);
+      return;
+    }
+    setDeclined(true);
+    if (!audioEnabled) return;
+    window.clearTimeout(pauseTimerRef.current);
+    audioRef.current?.pause();
+    void loadNarration(declineMessage, 'fr', selectedMascot, authToken)
+      .then(blob => playAudioBlob(blob, audioRef, audioUrlRef, () => {}, () => {}))
+      .catch(() => {});
+  };
 
   const replayPresentation = () => {
-    if (!audioBlobRef.current) return;
+    if (audioBlobsRef.current.length === 0) return;
     setSpeechError('');
     setIsPlayingAudio(true);
-    playAudioBlob(
-      audioBlobRef.current,
+    playSequence(
+      audioBlobsRef.current,
       audioRef,
       audioUrlRef,
+      pauseTimerRef,
       () => setIsPlayingAudio(false),
       () => {
         setIsPlayingAudio(false);
@@ -138,19 +184,27 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
         <span style={styles.headerSpacer} aria-hidden="true" />
       </header>
 
+      {declined ? (
+        <main style={styles.main}>
+          <article style={styles.content}>
+            <h2 style={styles.greeting}>{declineMessage}</h2>
+            <button type="button" onClick={() => onContinue(false)} style={styles.continueButton}>Retour à l’accueil</button>
+          </article>
+        </main>
+      ) : (
       <main style={styles.main}>
         <article style={styles.content}>
           <h2 style={styles.greeting}>Bonjour,</h2>
-          <button type="button" onClick={replayPresentation} disabled={isLoadingAudio || isPlayingAudio || !audioBlobRef.current} style={styles.audioButton}>
+          {audioEnabled && <button type="button" onClick={replayPresentation} disabled={isLoadingAudio || isPlayingAudio || !audioBlobsRef.current.length} style={styles.audioButton}>
             {isLoadingAudio ? 'Préparation de la lecture…' : isPlayingAudio ? 'Lecture en cours…' : 'Réécouter la présentation'}
-          </button>
+          </button>}
           {speechError && <p role="status" style={styles.speechError}>{speechError}</p>}
-          {paragraphs.map(paragraph => <p key={paragraph} style={styles.paragraph}>{paragraph}</p>)}
-          <p style={styles.duration}><strong>Le questionnaire dure environ 30 minutes.</strong></p>
+          {shownParagraphs.map(paragraph => <p key={paragraph} style={styles.paragraph}>{paragraph}</p>)}
+          {!audioEnabled && <p style={styles.duration}><strong>Le questionnaire dure environ 30 minutes.</strong></p>}
 
           <fieldset style={styles.consent}>
             <legend style={styles.question}>
-              {consentQuestion}
+              {shownQuestion}
             </legend>
             <label style={styles.option}>
               <input
@@ -177,13 +231,14 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
           <button
             type="button"
             disabled={!participation}
-            onClick={() => onContinue(participation === 'yes')}
+            onClick={handleContinue}
             style={{ ...styles.continueButton, ...(!participation ? styles.disabledButton : {}) }}
           >
             {participation === 'no' ? 'Terminer' : 'Continuer'}
           </button>
         </article>
       </main>
+      )}
     </div>
   );
 };

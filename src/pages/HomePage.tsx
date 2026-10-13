@@ -7,6 +7,7 @@ type Page =
   | "auth"
   | "register"
   | "home"
+  | "surveyMode"
   | "mascotSelection"
   | "addMeal"
   | "profile"
@@ -23,25 +24,25 @@ const translations = {
   fr: {
     welcome: "Bienvenue sur FOOD BAROMETER",
     recurrentSurvey: "Enquête récurrente",
-    recurrentSurveyAI: "Enquête récurrente AI",
+    recurrentSurveyAI: "Enquête récurrente",
     focus: "Focus"
   },
   en: {
     welcome: "Welcome to FOOD BAROMETER",
     recurrentSurvey: "Recurrent Survey",
-    recurrentSurveyAI: "Recurrent Survey AI",
+    recurrentSurveyAI: "Recurrent Survey",
     focus: "Focus"
   },
   mfe: {
     welcome: "Byenvini lor FOOD BAROMETER",
     recurrentSurvey: "Ankyet Rekirant",
-    recurrentSurveyAI: "Ankyet Rekirant AI",
+    recurrentSurveyAI: "Ankyet Rekirant",
     focus: "Fokis"
   },
   rcf: {
     welcome: "Byenvini lor FOOD BAROMETER",
     recurrentSurvey: "Ankèt Rékiran",
-    recurrentSurveyAI: "Ankèt Rékiran AI",
+    recurrentSurveyAI: "Ankèt Rékiran",
     focus: "Fokis"
   }
 };
@@ -175,7 +176,7 @@ const HomePage: React.FC<HomePageProps> = ({
         </button>
 
         <button
-          onClick={() => onNavigate('mascotSelection')}
+          onClick={() => onNavigate('surveyMode')}
           style={{
             backgroundColor: '#333',
             color: 'white',
