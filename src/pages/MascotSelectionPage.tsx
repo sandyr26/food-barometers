@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadNarration, preloadNarration } from '../narration';
 import BackButton from '../components/BackButton';
-import mascotteGirl from '../assets/Mascotte1.png';
+import mascotteGirl from '../assets/mascotte-girl.png';
 import mascotteBoy from '../assets/mascotte-boy.png';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
