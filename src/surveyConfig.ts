@@ -34,6 +34,7 @@ export interface SurveyStep {
   maxFollowUps: number;
   numeric?: { min: number; max: number; message: string };
   allowedValues?: string[];
+  list?: { max: number };
   skipIf?: (get: AnswerLookup) => boolean;
 }
 
@@ -86,7 +87,8 @@ export const consentParagraphs = (mascot: Mascot) => [
 ];
 
 export const consentIntroSpeech = (mascot: Mascot) => consentParagraphs(mascot).join('\n\n');
-export const consentQuestionSpeech = [aiConsentQuestion, consentYesOption, consentNoOption].join('\n\n');
+// The voice spells "OR-ALIM" letter by letter, so the spoken text writes the name as one word.
+export const consentQuestionSpeech = [aiConsentQuestion.replace('OR-ALIM', 'ORALIM'), consentYesOption, consentNoOption].join('\n\n');
 export const CONSENT_PAUSE_MS = 2000;
 
 const NOT_CONSUMED = 'Je n’en consomme pas';
@@ -137,7 +139,8 @@ const answeredNo = (answer: AnswerLite | undefined) => Boolean(answer && answer.
 
 const notConsumed = (get: AnswerLookup, key: string) => Boolean(get(`11${key}`)?.selections[`q11${key}`]?.includes(NOT_CONSUMED));
 
-const listGuidance = 'Recueillir les éléments cités. L’objectif est d’obtenir jusqu’à trois éléments. Si moins de trois sont cités, c’est une relance (followUp=true) : demander si le répondant souhaite en ajouter. Si plus de trois sont cités spontanément, c’est aussi une relance (followUp=true) : lui demander lesquels il souhaite retenir parmi les trois, sans sélectionner à sa place. Une fois trois éléments obtenus, ne plus relancer.';
+const listGuidance = 'Recueillir les éléments cités : un seul suffit, c’est une réponse valide (relevant=true). L’objectif est d’en obtenir jusqu’à trois. Si moins de trois sont cités, c’est une relance (followUp=true) : demander si le répondant souhaite en ajouter, sans jamais l’exiger. Si le répondant dit qu’il n’a rien à ajouter (par exemple « non » ou « c’est tout »), garder sa réponse telle quelle avec relevant=true et followUp=false, et simplement accuser réception. Si plus de trois sont cités spontanément, c’est aussi une relance (followUp=true) : lui demander lesquels il souhaite retenir parmi les trois, sans sélectionner à sa place. Une fois trois éléments obtenus, ne plus relancer.';
+const listRules: Partial<SurveyStep> = { maxFollowUps: 2, list: { max: 3 } };
 const openGuidance = 'Recueillir la réponse telle qu’elle est formulée par le répondant. Si la réponse est très courte, vague ou difficile à comprendre, effectuer une seule relance neutre : « Tu peux m’en dire un peu plus ? ». Ne pas interpréter, catégoriser, compléter ou suggérer de réponse.';
 
 const single = (id: string, number: number, text: string, options: string[], expected: string, guidance: string, extra: Partial<SurveyStep> = {}): SurveyStep => ({
@@ -203,8 +206,8 @@ export const surveySteps: SurveyStep[] = [
   })),
   open('15', 15, 'Pour toi, qu’est-ce que ça veut dire « bien manger » ? Dis-le avec tes propres mots.', 'Représentation personnelle de « bien manger »', `${openGuidance} Relance possible : « Qu’est-ce que tu veux dire par là ? ».`, { maxFollowUps: 1 }),
   open('16', 16, 'Pour toi, qu’est-ce qu’il y a dans un « bon repas » ?', 'Composition d’un « bon repas » selon le répondant', `${openGuidance} Relance possible : « Tu peux m’en dire un peu plus ? Qu’est-ce qu’il y aurait dans ce repas ? ».`, { maxFollowUps: 1 }),
-  open('17', 17, 'Selon toi, y a-t-il des aliments qui sont bons pour la santé ? Si oui, peux-tu m’en citer jusqu’à trois ?', 'Jusqu’à 3 aliments considérés comme bons pour la santé', listGuidance, { maxFollowUps: 2 }),
-  open('18', 18, 'Selon toi, y a-t-il des aliments qu’il faut limiter pour la santé ? Si oui, peux-tu m’en citer jusqu’à trois ?', 'Jusqu’à 3 aliments dont la consommation devrait être limitée pour la santé', listGuidance, { maxFollowUps: 2 }),
+  open('17', 17, 'Selon toi, y a-t-il des aliments qui sont bons pour la santé ? Si oui, peux-tu m’en citer jusqu’à trois ?', 'Jusqu’à 3 aliments considérés comme bons pour la santé', listGuidance, listRules),
+  open('18', 18, 'Selon toi, y a-t-il des aliments qu’il faut limiter pour la santé ? Si oui, peux-tu m’en citer jusqu’à trois ?', 'Jusqu’à 3 aliments dont la consommation devrait être limitée pour la santé', listGuidance, listRules),
   {
     id: '19', number: 19, label: '19', text: 'Quand tu fais un choix important, notamment sur ce que tu manges, quelles sont les personnes ou les sources dont l’avis compte le plus pour toi ? Par exemple : tes camarades, ta famille ou tes parents, les réseaux sociaux, les coachs sportifs, les professionnels de santé, toi-même, ou une autre personne ou source. Choisis-en jusqu’à trois et classe-les.', ui: 'ranking',
     hint: 'Classe jusqu’à trois réponses, de la plus importante à la moins importante.',
@@ -214,9 +217,9 @@ export const surveySteps: SurveyStep[] = [
     guidance: 'Recueillir jusqu’à trois réponses et leur classement (rang 1 = la plus importante). Si plusieurs réponses sont citées sans ordre de priorité, demander au répondant de les classer de la plus importante à la moins importante. Si « Autre » est choisi, demander de préciser. Ne jamais établir le classement à la place du répondant.',
     maxFollowUps: 2,
   },
-  open('20', 20, 'Cite jusqu’à trois plats ou aliments que tu aimes et qui sont faits maison par tes proches.', 'Jusqu’à 3 plats ou aliments appréciés, faits maison par les proches', listGuidance, { maxFollowUps: 2 }),
-  open('21', 21, 'Cite jusqu’à trois plats ou aliments que tu aimes et que tu achètes à l’extérieur.', 'Jusqu’à 3 plats ou aliments appréciés, achetés à l’extérieur', listGuidance, { maxFollowUps: 2 }),
-  open('22', 22, 'Cite jusqu’à trois boissons que tu aimes.', 'Jusqu’à 3 boissons appréciées', listGuidance.replace(/éléments/g, 'boissons'), { maxFollowUps: 2 }),
+  open('20', 20, 'Cite jusqu’à trois plats ou aliments que tu aimes et qui sont faits maison par tes proches.', 'Jusqu’à 3 plats ou aliments appréciés, faits maison par les proches', listGuidance, listRules),
+  open('21', 21, 'Cite jusqu’à trois plats ou aliments que tu aimes et que tu achètes à l’extérieur.', 'Jusqu’à 3 plats ou aliments appréciés, achetés à l’extérieur', listGuidance, listRules),
+  open('22', 22, 'Cite jusqu’à trois boissons que tu aimes.', 'Jusqu’à 3 boissons appréciées', listGuidance.replace(/éléments/g, 'boissons'), listRules),
   single('23', 23, 'Est-ce que tu manges à la cantine ?', yesNo, 'Fréquentation de la cantine', 'Si oui : poser les questions 24 à 26. Si non : passer directement à la question 27.'),
   single('24', 24, 'En général, comment trouves-tu les repas proposés à la cantine : très bons, plutôt bons, plutôt pas bons ou pas bons du tout ?', ['Très bons', 'Plutôt bons', 'Plutôt pas bons', 'Pas bons du tout'], 'Appréciation des repas de la cantine', 'Recueillir une réponse parmi les quatre modalités. Si la réponse ne correspond pas clairement à une modalité, rappeler les quatre choix et demander d’en choisir un.', { skipIf: get => answeredNo(get('23')) }),
   single('25', 25, 'Dirais-tu que la cantine est un lieu où tu passes un bon moment avec des amis ?', ['Tout à fait d’accord', 'Plutôt d’accord', 'Plutôt pas d’accord', 'Pas d’accord'], 'Perception de la cantine comme moment partagé avec des amis', 'Recueillir une réponse parmi les quatre modalités. Si la réponse ne correspond pas clairement à une modalité, rappeler les quatre choix et demander d’en choisir un.', { skipIf: get => answeredNo(get('23')) }),

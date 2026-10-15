@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { FaCircleArrowLeft, FaForwardStep } from 'react-icons/fa6';
 import { api } from '../api';
 import { loadNarration, preloadNarration } from '../narration';
 import BackButton from '../components/BackButton';
-import mascotIdle from '../assets/Mascotte1.png';
-import mascotQuestion from '../assets/Mascotte2.png';
-import mascotSpeaking from '../assets/Mascotte3.png';
-import mascotListening from '../assets/Mascotte4.png';
-import mascotThinking from '../assets/Mascotte5.png';
-import mascotteBoy from '../assets/mascotte-boy.png';
+import { MascotPanel, NextButton, PresetChoices, QuestionCard, SurveyPageLayout } from '../components/SurveyLayout';
+import { VoiceReplyControls, VoiceTranscriptCard } from '../components/VoiceReply';
+import { emptyLevels } from '../hooks/useVoiceRecorder';
+import { ICON_SIZE, surveyStyles } from '../surveyStyles';
+import { mascotByState } from '../voiceMascot';
+import type { ConversationState } from '../voiceMascot';
 import {
   INTAKE_MAX,
   RECALL_ENABLED,
@@ -37,7 +38,6 @@ import { beginSurvey, flushSurveys, initSurveySync, recordSurvey, subscribeSurve
 import type { SurveyPatch, SyncStatus } from '../surveySync';
 
 type FlowPhase = 'questions' | 'intake' | 'saving' | 'complete';
-type ConversationState = 'speaking' | 'listening' | 'recording' | 'thinking' | 'ready' | 'saving' | 'complete';
 
 interface VoiceSurveyPageProps {
   authToken: string | null;
@@ -84,15 +84,6 @@ interface HistoryEntry {
   aiTurns: AiTurn[];
 }
 
-interface PresetChoicesProps {
-  name: string;
-  options: string[];
-  values: string[];
-  multiple?: boolean;
-  exclusiveOption?: string;
-  onChange: (values: string[]) => void;
-}
-
 const INTAKE_QUESTION_NUMBER = 9;
 const stepNumberShift = RECALL_ENABLED ? RECALL_QUESTION_COUNT : 0;
 const displayNumber = (number: number) => (RECALL_ENABLED && number >= INTAKE_QUESTION_NUMBER ? number + stepNumberShift : number);
@@ -113,11 +104,6 @@ const findNextStep = (from: number, answers: RecordedAnswer[]) => {
   let next = from + 1;
   while (next < surveySteps.length && surveySteps[next].skipIf?.(get)) next++;
   return next;
-};
-
-const mascotByState: Record<Mascot, Record<ConversationState, string>> = {
-  girl: { speaking: mascotSpeaking, listening: mascotListening, recording: mascotListening, thinking: mascotThinking, ready: mascotQuestion, saving: mascotThinking, complete: mascotIdle },
-  boy: { speaking: mascotteBoy, listening: mascotteBoy, recording: mascotteBoy, thinking: mascotteBoy, ready: mascotteBoy, saving: mascotteBoy, complete: mascotteBoy },
 };
 
 const stopAudio = (audioRef: React.RefObject<HTMLAudioElement | null>) => {
@@ -145,59 +131,6 @@ const playBlob = (blob: Blob, audioRef: React.RefObject<HTMLAudioElement | null>
 const playBase64Audio = (audioData: string, audioRef: React.RefObject<HTMLAudioElement | null>, onEnded: () => void, onError: () => void) => {
   const bytes = Uint8Array.from(atob(audioData), character => character.codePointAt(0) ?? 0);
   playBlob(new Blob([bytes], { type: 'audio/mpeg' }), audioRef, onEnded, onError);
-};
-
-const PresetChoices: React.FC<PresetChoicesProps> = ({ name, options, values, multiple = false, exclusiveOption, onChange }) => (
-  <fieldset style={styles.presetGroup}>
-    {options.map(option => {
-      const checked = values.includes(option);
-      return (
-        <label key={option} style={styles.presetOption}>
-          <input
-            type={multiple ? 'checkbox' : 'radio'}
-            name={name}
-            checked={checked}
-            onChange={() => {
-              if (!multiple) {
-                onChange([option]);
-                return;
-              }
-              if (option === exclusiveOption) {
-                onChange(checked ? [] : [option]);
-                return;
-              }
-              const withoutExclusive = exclusiveOption ? values.filter(value => value !== exclusiveOption) : values;
-              onChange(checked ? withoutExclusive.filter(value => value !== option) : [...withoutExclusive, option]);
-            }}
-          />
-          <span>{option}</span>
-        </label>
-      );
-    })}
-  </fieldset>
-);
-
-const MicIcon: React.FC = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.93V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.07A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0Z" />
-  </svg>
-);
-
-const StopIcon: React.FC = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <rect x="6" y="6" width="12" height="12" rx="2" />
-  </svg>
-);
-
-const LEVEL_BAR_COUNT = 32;
-const emptyLevels = () => new Array<number>(LEVEL_BAR_COUNT).fill(0);
-
-const formatElapsed = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-
-const voiceStatusText: Record<'heard' | 'listening' | 'quiet', string> = {
-  heard: 'Je t’entends',
-  listening: 'Parle, je t’écoute…',
-  quiet: 'Je n’entends pas ta voix. Parle plus près du micro.',
 };
 
 const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMascot, aiEnabled = true, onBack }) => {
@@ -531,6 +464,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         followUpsDone,
         numeric: step.numeric,
         allowedValues: step.allowedValues,
+        list: step.list,
       }));
     }
     if (previous) {
@@ -995,16 +929,6 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   let nextLabel = isLastStep ? 'Terminer' : 'Question suivante';
   if (phase === 'intake') nextLabel = aiEnabled ? 'Valider' : 'Valider cette prise';
 
-  const stateLabel: Record<ConversationState, string> = {
-    speaking: 'La mascotte pose la question…',
-    listening: 'Je t’écoute…',
-    recording: 'Enregistrement en cours… Appuie pour terminer.',
-    thinking: 'Je transcris ta réponse…',
-    ready: 'Réponse enregistrée',
-    saving: 'Enregistrement du questionnaire…',
-    complete: 'Merci pour ta participation.',
-  };
-
   if (phase === 'complete') {
     return (
       <div style={styles.page}>
@@ -1016,24 +940,20 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const nextDisabled = !hasCurrentAnswer || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState);
 
+  let intro: string | undefined;
+  if (phase === 'questions') intro = step.intro;
+  else if (phase === 'intake') intro = stageIntro(intakeStage, isFirstIntake) || undefined;
+
   return (
-    <div style={styles.page}>
-      <header style={styles.header}><BackButton onClick={onBack} /><h1 style={styles.title}>Questionnaire OR-ALIM</h1><div style={styles.headerSpacer} /></header>
-      <main style={styles.content}>
-        <div style={styles.progressRow}><span>{questionLabel}</span>{aiEnabled && <span style={styles.liveBadge}>Questionnaire vocal</span>}</div>
-        {aiEnabled && <section style={styles.mascotPanel} aria-live="polite">
-          <div style={{ ...styles.mascotGlow, ...(conversationState === 'listening' ? styles.listeningGlow : {}) }}>
-            <img src={mascotByState[voiceMascot][conversationState]} alt="Mascotte FOOD BAROMETER" style={{ ...styles.mascot, ...(conversationState === 'thinking' ? styles.thinkingMascot : {}) }} />
-          </div>
-          <div style={styles.stateLabel}>{stateLabel[conversationState]}</div>
-        </section>}
-        <section style={styles.questionCard}>
-          <span style={styles.questionKicker}>{kicker}</span>
-          {phase === 'questions' && step.intro && <p style={styles.intro}>{step.intro}</p>}
-          {phase === 'intake' && stageIntro(intakeStage, isFirstIntake) && <p style={styles.intro}>{stageIntro(intakeStage, isFirstIntake)}</p>}
-          <h2 style={styles.question}>{phase === 'questions' ? step.text : stageQuestion(intakeStage, isFirstIntake)}</h2>
-          {aiEnabled && <button type="button" onClick={() => void handleRepeatQuestion()} style={styles.repeatButton}>🔊 Réécouter la question</button>}
-        </section>
+    <SurveyPageLayout title="Questionnaire OR-ALIM" progressLabel={questionLabel} isVoice={aiEnabled} onBack={onBack}>
+        {aiEnabled && <MascotPanel mascot={voiceMascot} state={conversationState} />}
+        <QuestionCard
+          kicker={kicker}
+          intros={intro ? [intro] : []}
+          question={phase === 'questions' ? step.text : stageQuestion(intakeStage, isFirstIntake)}
+          repeatLabel="🔊 Réécouter la question"
+          onRepeat={aiEnabled ? () => void handleRepeatQuestion() : undefined}
+        />
         <div onChangeCapture={interruptNarration}>
           {presetAnswers}
         </div>
@@ -1041,95 +961,46 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
           <span>{aiEnabled ? 'Ou écris ta réponse' : 'Écris ta réponse'}</span>
           <textarea value={typedAnswer} onChange={event => { interruptNarration(); setTypedAnswer(event.target.value); setRequiresRepeat(false); setError(''); }} placeholder="Écris ta réponse ici…" rows={3} style={styles.answerInput} />
         </label>}
-        {aiEnabled && <section style={styles.transcriptCard}>
-          <div style={styles.transcriptHeader}><span>Ta réponse</span>{conversationState === 'thinking' && <span style={styles.processing}>Transcription…</span>}</div>
-          <p style={(phase === 'intake' ? intakeHeard : transcript) ? styles.transcript : styles.transcriptPlaceholder}>{(phase === 'intake' ? intakeHeard : transcript) || 'Appuie sur le micro et réponds naturellement.'}</p>
-          {aiReply && <p style={styles.aiReply}>{aiReply}</p>}
-        </section>}
+        {aiEnabled && <VoiceTranscriptCard heard={phase === 'intake' ? intakeHeard : transcript} reply={aiReply} isProcessing={conversationState === 'thinking'} />}
         {aiEnabled && <p style={styles.privacyNotice}>Ton enregistrement est envoyé à OpenAI pour transcription et traitement. Tu peux passer une question.</p>}
         {error && <p role="alert" style={styles.errorMessage}>{error}</p>}
         {syncStatus.pending && syncStatus.failed && <output style={styles.errorMessage}>Connexion perdue : tes réponses sont gardées sur cet appareil et seront envoyées automatiquement dès que la connexion revient.</output>}
-        {aiEnabled && conversationState === 'recording' && (
-          <div style={styles.recordingPanel}>
-            <div style={styles.recordingRow}>
-              <span style={styles.recordingDot} aria-hidden="true" />
-              <span style={styles.recordingTimer}>{formatElapsed(elapsedSeconds)}</span>
-              <div style={styles.waveform} aria-hidden="true">
-                {levels.map((level, index) => <span key={`${index}-bar`} style={{ ...styles.waveBar, height: `${Math.max(10, Math.round(level * 100))}%` }} />)}
-              </div>
-            </div>
-            <output style={voiceStatus === 'quiet' ? styles.voiceHintWarning : styles.voiceHint}>{voiceStatusText[voiceStatus]}</output>
-          </div>
+        {aiEnabled && (
+          <VoiceReplyControls
+            isRecording={conversationState === 'recording'}
+            isBusy={conversationState === 'thinking' || conversationState === 'saving'}
+            label={micLabel}
+            levels={levels}
+            elapsedSeconds={elapsedSeconds}
+            voiceStatus={voiceStatus}
+            onClick={() => void handleMicClick()}
+          />
         )}
-        {aiEnabled && <button type="button" onClick={() => void handleMicClick()} disabled={conversationState === 'thinking' || conversationState === 'saving'} style={{ ...styles.micButton, ...(conversationState === 'recording' ? styles.micButtonActive : {}), ...(conversationState === 'thinking' || conversationState === 'saving' ? styles.micButtonDisabled : {}) }} aria-label={micLabel}>
-          <span style={styles.micIcon}>{conversationState === 'recording' ? <StopIcon /> : <MicIcon />}</span><span>{micLabel}</span>
-        </button>}
         <div style={styles.actions}>
-          {history.length > 0 && <button type="button" onClick={handlePrevious} disabled={busy} style={styles.skipButton}>← Précédent</button>}
-          <button type="button" onClick={handleSkip} disabled={busy} style={styles.skipButton}>{phase === 'intake' && !aiEnabled ? 'Aucune autre prise' : 'Passer cette question'}</button>
-          <button type="button" onClick={handleNext} disabled={nextDisabled} style={{ ...styles.nextButton, ...(nextDisabled ? styles.disabledButton : {}) }}>
-            {nextLabel} →
-          </button>
+          {history.length > 0 && <button type="button" onClick={handlePrevious} disabled={busy}           style={styles.skipButton}>
+                      <FaCircleArrowLeft size={ICON_SIZE} aria-hidden="true" style={styles.buttonIcon} />
+                      Précédent
+                    </button>}
+                    <button type="button" onClick={handleSkip} disabled={busy} style={styles.skipButton}>
+                      {phase === 'intake' && !aiEnabled ? 'Aucune autre prise' : 'Passer cette question'}
+                      <FaForwardStep size={ICON_SIZE} aria-hidden="true" style={styles.buttonIcon} />
+                    </button>
+                    <NextButton label={nextLabel} disabled={nextDisabled} onClick={handleNext} />
         </div>
-      </main>
-    </div>
+    </SurveyPageLayout>
   );
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  page: { width: '100%', height: '100dvh', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#fff9e8', color: '#333', overflow: 'hidden' },
-  header: { width: '100%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem', background: '#ffc000', boxShadow: '0 2px 10px rgba(217,119,6,0.2)', boxSizing: 'border-box' },
-  title: { margin: 0, fontSize: '1.2rem', fontWeight: 700 },
-  headerSpacer: { width: 40 },
-  content: { width: '100%', maxWidth: 680, flex: '1 1 auto', minHeight: 0, margin: '0 auto', padding: '1rem 1rem 2rem', boxSizing: 'border-box', overflowY: 'auto' },
-  progressRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', color: '#765800', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem' },
-  liveBadge: { padding: '0.35rem 0.65rem', borderRadius: 999, background: '#fff0bd', color: '#765800', fontSize: '0.72rem', textTransform: 'uppercase' },
-  mascotPanel: { textAlign: 'center', padding: '0.25rem 0 0.65rem' },
-  mascotGlow: { width: 160, height: 160, margin: '0 auto 0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle, #fff 45%, #ffe38a 70%, transparent 71%)', transition: 'transform 0.3s ease, box-shadow 0.3s ease' },
-  listeningGlow: { transform: 'scale(1.04)', boxShadow: '0 0 0 12px rgba(255,192,0,0.14)' },
-  mascot: { width: 138, height: 138, objectFit: 'contain', animation: 'aiMascotFloat 3s ease-in-out infinite' },
-  thinkingMascot: { animation: 'aiMascotThink 0.8s ease-in-out infinite alternate' },
-  stateLabel: { color: '#765800', fontSize: '0.95rem', fontWeight: 600 },
-  questionCard: { padding: '1rem 1.1rem', background: '#fff', border: '1px solid #f1d681', borderRadius: 10, boxShadow: '0 6px 20px rgba(120,88,0,0.08)' },
-  questionKicker: { display: 'block', marginBottom: '0.35rem', color: '#a87900', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' },
-  intro: { margin: '0 0 0.7rem', color: '#5c4a12', fontSize: '0.95rem', lineHeight: 1.5, fontStyle: 'italic' },
+  ...surveyStyles,
   summaryRow: { display: 'grid', gridTemplateColumns: 'minmax(90px, 0.35fr) 1fr', gap: '0.5rem', fontSize: '0.9rem', lineHeight: 1.4 },
   shortcutButton: { marginTop: '0.6rem', minHeight: 44, padding: '0.55rem 0.8rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
-  question: { margin: 0, fontSize: '1.1rem', lineHeight: 1.45, overflowWrap: 'break-word' },
-  presetCard: { display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.75rem', padding: '0.9rem', border: '1px solid #ead9a2', borderRadius: 8, background: '#fffdf6' },
-  presetHeading: { margin: 0, color: '#765800', fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.45 },
-  presetGroup: { display: 'flex', flexDirection: 'column', gap: '0.45rem', margin: 0, padding: '0.65rem', border: '1px solid #eee4c5', borderRadius: 6, background: '#fff' },
-  presetOption: { display: 'flex', alignItems: 'flex-start', gap: '0.55rem', fontSize: '0.9rem', lineHeight: 1.4, cursor: 'pointer' },
   parentOccupation: { display: 'grid', gridTemplateColumns: 'minmax(115px, 0.6fr) minmax(130px, 1fr)', alignItems: 'center', gap: '0.5rem' },
   fieldLabel: { display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.9rem', fontWeight: 700 },
   textInput: { width: '100%', minHeight: 40, padding: '0.5rem 0.6rem', boxSizing: 'border-box', border: '1px solid #c8b879', borderRadius: 6, background: '#fff', color: '#332d1c', font: 'inherit' },
   typedAnswer: { display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem', color: '#765800', fontSize: '0.85rem', fontWeight: 700 },
   answerInput: { width: '100%', minHeight: 68, padding: '0.6rem 0.7rem', boxSizing: 'border-box', border: '1px solid #c8b879', borderRadius: 7, resize: 'vertical', font: 'inherit', fontWeight: 400 },
-  repeatButton: { marginTop: '0.7rem', border: 0, background: 'transparent', color: '#8c6500', fontWeight: 700, cursor: 'pointer', padding: 0 },
-  transcriptCard: { marginTop: '0.8rem', padding: '0.85rem 1rem', minHeight: 86, background: '#332d1c', color: '#fff', borderRadius: 10 },
-  transcriptHeader: { display: 'flex', justifyContent: 'space-between', color: '#ffd45b', fontSize: '0.76rem', fontWeight: 800, textTransform: 'uppercase' },
-  processing: { color: '#fff', fontWeight: 500, textTransform: 'none' },
-  transcript: { margin: '0.65rem 0 0', fontSize: '1rem', lineHeight: 1.5 },
-  transcriptPlaceholder: { margin: '0.65rem 0 0', color: '#cfc8b4', lineHeight: 1.5 },
-  aiReply: { margin: '0.7rem 0 0', paddingTop: '0.65rem', borderTop: '1px solid #5a5038', color: '#ffe7a0', lineHeight: 1.5 },
-  privacyNotice: { margin: '0.65rem 0', color: '#765800', fontSize: '0.76rem', lineHeight: 1.4, textAlign: 'center' },
-  errorMessage: { margin: '0.5rem 0', color: '#a52a20', fontSize: '0.9rem', lineHeight: 1.4, textAlign: 'center' },
-  micButton: { width: '100%', marginTop: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.7rem', minHeight: 56, border: 0, borderRadius: 10, background: '#332d1c', color: '#fff', fontSize: '1rem', fontWeight: 800, cursor: 'pointer' },
-  micButtonActive: { background: '#c83f32', boxShadow: '0 0 0 8px rgba(200,63,50,0.14)' },
-  micButtonDisabled: { opacity: 0.6, cursor: 'not-allowed' },
-  micIcon: { display: 'flex', alignItems: 'center' },
-  recordingPanel: { marginTop: '0.4rem', padding: '0.75rem 0.9rem', background: '#fff', border: '1px solid #f0b4ae', borderRadius: 10 },
-  recordingRow: { display: 'flex', alignItems: 'center', gap: '0.7rem' },
-  recordingDot: { width: 12, height: 12, flex: '0 0 auto', borderRadius: '50%', background: '#c83f32', animation: 'recordingPulse 1s ease-in-out infinite' },
-  recordingTimer: { flex: '0 0 auto', minWidth: 40, color: '#332d1c', fontSize: '0.95rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
-  waveform: { flex: '1 1 auto', height: 36, display: 'flex', alignItems: 'center', gap: 3 },
-  waveBar: { flex: '1 1 0', minWidth: 2, maxWidth: 6, borderRadius: 3, background: '#c83f32', transition: 'height 70ms linear' },
-  voiceHint: { display: 'block', margin: '0.5rem 0 0', color: '#765800', fontSize: '0.85rem', fontWeight: 700 },
-  voiceHintWarning: { display: 'block', margin: '0.5rem 0 0', color: '#a52a20', fontSize: '0.85rem', fontWeight: 700 },
-  actions: { display: 'flex', justifyContent: 'space-between', gap: '0.6rem', marginTop: '0.6rem' },
-  skipButton: { minHeight: 44, padding: '0.55rem 0.7rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
-  nextButton: { flex: 1, minHeight: 44, border: 0, borderRadius: 8, background: '#ffc000', color: '#332d1c', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer' },
-  disabledButton: { opacity: 0.45, cursor: 'not-allowed' },
+  skipButton: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', minHeight: 44, padding: '0.55rem 0.7rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
   completePanel: { width: '100%', maxWidth: 560, margin: '0 auto', padding: '2rem 1rem', boxSizing: 'border-box', textAlign: 'center' },
   completeMascot: { width: 160, height: 160, objectFit: 'contain' },
   completeTitle: { fontSize: '1.35rem', lineHeight: 1.4 },

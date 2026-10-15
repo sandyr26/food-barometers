@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { api } from '../api';
 import { loadNarration } from '../narration';
-import BackButton from '../components/BackButton';
-import { CONSENT_PAUSE_MS, aiConsentQuestion, consentIntroSpeech, consentParagraphs, consentQuestionSpeech, declineMessage } from '../surveyConfig';
+import { MascotPanel, NextButton, PresetChoices, QuestionCard, SurveyPageLayout } from '../components/SurveyLayout';
+import { VoiceReplyControls, VoiceTranscriptCard } from '../components/VoiceReply';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { surveyStyles } from '../surveyStyles';
+import type { ConversationState } from '../voiceMascot';
+import { CONSENT_PAUSE_MS, aiConsentQuestion, consentIntroSpeech, consentNoOption, consentParagraphs, consentQuestionSpeech, consentYesOption, declineMessage } from '../surveyConfig';
 
 interface PresentationPageProps {
   onBack: () => void;
@@ -20,8 +26,10 @@ const paragraphs = [
 ];
 
 const consentQuestion = 'Avant de commencer, après avoir pris connaissance de ces informations, acceptes-tu de participer à l’enquête OR-ALIM ?';
-const yesOption = 'Oui, je souhaite participer.';
-const noOption = 'Non, je ne souhaite pas participer.';
+const PARTICIPATION_GROUP_ID = 'participation';
+const participationChoices = [{ id: PARTICIPATION_GROUP_ID, label: 'Participation à l’enquête OR-ALIM', options: [consentYesOption, consentNoOption] }];
+
+const audioBlobFromBase64 = (data: string) => new Blob([Uint8Array.from(atob(data), character => character.codePointAt(0) ?? 0)], { type: 'audio/mpeg' });
 
 const playAudioBlob = (
   blob: Blob,
@@ -44,16 +52,19 @@ const playAudioBlob = (
   };
 
   audio.onended = () => {
+    const active = audioRef.current === audio;
     cleanup();
-    onEnded();
+    if (active) onEnded();
   };
   audio.onerror = () => {
+    const active = audioRef.current === audio;
     cleanup();
-    onError();
+    if (active) onError();
   };
   void audio.play().catch(() => {
+    const active = audioRef.current === audio;
     cleanup();
-    onError();
+    if (active) onError();
   });
 };
 
@@ -86,13 +97,32 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
   const [declined, setDeclined] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(true);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isPlayingReply, setIsPlayingReply] = useState(false);
   const [speechError, setSpeechError] = useState('');
+  const recorder = useVoiceRecorder();
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
+  const [heard, setHeard] = useState('');
+  const [aiReply, setAiReply] = useState('');
+  const narrationStoppedRef = useRef(false);
   const audioBlobsRef = useRef<Blob[]>([]);
   const pauseTimerRef = useRef<number | undefined>(undefined);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
-  const shownParagraphs = audioEnabled ? consentParagraphs(selectedMascot).slice(1) : paragraphs;
+  const shownParagraphs = audioEnabled ? consentParagraphs(selectedMascot) : ['Bonjour,', ...paragraphs, <strong key="duration">Le questionnaire dure environ 30 minutes.</strong>];
   const shownQuestion = audioEnabled ? aiConsentQuestion : consentQuestion;
+  const error = voiceError || speechError;
+  let micLabel = 'Répondre';
+  if (recorder.isRecording) micLabel = 'Terminer l’enregistrement';
+  if (isSendingVoice) micLabel = 'Envoi de la voix…';
+  let conversationState: ConversationState = 'listening';
+  if (recorder.isRecording) conversationState = 'recording';
+  else if (isSendingVoice) conversationState = 'thinking';
+  else if (isLoadingAudio || isPlayingAudio || isPlayingReply) conversationState = 'speaking';
+  else if (participation) conversationState = 'ready';
+  let repeatLabel = '🔊 Réécouter la présentation';
+  if (isLoadingAudio) repeatLabel = 'Préparation de la lecture…';
+  else if (isPlayingAudio) repeatLabel = 'Lecture en cours…';
 
   useEffect(() => {
     if (!audioEnabled) {
@@ -113,6 +143,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
 
         audioBlobsRef.current = blobs;
         setIsLoadingAudio(false);
+        if (narrationStoppedRef.current) return;
         setIsPlayingAudio(true);
         playSequence(
           blobs,
@@ -159,9 +190,91 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
       .catch(() => {});
   };
 
+  const sendVoiceAnswer = async (audio: Blob) => {
+    if (!authToken) {
+      setVoiceError('Ta session a expiré. Reconnecte-toi pour répondre.');
+      return;
+    }
+
+    const formData = new FormData();
+    let extension = 'webm';
+    if (audio.type.includes('ogg')) extension = 'ogg';
+    else if (audio.type.includes('mp4')) extension = 'mp4';
+    else if (audio.type.includes('wav')) extension = 'wav';
+    formData.append('audio', audio, `consent-answer.${extension}`);
+    formData.append('question', consentQuestionSpeech);
+    formData.append('language', 'fr');
+    formData.append('mascot', selectedMascot);
+    formData.append('previousAnswers', '[]');
+    formData.append('presetGroups', JSON.stringify(participationChoices));
+
+    try {
+      const response = await api.post('/api/ai/turn', formData, {
+        headers: { Authorization: `Bearer ${authToken}` },
+        timeout: 60000,
+      });
+      const transcript = (response.data.answer ?? response.data.transcript)?.trim();
+      const reply = response.data.reply?.trim();
+      if (!transcript || !reply || !response.data.audio) throw new Error('Incomplete AI response');
+
+      const choice = (response.data.selectedGroups as Record<string, string[]> | undefined)?.[PARTICIPATION_GROUP_ID]?.[0];
+      if (response.data.needsRepeat !== true) {
+        if (choice === consentYesOption) setParticipation('yes');
+        else if (choice === consentNoOption) setParticipation('no');
+      }
+      setHeard(transcript);
+      setAiReply(reply);
+      setIsPlayingReply(true);
+      playAudioBlob(audioBlobFromBase64(response.data.audio), audioRef, audioUrlRef, () => setIsPlayingReply(false), () => {
+        setIsPlayingReply(false);
+        setVoiceError('La réponse vocale a échoué. Tu peux continuer en lisant la réponse.');
+      });
+    } catch (requestError) {
+      let message = 'Impossible de traiter cet enregistrement. Réessaie.';
+      if (axios.isAxiosError(requestError)) {
+        message = requestError.code === 'ECONNABORTED'
+          ? 'Le serveur met trop de temps à répondre. Réessaie.'
+          : requestError.response?.data?.error || message;
+      }
+      setVoiceError(message);
+    }
+  };
+
+  const interruptAudio = () => {
+    narrationStoppedRef.current = true;
+    window.clearTimeout(pauseTimerRef.current);
+    const playing = audioRef.current;
+    audioRef.current = null;
+    playing?.pause();
+    setIsPlayingAudio(false);
+    setIsPlayingReply(false);
+  };
+
+  const handleMicClick = async () => {
+    if (recorder.isRecording) {
+      setIsSendingVoice(true);
+      try {
+        await sendVoiceAnswer(await recorder.stop());
+      } finally {
+        setIsSendingVoice(false);
+      }
+      return;
+    }
+
+    interruptAudio();
+    setVoiceError('');
+    setAiReply('');
+    try {
+      await recorder.start();
+    } catch {
+      setVoiceError('L’accès au microphone a échoué. Vérifie les autorisations du navigateur.');
+    }
+  };
+
   const replayPresentation = () => {
     if (audioBlobsRef.current.length === 0) return;
     setSpeechError('');
+    setIsPlayingReply(false);
     setIsPlayingAudio(true);
     playSequence(
       audioBlobsRef.current,
@@ -176,90 +289,64 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
     );
   };
 
+  if (declined) {
+    return (
+      <SurveyPageLayout title="Questionnaire OR-ALIM" progressLabel="Présentation" isVoice={audioEnabled} onBack={onBack}>
+        {audioEnabled && <MascotPanel mascot={selectedMascot} state="complete" />}
+        <QuestionCard kicker="Présentation" question={declineMessage} />
+        <div style={surveyStyles.actions}>
+          <NextButton label="Retour à l’accueil" onClick={() => onContinue(false)} />
+        </div>
+      </SurveyPageLayout>
+    );
+  }
+
+  const selectedChoices = { yes: [consentYesOption], no: [consentNoOption], '': [] }[participation];
+
   return (
-    <div style={styles.page}>
-      <header style={styles.header}>
-        <BackButton onClick={onBack} />
-        <h1 style={styles.title}>Présentation</h1>
-        <span style={styles.headerSpacer} aria-hidden="true" />
-      </header>
-
-      {declined ? (
-        <main style={styles.main}>
-          <article style={styles.content}>
-            <h2 style={styles.greeting}>{declineMessage}</h2>
-            <button type="button" onClick={() => onContinue(false)} style={styles.continueButton}>Retour à l’accueil</button>
-          </article>
-        </main>
-      ) : (
-      <main style={styles.main}>
-        <article style={styles.content}>
-          <h2 style={styles.greeting}>Bonjour,</h2>
-          {audioEnabled && <button type="button" onClick={replayPresentation} disabled={isLoadingAudio || isPlayingAudio || !audioBlobsRef.current.length} style={styles.audioButton}>
-            {isLoadingAudio ? 'Préparation de la lecture…' : isPlayingAudio ? 'Lecture en cours…' : 'Réécouter la présentation'}
-          </button>}
-          {speechError && <p role="status" style={styles.speechError}>{speechError}</p>}
-          {shownParagraphs.map(paragraph => <p key={paragraph} style={styles.paragraph}>{paragraph}</p>)}
-          {!audioEnabled && <p style={styles.duration}><strong>Le questionnaire dure environ 30 minutes.</strong></p>}
-
-          <fieldset style={styles.consent}>
-            <legend style={styles.question}>
-              {shownQuestion}
-            </legend>
-            <label style={styles.option}>
-              <input
-                type="radio"
-                name="participation"
-                value="yes"
-                checked={participation === 'yes'}
-                onChange={() => setParticipation('yes')}
-              />
-              <span>{yesOption}</span>
-            </label>
-            <label style={styles.option}>
-              <input
-                type="radio"
-                name="participation"
-                value="no"
-                checked={participation === 'no'}
-                onChange={() => setParticipation('no')}
-              />
-              <span>{noOption}</span>
-            </label>
-          </fieldset>
-
-          <button
-            type="button"
-            disabled={!participation}
-            onClick={handleContinue}
-            style={{ ...styles.continueButton, ...(!participation ? styles.disabledButton : {}) }}
-          >
-            {participation === 'no' ? 'Terminer' : 'Continuer'}
-          </button>
-        </article>
-      </main>
+    <SurveyPageLayout title="Questionnaire OR-ALIM" progressLabel="Présentation" isVoice={audioEnabled} onBack={onBack}>
+      {audioEnabled && <MascotPanel mascot={selectedMascot} state={conversationState} />}
+      <QuestionCard
+        kicker="Présentation"
+        intros={shownParagraphs}
+        question={shownQuestion}
+        repeatLabel={repeatLabel}
+        repeatDisabled={isLoadingAudio || isPlayingAudio || !audioBlobsRef.current.length}
+        onRepeat={audioEnabled ? replayPresentation : undefined}
+      />
+      <div onChangeCapture={interruptAudio}>
+        <div style={surveyStyles.presetCard}>
+          <PresetChoices
+            name="participation"
+            options={[consentYesOption, consentNoOption]}
+            values={selectedChoices}
+            onChange={values => setParticipation(values[0] === consentYesOption ? 'yes' : 'no')}
+          />
+        </div>
+      </div>
+      {audioEnabled && <VoiceTranscriptCard heard={heard} reply={aiReply} isProcessing={isSendingVoice} />}
+      {audioEnabled && <p style={surveyStyles.privacyNotice}>Ton enregistrement est envoyé à OpenAI pour transcription et traitement. Tu peux aussi cocher ta réponse.</p>}
+      {error && <p role="alert" style={surveyStyles.errorMessage}>{error}</p>}
+      {audioEnabled && (
+        <VoiceReplyControls
+          isRecording={recorder.isRecording}
+          isBusy={isSendingVoice}
+          label={micLabel}
+          levels={recorder.levels}
+          elapsedSeconds={recorder.elapsedSeconds}
+          voiceStatus={recorder.voiceStatus}
+          onClick={() => void handleMicClick()}
+        />
       )}
-    </div>
+      <div style={surveyStyles.actions}>
+        <NextButton
+          label={participation === 'no' ? 'Terminer' : 'Continuer'}
+          disabled={!participation || recorder.isRecording || isSendingVoice}
+          onClick={handleContinue}
+        />
+      </div>
+    </SurveyPageLayout>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  page: { width: '100%', height: '100dvh', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#fff9e8', color: '#332d1c' },
-  header: { flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1rem 1.5rem', background: '#ffc000', boxShadow: '0 2px 10px rgba(217,119,6,0.2)' },
-  title: { margin: 0, fontSize: '1.25rem', fontWeight: 700 },
-  headerSpacer: { width: 40 },
-  main: { flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '1.5rem 1rem 3rem' },
-  content: { width: '100%', maxWidth: 760, margin: '0 auto', padding: 'clamp(1.25rem, 4vw, 2.5rem)', boxSizing: 'border-box', background: '#fff', border: '1px solid #ead9a2', borderRadius: 12, boxShadow: '0 8px 28px rgba(91,67,0,0.08)' },
-  greeting: { margin: '0 0 1rem', fontSize: '1.3rem' },
-  audioButton: { minHeight: 42, margin: '0 0 1.25rem', padding: '0.5rem 0.85rem', border: '1px solid #8b6e15', borderRadius: 6, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
-  speechError: { margin: '0 0 1rem', color: '#a52a20', fontSize: '0.9rem', lineHeight: 1.5 },
-  paragraph: { margin: '0 0 1rem', fontSize: '1rem', lineHeight: 1.65 },
-  duration: { margin: '0 0 1.5rem', lineHeight: 1.6 },
-  consent: { display: 'flex', flexDirection: 'column', gap: '0.9rem', margin: 0, padding: '1.25rem', border: '1px solid #d9c47d', borderRadius: 8 },
-  question: { padding: '0 0.35rem', fontSize: '1.05rem', lineHeight: 1.55, fontWeight: 700 },
-  option: { display: 'flex', alignItems: 'flex-start', gap: '0.7rem', padding: '0.25rem 0', fontSize: '1rem', lineHeight: 1.5, cursor: 'pointer' },
-  continueButton: { width: '100%', minHeight: 48, marginTop: '1.25rem', border: 0, borderRadius: 8, background: '#332d1c', color: '#fff', fontSize: '1rem', fontWeight: 700, cursor: 'pointer' },
-  disabledButton: { opacity: 0.45, cursor: 'not-allowed' },
 };
 
 export default PresentationPage;
