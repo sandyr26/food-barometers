@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { api } from '../api';
 import BackButton from '../components/BackButton';
+import logo from '../assets/LOGO.png';
 
 type Language = 'fr' | 'en' | 'mfe' | 'rcf';
 
@@ -18,7 +19,8 @@ const translations = {
     password: 'Mot de passe',
     loginButton: 'Se connecter',
     usernamePlaceholder: 'Entrez votre nom d\'utilisateur',
-    passwordPlaceholder: 'Entrez votre mot de passe'
+    passwordPlaceholder: 'Entrez votre mot de passe',
+    saveLogin: 'Enregistrer mon identifiant'
   },
   en: {
     title: 'Login',
@@ -26,7 +28,8 @@ const translations = {
     password: 'Password',
     loginButton: 'Login',
     usernamePlaceholder: 'Enter your username',
-    passwordPlaceholder: 'Enter your password'
+    passwordPlaceholder: 'Enter your password',
+    saveLogin: 'Save my login'
   },
   mfe: {
     title: 'Koneksyon',
@@ -34,7 +37,8 @@ const translations = {
     password: 'Mo de Pas',
     loginButton: 'Konekte',
     usernamePlaceholder: 'Antre to non itilizatè',
-    passwordPlaceholder: 'Antre to mo de pas'
+    passwordPlaceholder: 'Antre to mo de pas',
+    saveLogin: 'Sovgard mo non itilizatè'
   },
   rcf: {
     title: 'Konèksyon',
@@ -42,12 +46,29 @@ const translations = {
     password: 'Mo d Pas',
     loginButton: 'Konèkté',
     usernamePlaceholder: 'Antre ou non itilizatè',
-    passwordPlaceholder: 'Antre ou mo d pas'
+    passwordPlaceholder: 'Antre ou mo d pas',
+    saveLogin: 'Sovgard mon non itilizatè'
+  }
+};
+
+const REMEMBERED_USERNAME_KEY = 'fb.rememberedUsername';
+
+// Asks the browser's own password manager to save the credentials (Chromium-based browsers only).
+const offerToSavePassword = async (username: string, password: string) => {
+  const PasswordCredentialCtor = (window as unknown as {
+    PasswordCredential?: new (data: { id: string; password: string }) => Credential;
+  }).PasswordCredential;
+  if (!PasswordCredentialCtor || !navigator.credentials?.store) return;
+  try {
+    await navigator.credentials.store(new PasswordCredentialCtor({ id: username, password }));
+  } catch {
+    // Saving is optional; ignore refusals
   }
 };
 
 const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(() => localStorage.getItem(REMEMBERED_USERNAME_KEY) ?? '');
+  const [saveLogin, setSaveLogin] = useState(() => localStorage.getItem(REMEMBERED_USERNAME_KEY) !== null);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,6 +88,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
       if (response.data.success) {
         // Store token in localStorage
         localStorage.setItem('authToken', response.data.token);
+        // Only the username is remembered, never the password
+        if (saveLogin) {
+          localStorage.setItem(REMEMBERED_USERNAME_KEY, username);
+          void offerToSavePassword(username, password);
+        } else {
+          localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+        }
         // Call onLogin with token so App.tsx can store it
         onLogin(response.data.token);
       } else {
@@ -94,8 +122,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem',
-      position: 'relative'
+      padding: '4.5rem 2rem 2rem',
+      position: 'relative',
+      overflowY: 'auto'
     }}>
       {/* Back Button */}
       <div style={{ position: 'absolute', top: '1.5rem', left: '1.5rem' }}>
@@ -109,8 +138,28 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
         padding: '2.5rem',
         boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
         width: '100%',
-        maxWidth: '400px'
+        maxWidth: '400px',
+        margin: 'auto 0'
       }}>
+        {/* Logo */}
+        <div style={{
+          width: '120px',
+          height: '120px',
+          margin: '0 auto 1.25rem',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          backgroundColor: 'white',
+          border: '4px solid #ffc000',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)'
+        }}>
+          <img src={logo} alt="Food Barometer" style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block'
+          }} />
+        </div>
+
         {/* Title */}
         <h1 style={{
           fontSize: '2rem',
@@ -159,6 +208,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
             </label>
             <input
               type="text"
+              name="username"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder={t.usernamePlaceholder}
@@ -196,6 +247,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
             </label>
             <input
               type="password"
+              name="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t.passwordPlaceholder}
@@ -217,6 +270,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onLogin, language }) => {
               }}
             />
           </div>
+
+          {/* Save Login Checkbox */}
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            fontSize: '0.95rem',
+            color: '#333',
+            cursor: 'pointer',
+            marginTop: '-0.5rem'
+          }}>
+            <input
+              type="checkbox"
+              checked={saveLogin}
+              onChange={(e) => setSaveLogin(e.target.checked)}
+              style={{ width: '18px', height: '18px', accentColor: '#333', cursor: 'pointer', margin: 0 }}
+            />
+            {t.saveLogin}
+          </label>
 
           {/* Login Button */}
           <button
