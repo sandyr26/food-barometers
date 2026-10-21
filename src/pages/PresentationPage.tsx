@@ -207,6 +207,8 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
     formData.append('mascot', selectedMascot);
     formData.append('previousAnswers', '[]');
     formData.append('presetGroups', JSON.stringify(participationChoices));
+    // The fixed replies are played from recorded or pre-generated clips, so the server does not synthesise them.
+    formData.append('replyAudio', 'client');
 
     try {
       const response = await api.post('/api/ai/turn', formData, {
@@ -215,7 +217,7 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
       });
       const transcript = (response.data.answer ?? response.data.transcript)?.trim();
       const reply = response.data.reply?.trim();
-      if (!transcript || !reply || !response.data.audio) throw new Error('Incomplete AI response');
+      if (!transcript || !reply) throw new Error('Incomplete AI response');
 
       const choice = (response.data.selectedGroups as Record<string, string[]> | undefined)?.[PARTICIPATION_GROUP_ID]?.[0];
       if (response.data.needsRepeat !== true) {
@@ -225,10 +227,16 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
       setHeard(transcript);
       setAiReply(reply);
       setIsPlayingReply(true);
-      playAudioBlob(audioBlobFromBase64(response.data.audio), audioRef, audioUrlRef, () => setIsPlayingReply(false), () => {
+      try {
+        const replyAudio = response.data.audio ? audioBlobFromBase64(response.data.audio) : await loadNarration(reply, 'fr', selectedMascot, authToken);
+        playAudioBlob(replyAudio, audioRef, audioUrlRef, () => setIsPlayingReply(false), () => {
+          setIsPlayingReply(false);
+          setVoiceError('La réponse vocale a échoué. Tu peux continuer en lisant la réponse.');
+        });
+      } catch {
         setIsPlayingReply(false);
         setVoiceError('La réponse vocale a échoué. Tu peux continuer en lisant la réponse.');
-      });
+      }
     } catch (requestError) {
       let message = 'Impossible de traiter cet enregistrement. Réessaie.';
       if (axios.isAxiosError(requestError)) {

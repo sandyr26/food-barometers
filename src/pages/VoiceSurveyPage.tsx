@@ -5,15 +5,17 @@ import { api } from '../api';
 import { loadNarration, preloadNarration } from '../narration';
 import BackButton from '../components/BackButton';
 import { MascotPanel, NextButton, PresetChoices, QuestionCard, SurveyPageLayout } from '../components/SurveyLayout';
+import { DayTimeline, IntakeChecklist } from '../components/IntakeGuide';
 import { VoiceReplyControls, VoiceTranscriptCard } from '../components/VoiceReply';
 import { emptyLevels } from '../hooks/useVoiceRecorder';
+import { daySegmentFor } from '../daySegment';
+import { orderedOptions } from '../randomize';
 import { ICON_SIZE, surveyStyles } from '../surveyStyles';
 import { mascotByState } from '../voiceMascot';
 import type { ConversationState } from '../voiceMascot';
 import {
   INTAKE_MAX,
   RECALL_ENABLED,
-  RECALL_QUESTION_COUNT,
   intakeFields,
   parentRoleNames,
   stepSpeech,
@@ -25,13 +27,11 @@ import {
   applyExtraction,
   emptyIntake,
   intakeHasContent,
-  intakeSummary,
   intakeText,
   skipStage,
-  stageIntro,
+  stageIntros,
   stageQuestion,
   stageSpeech,
-  stageTargetField,
 } from '../intakeFlow';
 import type { IntakeEntry, IntakeExtraction, IntakeOutcome, IntakeStage } from '../intakeFlow';
 import { beginSurvey, flushSurveys, initSurveySync, recordSurvey, subscribeSurveySync } from '../surveySync';
@@ -64,6 +64,8 @@ interface RecordedAnswer {
   text: string;
   mode: AnswerMode;
   selections: Record<string, string[]>;
+  // Order in which shuffled options were shown to the respondent.
+  optionOrder?: Record<string, string[]>;
   parentOccupations?: Occupations;
   typed?: string;
   voice?: string;
@@ -85,10 +87,7 @@ interface HistoryEntry {
 }
 
 const INTAKE_QUESTION_NUMBER = 9;
-const stepNumberShift = RECALL_ENABLED ? RECALL_QUESTION_COUNT : 0;
-const displayNumber = (number: number) => (RECALL_ENABLED && number >= INTAKE_QUESTION_NUMBER ? number + stepNumberShift : number);
-const displayLabel = (step: SurveyStep) => `${displayNumber(step.number)}${step.label.slice(String(step.number).length)}`;
-const displayTotal = 28 + stepNumberShift;
+const displayTotal = Math.max(INTAKE_QUESTION_NUMBER, ...surveySteps.map(step => step.number));
 
 const stepIndexById = new Map(surveySteps.map((step, index) => [step.id, index]));
 const blankAnswer = (): RecordedAnswer => ({ text: '', mode: 'skipped', selections: {} });
@@ -133,10 +132,17 @@ const playBase64Audio = (audioData: string, audioRef: React.RefObject<HTMLAudioE
   playBlob(new Blob([bytes], { type: 'audio/mpeg' }), audioRef, onEnded, onError);
 };
 
+// A login token lasts 24 hours; once it has expired every voice request is refused, which must not look like a broken button.
+const speechFailureMessage = (error: unknown, fallback: string) => {
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  return status === 401 || status === 403 ? 'Ta session a expiré. Reconnecte-toi pour écouter la question.' : fallback;
+};
+
 const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMascot, aiEnabled = true, onBack }) => {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [phase, setPhase] = useState<FlowPhase>('questions');
   const [conversationState, setConversationState] = useState<ConversationState>('speaking');
+  const [isLoadingNarration, setIsLoadingNarration] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [typedAnswer, setTypedAnswer] = useState('');
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
@@ -165,11 +171,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [isSendingVoice, setIsSendingVoice] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ pending: false, failed: false });
   const [offlineNotice, setOfflineNotice] = useState(false);
+  const [orderSeed] = useState(() => Math.random().toString(36).slice(2));
 
   const step = surveySteps[questionIndex];
   const isFirstIntake = intakes.length === 0;
-  const intakeFieldDefinition = phase === 'intake' ? intakeFields.find(field => field.id === stageTargetField(intakeStage)) : undefined;
-  const intakeChoiceField = intakeFieldDefinition && intakeFieldDefinition.kind !== 'text' ? intakeFieldDefinition : undefined;
   let currentQuestion = stepSpeech(step);
   if (phase === 'intake') currentQuestion = stageSpeech(intakeStage, isFirstIntake);
   const voiceMascot = selectedMascot;
@@ -187,6 +192,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       return;
     }
     setConversationState('speaking');
+    setIsLoadingNarration(true);
     const controller = new AbortController();
     let cancelled = false;
 
@@ -194,13 +200,15 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       try {
         const audio = await loadNarration(currentQuestion, 'fr', voiceMascot, authToken, controller.signal);
         if (cancelled) return;
+        setIsLoadingNarration(false);
         playBlob(audio, audioRef, () => setConversationState('listening'), () => {
           setError('La synthèse vocale a échoué. Tu peux lire la question et répondre.');
           setConversationState('listening');
         });
-      } catch {
+      } catch (caught) {
         if (!cancelled) {
-          setError('La synthèse vocale a échoué. Tu peux lire la question et répondre.');
+          setIsLoadingNarration(false);
+          setError(speechFailureMessage(caught, 'La synthèse vocale a échoué. Tu peux lire la question et répondre.'));
           setConversationState('listening');
         }
       }
@@ -221,10 +229,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     if (!aiEnabled) return;
     if (phase === 'questions') {
       const nextStep = surveySteps[questionIndex + 1];
-      if (RECALL_ENABLED && step.id === '8') preloadNarration(stageSpeech({ kind: 'opening' }, true), 'fr', voiceMascot);
-      else if (nextStep) preloadNarration(stepSpeech(nextStep), 'fr', voiceMascot);
+      if (RECALL_ENABLED && step.id === '8') preloadNarration(stageSpeech({ kind: 'opening' }, true), 'fr', voiceMascot, authToken);
+      else if (nextStep) preloadNarration(stepSpeech(nextStep), 'fr', voiceMascot, authToken);
     }
-  }, [aiEnabled, phase, questionIndex, step.id, voiceMascot]);
+  }, [aiEnabled, authToken, phase, questionIndex, step.id, voiceMascot]);
 
   useEffect(() => () => {
     stopAudio(audioRef);
@@ -246,6 +254,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     speechCleanupRef.current();
     speechCleanupRef.current = () => {};
     stopAudio(audioRef);
+    setIsLoadingNarration(false);
     if (conversationState === 'speaking') setConversationState('listening');
   };
 
@@ -291,14 +300,23 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     let mode: AnswerMode = 'skipped';
     if (inputMethods.length === 1) mode = inputMethods[0] as AnswerMode;
     if (inputMethods.length > 1) mode = 'mixed';
-    return { text: parts.join('\n'), mode, selections, parentOccupations: answeredParentOccupations, typed, voice, aiReply: aiTurns.at(-1)?.reply ?? '', aiTurns };
+    const optionOrder = phase === 'questions' && step.ui !== 'occupations'
+      ? Object.fromEntries(step.groups.filter(group => group.shuffle).map(group => [group.id, optionsFor(group)]))
+      : {};
+    return {
+      text: parts.join('\n'), mode, selections, ...(Object.keys(optionOrder).length ? { optionOrder } : {}),
+      parentOccupations: answeredParentOccupations, typed, voice, aiReply: aiTurns.at(-1)?.reply ?? '', aiTurns,
+    };
   };
+
+  // The three choices of a ranking question share one order so the same option sits at the same place in each list.
+  const optionsFor = (group: PresetGroup) => orderedOptions(group, orderSeed, step.ui === 'ranking' ? step.id : group.id);
 
   const renderChoices = (group: PresetGroup) => (
     <PresetChoices
       key={group.id}
       name={group.id}
-      options={group.options}
+      options={optionsFor(group)}
       values={selectedOptions[group.id] || []}
       multiple={group.multiple}
       exclusiveOption={group.exclusiveOption}
@@ -337,7 +355,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
           <label key={group.id} style={styles.fieldLabel}>{group.label}
             <select style={styles.textInput} value={selectedOptions[group.id]?.[0] || ''} onChange={event => setSelection(group.id, event.target.value ? [event.target.value] : [])}>
               <option value="">Choisir</option>
-              {group.options.filter(option => !otherRanks.has(option)).map(option => <option key={option} value={option}>{option}</option>)}
+              {optionsFor(group).filter(option => !otherRanks.has(option)).map(option => <option key={option} value={option}>{option}</option>)}
             </select>
           </label>
         );
@@ -351,55 +369,51 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setCurrentIntake(current => ({ ...current, fields: { ...current.fields, [id]: value } }));
   };
 
-  const renderIntakeForm = () => (
-    <div style={styles.presetCard}>
-      <p style={styles.presetHeading}>Décris cette prise alimentaire.</p>
-      {intakeFields.map(field => {
-        const value = currentIntake.fields[field.id];
-        if (field.kind === 'text') {
-          return (
-            <label key={field.id} style={styles.fieldLabel}>{field.label}
-              <input style={styles.textInput} value={typeof value === 'string' ? value : ''} onChange={event => updateIntakeField(field.id, event.target.value)} />
-            </label>
-          );
-        }
-        const values = Array.isArray(value) ? value : (value ? [value] : []);
-        return (
-          <div key={field.id} style={styles.fieldLabel}>
-            <span>{field.label}</span>
-            <PresetChoices name={`intake-${field.id}`} options={field.options ?? []} values={values} multiple={field.kind === 'multi'} onChange={chosen => updateIntakeField(field.id, field.kind === 'multi' ? chosen : (chosen[0] ?? ''))} />
-          </div>
-        );
-      })}
-    </div>
+  const intakeTimeline = () => (
+    <DayTimeline active={isFirstIntake && !currentIntake.heard.length ? 'early' : daySegmentFor(currentIntake.fields.time ?? intakes.at(-1)?.fields.time)} />
   );
 
-  const renderIntakeAssistant = () => {
-    const summary = intakeSummary(currentIntake);
-    return (
-      <>
-        {summary.length > 0 && (
-          <div style={styles.presetCard}>
-            <p style={styles.presetHeading}>Prise {intakes.length + 1} en cours</p>
-            {summary.map(line => <div key={line.id} style={styles.summaryRow}><strong>{line.label}</strong><span>{line.value}</span></div>)}
-          </div>
-        )}
-        {intakeChoiceField && (
-          <div style={styles.presetCard}>
-            <PresetChoices
-              name={`intake-${intakeChoiceField.id}`}
-              options={intakeChoiceField.options ?? []}
-              values={selectedOptions[intakeChoiceField.id] || []}
-              multiple={intakeChoiceField.kind === 'multi'}
-              onChange={values => setSelection(intakeChoiceField.id, values)}
-            />
-          </div>
-        )}
-        {intakeStage.kind === 'opening' && <button type="button" onClick={() => handleNoMoreIntakes()} disabled={busy} style={styles.shortcutButton}>{isFirstIntake ? 'Je n’ai rien mangé ni bu' : 'Je n’ai plus rien mangé ni bu jusqu’au coucher'}</button>}
-        {(intakeStage.kind === 'solidsMore' || intakeStage.kind === 'endCheck') && <button type="button" onClick={() => handleNothingMore()} disabled={busy} style={styles.shortcutButton}>Non, rien d’autre</button>}
-      </>
-    );
-  };
+  const intakeGuide = (highlightMissing: boolean) => (
+    <>
+      {intakeTimeline()}
+      <IntakeChecklist fields={currentIntake.fields} skipped={currentIntake.skipped} highlightMissing={highlightMissing} />
+    </>
+  );
+
+  // The form is its own checklist: every field carries its icon and the validated question.
+  const renderIntakeForm = () => (
+    <>
+      {intakeTimeline()}
+      <div style={styles.presetCard}>
+        <p style={styles.presetHeading}>Décris cette prise alimentaire.</p>
+        {intakeFields.map(field => {
+          const value = currentIntake.fields[field.id];
+          if (field.kind === 'text') {
+            return (
+              <label key={field.id} style={styles.fieldLabel}>{field.icon} {field.question}
+                <input style={styles.textInput} value={typeof value === 'string' ? value : ''} onChange={event => updateIntakeField(field.id, event.target.value)} />
+              </label>
+            );
+          }
+          const values = Array.isArray(value) ? value : (value ? [value] : []);
+          return (
+            <div key={field.id} style={styles.fieldLabel}>
+              <span>{field.icon} {field.question}</span>
+              <PresetChoices name={`intake-${field.id}`} options={field.options ?? []} values={values} multiple={field.kind === 'multi'} onChange={chosen => updateIntakeField(field.id, field.kind === 'multi' ? chosen : (chosen[0] ?? ''))} />
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  const renderIntakeAssistant = () => (
+    <>
+      {intakeGuide(intakeStage.kind === 'missing')}
+      {intakeStage.kind === 'opening' && <button type="button" onClick={() => handleNoMoreIntakes()} disabled={busy} style={styles.shortcutButton}>{isFirstIntake ? 'Je n’ai rien mangé ni bu' : 'Je n’ai plus rien mangé ni bu jusqu’au coucher'}</button>}
+      {intakeStage.kind === 'missing' && <button type="button" onClick={() => handleNothingMore()} disabled={busy} style={styles.shortcutButton}>Rien d’autre à ajouter</button>}
+    </>
+  );
 
   const renderPresetAnswers = () => {
     if (phase === 'intake') return aiEnabled ? renderIntakeAssistant() : renderIntakeForm();
@@ -426,16 +440,31 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   );
   if (phase === 'intake') {
     if (!aiEnabled) hasCurrentAnswer = intakeHasContent(currentIntake);
-    else if (intakeChoiceField) hasCurrentAnswer = (selectedOptions[intakeChoiceField.id]?.length ?? 0) > 0;
     else hasCurrentAnswer = Boolean(typedAnswer.trim());
   }
   const busy = conversationState === 'saving' || conversationState === 'thinking' || conversationState === 'recording';
   const presetAnswers = renderPresetAnswers();
-  const showTypedAnswer = (phase === 'intake' && aiEnabled && !intakeChoiceField) || (phase === 'questions' && step.ui === 'text');
+  const showTypedAnswer = (phase === 'intake' && aiEnabled) || (phase === 'questions' && step.ui === 'text');
   const hasReplied = hasCurrentAnswer && !requiresRepeat;
   let micLabel = hasCurrentAnswer && phase === 'questions' ? 'Compléter ou corriger' : 'Répondre';
   if (conversationState === 'recording') micLabel = 'Terminer l’enregistrement';
   if (isSendingVoice) micLabel = 'Envoi de la voix…';
+
+  // Replies the server did not synthesise are played from a recorded or pre-generated clip (or synthesised once and kept).
+  const playReply = (reply: string, audioData: string | undefined, onEnded: () => void, onError: () => void) => {
+    if (audioData) {
+      playBase64Audio(audioData, audioRef, onEnded, onError);
+      return;
+    }
+    const controller = new AbortController();
+    speechCleanupRef.current = () => {
+      controller.abort();
+      stopAudio(audioRef);
+    };
+    loadNarration(reply, 'fr', voiceMascot, authToken, controller.signal)
+      .then(blob => { if (!controller.signal.aborted) playBlob(blob, audioRef, onEnded, onError); })
+      .catch(() => { if (!controller.signal.aborted) onError(); });
+  };
 
   const transcribeAnswer = async (audio: Blob, previous: { transcript: string; selections: Record<string, string[]> } | null) => {
     if (!authToken) {
@@ -465,8 +494,11 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         numeric: step.numeric,
         allowedValues: step.allowedValues,
         list: step.list,
+        followUps: step.followUps,
       }));
     }
+    // Fixed replies are played from recorded or pre-generated clips, so the server does not synthesise them.
+    formData.append('replyAudio', 'client');
     if (previous) {
       formData.append('currentTranscript', previous.transcript);
       formData.append('currentSelections', JSON.stringify(previous.selections));
@@ -479,7 +511,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       });
       const nextTranscript = (response.data.answer ?? response.data.transcript)?.trim();
       const nextReply = response.data.reply?.trim();
-      if (!nextTranscript || !nextReply || !response.data.audio) throw new Error('Incomplete AI response');
+      if (!nextTranscript || !nextReply) throw new Error('Incomplete AI response');
       const matchedGroups = response.data.selectedGroups as Record<string, string[]> | undefined;
       const freeTextGroups = (response.data.freeTextGroups ?? {}) as Record<string, string>;
       const needsRepeat = response.data.needsRepeat === true;
@@ -532,7 +564,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       setRequiresRepeat(blocksNext);
       setAiReply(nextReply);
       setConversationState('speaking');
-      playBase64Audio(response.data.audio, audioRef, () => setConversationState(expectsMore ? 'listening' : 'ready'), () => {
+      playReply(nextReply, response.data.audio, () => setConversationState(expectsMore ? 'listening' : 'ready'), () => {
         setError('La réponse vocale a échoué. Tu peux continuer en lisant la réponse.');
         setConversationState(expectsMore ? 'listening' : 'ready');
       });
@@ -559,7 +591,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setCurrentIntake(emptyIntake());
     setIntakeStage({ kind: 'opening' });
     setPhase('questions');
-    setQuestionIndex(stepIndexById.get('9') ?? 0);
+    setQuestionIndex(stepIndexById.get('10') ?? 0);
   };
 
   const settleIntake = (entry: IntakeEntry, outcome: IntakeOutcome) => {
@@ -611,7 +643,8 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
     formData.append('language', 'fr');
     formData.append('mascot', voiceMascot);
-    formData.append('payload', JSON.stringify({ stage: intakeStage.kind, targetField: stageTargetField(intakeStage), record: currentIntake.fields, fields: intakeFields }));
+    formData.append('replyAudio', 'client');
+    formData.append('payload', JSON.stringify({ stage: intakeStage.kind, record: currentIntake.fields, fields: intakeFields }));
     setConversationState('thinking');
     setError('');
 
@@ -620,11 +653,11 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       const result = response.data as IntakeExtraction & { reply?: string; audio?: string };
       setIntakeHeard(result.transcript);
       const { entry, outcome } = applyExtraction(currentIntake, intakeStage, result);
-      if (outcome === 'clarify' && result.audio) {
-        setAiReply(result.reply ?? '');
+      if (outcome === 'clarify' && result.reply) {
+        setAiReply(result.reply);
         setCurrentIntake(entry);
         setConversationState('speaking');
-        playBase64Audio(result.audio, audioRef, () => setConversationState('listening'), () => setConversationState('listening'));
+        playReply(result.reply, result.audio, () => setConversationState('listening'), () => setConversationState('listening'));
         return;
       }
       setAiReply('');
@@ -648,26 +681,8 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const handleNoMoreIntakes = () => settleIntake(currentIntake, 'endOfDay');
 
   const handleIntakeNext = () => {
-    const target = stageTargetField(intakeStage);
-    if (intakeChoiceField && target) {
-      const values = selectedOptions[target] ?? [];
-      if (values.length === 0) return;
-      const value = intakeChoiceField.kind === 'multi' ? values : values[0];
-      const { entry, outcome } = applyExtraction(currentIntake, intakeStage, { transcript: '', updates: { [target]: value } });
-      settleIntake(entry, outcome);
-      return;
-    }
     const text = typedAnswer.trim();
-    if (!text) return;
-    if (target) {
-      const { entry, outcome } = applyExtraction(currentIntake, intakeStage, { transcript: text, updates: { [target]: text } });
-      settleIntake(entry, outcome);
-    } else if (intakeStage.kind === 'solidsMore') {
-      const { entry, outcome } = applyExtraction(currentIntake, intakeStage, { transcript: text, updates: {}, additions: { solids: text } });
-      settleIntake(entry, outcome);
-    } else {
-      void sendIntake(null, text);
-    }
+    if (text) void sendIntake(null, text);
   };
 
   const finishFormIntakes = () => {
@@ -898,15 +913,22 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       controller.abort();
       stopAudio(audioRef);
     };
+    const repeatFailure = 'Impossible de relire la question. Tu peux quand même répondre.';
     setError('');
     setConversationState('speaking');
+    setIsLoadingNarration(true);
     try {
       const audio = await loadNarration(currentQuestion, 'fr', voiceMascot, authToken, controller.signal);
       if (controller.signal.aborted) return;
-      playBlob(audio, audioRef, () => setConversationState('listening'), () => setConversationState('listening'));
-    } catch {
+      setIsLoadingNarration(false);
+      playBlob(audio, audioRef, () => setConversationState('listening'), () => {
+        setError(repeatFailure);
+        setConversationState('listening');
+      });
+    } catch (caught) {
       if (controller.signal.aborted) return;
-      setError('Impossible de relire la question. Tu peux quand même répondre.');
+      setIsLoadingNarration(false);
+      setError(speechFailureMessage(caught, repeatFailure));
       setConversationState('listening');
     }
   };
@@ -914,8 +936,8 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   let questionLabel = 'Questionnaire terminé';
   let kicker = 'Rappel de la journée d’hier';
   if (phase === 'questions') {
-    questionLabel = `Question ${displayNumber(step.number)} sur ${displayTotal}`;
-    kicker = `Question ${displayLabel(step)}`;
+    questionLabel = `Question ${step.number} sur ${displayTotal}`;
+    kicker = `Question ${step.label}`;
   } else if (phase === 'intake') {
     questionLabel = `Question ${INTAKE_QUESTION_NUMBER} sur ${displayTotal} · prise ${intakes.length + 1}`;
     kicker = `Question ${INTAKE_QUESTION_NUMBER} · Rappel de la journée d’hier`;
@@ -940,18 +962,19 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const nextDisabled = !hasCurrentAnswer || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState);
 
-  let intro: string | undefined;
-  if (phase === 'questions') intro = step.intro;
-  else if (phase === 'intake') intro = stageIntro(intakeStage, isFirstIntake) || undefined;
+  let intros: string[] = [];
+  if (phase === 'questions') intros = step.intro ? [step.intro] : [];
+  else if (phase === 'intake') intros = stageIntros(intakeStage, isFirstIntake, aiEnabled);
 
   return (
     <SurveyPageLayout title="Questionnaire OR-ALIM" progressLabel={questionLabel} isVoice={aiEnabled} onBack={onBack}>
         {aiEnabled && <MascotPanel mascot={voiceMascot} state={conversationState} />}
         <QuestionCard
           kicker={kicker}
-          intros={intro ? [intro] : []}
+          intros={intros}
           question={phase === 'questions' ? step.text : stageQuestion(intakeStage, isFirstIntake)}
-          repeatLabel="🔊 Réécouter la question"
+          repeatLabel={isLoadingNarration ? 'Préparation de la lecture…' : '🔊 Réécouter la question'}
+          repeatDisabled={isLoadingNarration}
           onRepeat={aiEnabled ? () => void handleRepeatQuestion() : undefined}
         />
         <div onChangeCapture={interruptNarration}>
@@ -993,7 +1016,6 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
 const styles: Record<string, React.CSSProperties> = {
   ...surveyStyles,
-  summaryRow: { display: 'grid', gridTemplateColumns: 'minmax(90px, 0.35fr) 1fr', gap: '0.5rem', fontSize: '0.9rem', lineHeight: 1.4 },
   shortcutButton: { marginTop: '0.6rem', minHeight: 44, padding: '0.55rem 0.8rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
   parentOccupation: { display: 'grid', gridTemplateColumns: 'minmax(115px, 0.6fr) minmax(130px, 1fr)', alignItems: 'center', gap: '0.5rem' },
   fieldLabel: { display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.9rem', fontWeight: 700 },

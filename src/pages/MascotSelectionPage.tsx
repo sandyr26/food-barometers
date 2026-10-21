@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadNarration, preloadNarration } from '../narration';
+import { mascotPickSpeech, mascotSelectionSpeech } from '../surveyConfig';
 import BackButton from '../components/BackButton';
 import mascotteGirl from '../assets/mascotte-girl.png';
 import mascotteBoy from '../assets/mascotte-boy.png';
@@ -15,10 +16,10 @@ interface MascotSelectionPageProps {
 
 const translations = {
   fr: {
-    title: 'Choisir une mascotte',
+    title: 'Choisis ton enquêteur !',
     boy: 'Garçon',
     girl: 'Fille',
-    subtitle: 'Choisissez la mascotte qui vous accompagnera.'
+    subtitle: 'Choisis l’enquêteur qui t’accompagnera.'
   },
   en: {
     title: 'Choose a Mascot',
@@ -79,15 +80,15 @@ const MascotSelectionPage: React.FC<MascotSelectionPageProps> = ({
     const introduceMascots = async () => {
       try {
         setSpeechError('');
-        await speak(`${t.title}. ${t.subtitle}`, 'narrator', language);
+        await speak(mascotSelectionSpeech(t.title, t.subtitle), 'narrator', language);
         if (cancelled) return;
 
         setActiveMascot('girl');
-        await speak('Tu peux me choisir !', 'girl', 'fr');
+        await speak(mascotPickSpeech, 'girl', 'fr');
         if (cancelled) return;
 
         setActiveMascot('boy');
-        await speak('Tu peux me choisir !', 'boy', 'fr');
+        await speak(mascotPickSpeech, 'boy', 'fr');
       } catch {
         if (!cancelled) setSpeechError('La présentation audio des mascottes est indisponible.');
       } finally {
@@ -95,8 +96,8 @@ const MascotSelectionPage: React.FC<MascotSelectionPageProps> = ({
       }
     };
 
-    preloadNarration('Tu peux me choisir !', 'fr', 'girl');
-    preloadNarration('Tu peux me choisir !', 'fr', 'boy');
+    preloadNarration(mascotPickSpeech, 'fr', 'girl');
+    preloadNarration(mascotPickSpeech, 'fr', 'boy');
     void introduceMascots();
 
     return () => {
@@ -107,7 +108,7 @@ const MascotSelectionPage: React.FC<MascotSelectionPageProps> = ({
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     };
-  }, [authToken, language, t.subtitle]);
+  }, [authToken, language, t.title, t.subtitle]);
 
   return (
     <div style={{
