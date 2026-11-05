@@ -60,6 +60,11 @@ interface AiTurn {
   at: string;
 }
 
+interface PairRow {
+  item: string;
+  reason: string;
+}
+
 interface RecordedAnswer {
   text: string;
   mode: AnswerMode;
@@ -67,6 +72,7 @@ interface RecordedAnswer {
   // Order in which shuffled options were shown to the respondent.
   optionOrder?: Record<string, string[]>;
   parentOccupations?: Occupations;
+  pairs?: PairRow[];
   typed?: string;
   voice?: string;
   aiReply?: string;
@@ -78,6 +84,7 @@ interface HistoryEntry {
   questionIndex: number;
   selectedOptions: Record<string, string[]>;
   parentOccupations: Occupations;
+  pairRows: PairRow[];
   typedAnswer: string;
   transcript: string;
   intakes: IntakeEntry[];
@@ -87,11 +94,18 @@ interface HistoryEntry {
 }
 
 const INTAKE_QUESTION_NUMBER = 9;
-const displayTotal = Math.max(INTAKE_QUESTION_NUMBER, ...surveySteps.map(step => step.number));
+// Question 7 was removed: the questions after it are shown one number lower, while their ids and stored numbers are unchanged.
+const REMOVED_QUESTION_NUMBER = 7;
+const shownNumber = (number: number) => (number > REMOVED_QUESTION_NUMBER ? number - 1 : number);
+const shownLabel = (label: string) => label.replace(/^\d+/, digits => String(shownNumber(Number(digits))));
+const displayTotal = shownNumber(Math.max(INTAKE_QUESTION_NUMBER, ...surveySteps.map(step => step.number)));
 
 const stepIndexById = new Map(surveySteps.map((step, index) => [step.id, index]));
 const blankAnswer = (): RecordedAnswer => ({ text: '', mode: 'skipped', selections: {} });
 const emptyOccupations = (): Occupations => Object.fromEntries(parentRoleNames.map(role => [role, { occupation: '', notWorking: false }]));
+const emptyPairRows = (): PairRow[] => [{ item: '', reason: '' }];
+const answeredPairs = (rows: PairRow[]) => rows.map(row => ({ item: row.item.trim(), reason: row.reason.trim() })).filter(row => row.item || row.reason);
+const pairsText = (rows: PairRow[]) => answeredPairs(rows).map(row => (row.reason ? `${row.item} : ${row.reason}` : row.item)).join('\n');
 const serializeStep = (surveyStep: SurveyStep, answer: RecordedAnswer) => ({ id: surveyStep.id, number: surveyStep.number, question: surveyStep.text, ...answer });
 const serializeIntake = (entry: IntakeEntry, index: number, ai: boolean) => ({ intake: index + 1, text: intakeText(entry), mode: ai ? 'ai' : 'form', fields: entry.fields, skipped: entry.skipped, heard: entry.heard, turns: entry.turns });
 
@@ -150,6 +164,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [followUpsDone, setFollowUpsDone] = useState(0);
   const [aiTurns, setAiTurns] = useState<AiTurn[]>([]);
   const [parentOccupations, setParentOccupations] = useState<Occupations>(emptyOccupations);
+  const [pairRows, setPairRows] = useState<PairRow[]>(emptyPairRows);
   const [aiReply, setAiReply] = useState('');
   const [error, setError] = useState('');
   const [responses, setResponses] = useState<RecordedAnswer[]>(() => surveySteps.map(blankAnswer));
@@ -278,11 +293,20 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setAiReply('');
     setSelectedOptions({});
     setParentOccupations(emptyOccupations());
+    setPairRows(emptyPairRows());
     setError('');
   };
 
+  const updatePairRow = (index: number, update: Partial<PairRow>) => {
+    interruptNarration();
+    setRequiresRepeat(false);
+    setPairRows(current => current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...update } : row)));
+  };
+
   const makeCurrentAnswer = (typedOverride?: string): RecordedAnswer => {
-    const typed = (typedOverride ?? typedAnswer).trim();
+    const isPairs = phase === 'questions' && step.ui === 'pairs';
+    const pairs = isPairs ? answeredPairs(pairRows) : [];
+    const typed = isPairs ? pairsText(pairRows) : (typedOverride ?? typedAnswer).trim();
     const voice = transcript.trim();
     const selections = Object.fromEntries(Object.entries(selectedOptions).filter(([, values]) => values.length > 0));
     const answeredParentOccupations = Object.fromEntries(Object.entries(parentOccupations).filter(([, value]) => value.occupation.trim() || value.notWorking));
@@ -305,7 +329,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       : {};
     return {
       text: parts.join('\n'), mode, selections, ...(Object.keys(optionOrder).length ? { optionOrder } : {}),
-      parentOccupations: answeredParentOccupations, typed, voice, aiReply: aiTurns.at(-1)?.reply ?? '', aiTurns,
+      parentOccupations: answeredParentOccupations, ...(pairs.length ? { pairs } : {}), typed, voice, aiReply: aiTurns.at(-1)?.reply ?? '', aiTurns,
     };
   };
 
@@ -345,6 +369,29 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       ))}
     </div>
   );
+
+  const renderPairs = () => {
+    const [itemLabel, reasonLabel] = step.pairLabels ?? ['', ''];
+    return (
+      <div style={styles.presetCard}>
+        {step.hint && <p style={styles.presetHeading}>{step.hint}</p>}
+        <div style={styles.pairRow} aria-hidden="true">
+          <strong>{itemLabel}</strong>
+          <strong>{reasonLabel}</strong>
+        </div>
+        {pairRows.map((row, index) => (
+          <div key={index} style={styles.pairRow}>
+            <input style={styles.textInput} aria-label={`${itemLabel} ${index + 1}`} value={row.item} onChange={event => updatePairRow(index, { item: event.target.value })} />
+            <input style={styles.textInput} aria-label={`${reasonLabel} ${index + 1}`} value={row.reason} onChange={event => updatePairRow(index, { reason: event.target.value })} />
+          </div>
+        ))}
+        <button type="button" onClick={() => { interruptNarration(); setPairRows(current => [...current, { item: '', reason: '' }]); }} style={styles.addRowButton}>
+          <span aria-hidden="true" style={styles.addRowIcon}>+</span>
+          <span>Ajouter</span>
+        </button>
+      </div>
+    );
+  };
 
   const renderRanking = () => (
     <div style={styles.presetCard}>
@@ -419,6 +466,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     if (phase === 'intake') return aiEnabled ? renderIntakeAssistant() : renderIntakeForm();
     if (phase !== 'questions') return null;
     if (step.ui === 'occupations') return renderOccupations();
+    if (step.ui === 'pairs') return renderPairs();
     if (step.ui === 'ranking') return renderRanking();
     if (step.ui === 'choices') {
       return (
@@ -437,6 +485,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     || typedAnswer.trim()
     || Object.values(selectedOptions).some(values => values.length > 0)
     || Object.values(parentOccupations).some(value => value.occupation.trim() || value.notWorking)
+    || (phase === 'questions' && step.ui === 'pairs' && answeredPairs(pairRows).length > 0)
   );
   if (phase === 'intake') {
     if (!aiEnabled) hasCurrentAnswer = intakeHasContent(currentIntake);
@@ -495,6 +544,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         allowedValues: step.allowedValues,
         list: step.list,
         followUps: step.followUps,
+        residence: step.residence,
       }));
     }
     // Fixed replies are played from recorded or pre-generated clips, so the server does not synthesise them.
@@ -582,7 +632,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const saveInBackground = (patch: SurveyPatch) => recordSurvey(patch);
 
-  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, typedAnswer, transcript, intakes, currentIntake, intakeStage, aiTurns }]);
+  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, pairRows, typedAnswer, transcript, intakes, currentIntake, intakeStage, aiTurns }]);
 
   const finishIntakes = (finished: IntakeEntry[]) => {
     clearCurrentAnswer();
@@ -767,7 +817,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setAiReply('');
     const occupationLines = phase === 'questions' && step.ui === 'occupations'
       ? Object.entries(parentOccupations).filter(([, value]) => value.occupation.trim()).map(([role, value]) => `${role}: ${value.occupation.trim()}`)
-      : [];
+      : phase === 'questions' && step.ui === 'pairs' ? pairsText(pairRows).split('\n').filter(Boolean) : [];
     const previous = phase === 'questions' && hasReplied
       ? {
         transcript: [transcript.trim(), ...occupationLines].filter(Boolean).join('\n'),
@@ -823,6 +873,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setQuestionIndex(entry.questionIndex);
     setSelectedOptions(entry.selectedOptions);
     setParentOccupations(entry.parentOccupations);
+    setPairRows(entry.pairRows);
     setTypedAnswer(entry.typedAnswer);
     setTranscript(entry.transcript);
     setIntakes(entry.intakes);
@@ -936,11 +987,11 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   let questionLabel = 'Questionnaire terminé';
   let kicker = 'Rappel de la journée d’hier';
   if (phase === 'questions') {
-    questionLabel = `Question ${step.number} sur ${displayTotal}`;
-    kicker = `Question ${step.label}`;
+    questionLabel = `Question ${shownNumber(step.number)} sur ${displayTotal}`;
+    kicker = `Question ${shownLabel(step.label)}`;
   } else if (phase === 'intake') {
-    questionLabel = `Question ${INTAKE_QUESTION_NUMBER} sur ${displayTotal} · prise ${intakes.length + 1}`;
-    kicker = `Question ${INTAKE_QUESTION_NUMBER} · Rappel de la journée d’hier`;
+    questionLabel = `Question ${shownNumber(INTAKE_QUESTION_NUMBER)} sur ${displayTotal} · prise ${intakes.length + 1}`;
+    kicker = `Question ${shownNumber(INTAKE_QUESTION_NUMBER)} · Rappel de la journée d’hier`;
   } else if (phase === 'saving') {
     questionLabel = 'Enregistrement du questionnaire…';
   }
@@ -973,6 +1024,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
           kicker={kicker}
           intros={intros}
           question={phase === 'questions' ? step.text : stageQuestion(intakeStage, isFirstIntake)}
+          image={phase === 'questions' ? step.image : undefined}
           repeatLabel={isLoadingNarration ? 'Préparation de la lecture…' : '🔊 Réécouter la question'}
           repeatDisabled={isLoadingNarration}
           onRepeat={aiEnabled ? () => void handleRepeatQuestion() : undefined}
@@ -1018,6 +1070,9 @@ const styles: Record<string, React.CSSProperties> = {
   ...surveyStyles,
   shortcutButton: { marginTop: '0.6rem', minHeight: 44, padding: '0.55rem 0.8rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
   parentOccupation: { display: 'grid', gridTemplateColumns: 'minmax(115px, 0.6fr) minmax(130px, 1fr)', alignItems: 'center', gap: '0.5rem' },
+  pairRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem', fontSize: '0.85rem', color: '#765800' },
+  addRowButton: { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.6rem', minHeight: 44, padding: '0 0.9rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', font: 'inherit', fontWeight: 800, cursor: 'pointer' },
+  addRowIcon: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, fontSize: '1.4rem', lineHeight: 1 },
   fieldLabel: { display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.9rem', fontWeight: 700 },
   textInput: { width: '100%', minHeight: 40, padding: '0.5rem 0.6rem', boxSizing: 'border-box', border: '1px solid #c8b879', borderRadius: 6, background: '#fff', color: '#332d1c', font: 'inherit' },
   typedAnswer: { display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem', color: '#765800', fontSize: '0.85rem', fontWeight: 700 },

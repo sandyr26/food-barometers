@@ -28,7 +28,11 @@ export interface SurveyStep {
   text: string;
   intro?: string;
   hint?: string;
-  ui: 'text' | 'choices' | 'occupations' | 'ranking';
+  ui: 'text' | 'choices' | 'occupations' | 'ranking' | 'pairs';
+  // Column titles of a 'pairs' question: rows of two linked inputs (for example a food and its reason).
+  pairLabels?: [string, string];
+  // Picture shown on the right of the question.
+  image?: { src: string; alt: string };
   groups: PresetGroup[];
   textPrompt?: { label: string; when?: (selections: Record<string, string[]>) => boolean };
   expected: string;
@@ -39,6 +43,8 @@ export interface SurveyStep {
   list?: { max: number };
   // Validated formulations the AI may use, word for word, when it needs a precision.
   followUps?: string[];
+  // Question about where the participant lives: checked against the communes of La Réunion, and no postal address is recorded.
+  residence?: boolean;
   skipIf?: (get: AnswerLookup) => boolean;
 }
 
@@ -97,10 +103,16 @@ export const consentYesOption = 'Oui, je souhaite participer.';
 export const consentNoOption = 'Non, je ne souhaite pas participer.';
 export const declineMessage = 'Merci et peut-être à bientôt.';
 
+// On screen, a microphone icon is shown before the button name (see PresentationPage).
+export const answerModeIntroPrefix = 'À chaque question, tu pourras choisir de répondre à l’écrit en t’aidant du clavier ou à l’oral après avoir cliqué sur ';
+export const answerModeButtonLabel = 'Répondre';
+export const answerModeIntro = `${answerModeIntroPrefix}${answerModeButtonLabel}.`;
+
 export const consentParagraphs = (mascot: Mascot) => [
   'Bonjour,',
-  `${mascot === 'girl' ? 'Enchantée' : 'Enchanté'} ! Je m’appelle ${mascotNames[mascot]} et je vais t’accompagner pour répondre à l’enquête sur l’alimentation. Si tu as des questions ou que tu as besoin d’aide, n’hésite pas à demander à un animateur.`,
-  'Je te rassure, il n’y a pas de bonne ou de mauvaise réponse : ce qui nous intéresse, c’est ce que toi, tu fais et tu penses réellement. Tu peux choisir de ne pas répondre à une question ou d’arrêter le questionnaire à tout moment, sans avoir à te justifier.',
+  `${mascot === 'girl' ? 'Enchantée' : 'Enchanté'} ! Je m’appelle ${mascotNames[mascot]} et je vais t’accompagner pour répondre à l’enquête sur l’alimentation. Si tu as des questions ou s’il y a un mot ou une phrase qui n’est pas clair, n’hésite pas à demander à un animateur.`,
+  'Je te rassure, il n’y a pas de bonne ou de mauvaise réponse : ce qui nous intéresse, c’est ce que toi, tu fais et tu penses réellement. Tu peux choisir de ne pas répondre à une question ou d’arrêter le questionnaire à tout moment, sans avoir à expliquer pourquoi.',
+  answerModeIntro,
   'Le questionnaire dure environ 30 minutes.',
 ];
 
@@ -112,18 +124,18 @@ export const CONSENT_PAUSE_MS = 2000;
 const NEVER = 'Jamais';
 const yesNo = ['Oui', 'Non'];
 const influenceOptions = ['Camarades', 'Famille/parents', 'Réseaux sociaux', 'Coachs sportifs et équivalents', 'Professionnels de santé', 'Moi-même', 'Autre'];
-const householdOptions = ['Papa / tuteur', 'Maman / tutrice', 'Beau-père', 'Belle-mère', 'Frères/demi-frères', 'Sœurs/demi-sœurs', 'Grands-parents', 'Oncles/tantes', 'Autres', 'Personnes sans lien familial', 'Vit en foyer d’accueil', 'Préfère ne pas répondre'];
+const householdOptions = ['Moi-même', 'Maman', 'Papa', 'Sœurs/demi-sœurs', 'Frères/demi-frères', 'Grands-parents', 'Belle-mère', 'Beau-père', 'Oncles/tantes', 'Adultes qui s’occupent de toi', 'Vit en foyer d’accueil', 'Autres', 'Préfère ne pas répondre'];
 const parentRoles = ['Papa', 'Maman', 'Tuteur 1', 'Tuteur 2'];
 const consumptionOptions = ['Régulièrement dans la semaine', 'Une à deux fois par mois', 'Rarement', NEVER];
 const difficultyOptions = ['Très difficile', 'Difficile', 'Ni difficile ni facile', 'Facile', 'Très facile'];
 
 const foods = [
-  { key: 'a', name: 'Jus de fruits en brique', ask: 'des jus de fruits en brique' },
-  { key: 'b', name: 'Sodas', ask: 'des sodas' },
-  { key: 'c', name: 'Pizzas', ask: 'des pizzas' },
-  { key: 'd', name: 'Pains bouchons ou Lords', ask: 'des pains bouchons ou des Lords' },
-  { key: 'e', name: 'Hamburgers', ask: 'des hamburgers' },
-  { key: 'f', name: 'Biscuits, pâtisseries ou gâteaux', ask: 'des biscuits, des pâtisseries ou des gâteaux' },
+  { key: 'a', name: 'Jus de fruits en brique', ask: 'des jus de fruits en brique', image: '/images/foods/juice.svg' },
+  { key: 'b', name: 'Sodas', ask: 'des sodas', image: '/images/foods/soda.svg' },
+  { key: 'c', name: 'Pizzas', ask: 'des pizzas', image: '/images/foods/pizza.svg' },
+  { key: 'd', name: 'Pains bouchons ou Lords', ask: 'des pains bouchons ou des Lords', image: '/images/foods/bun.svg' },
+  { key: 'e', name: 'Hamburgers', ask: 'des hamburgers', image: '/images/foods/burger.svg' },
+  { key: 'f', name: 'Biscuits, pâtisseries ou gâteaux', ask: 'des biscuits, des pâtisseries ou des gâteaux', image: '/images/foods/cake.svg' },
 ];
 
 const changes = [
@@ -194,34 +206,31 @@ export const surveySteps: SurveyStep[] = [
   single('1', 1, 'Es-tu une fille ou un garçon ?', ['Fille', 'Garçon'], 'Genre', 'Accepter la réponse. Accepter un refus de répondre sans relancer.', {}, true),
   open('2', 2, 'Quelle est ton année de naissance ?', 'Année de naissance : 2009–2018', 'Si la réponse est hors intervalle, ambiguë ou donnée sous une autre forme, demander une précision sans suggérer de réponse.', { numeric: { min: 2009, max: 2018, message: 'Ton année de naissance semble incorrecte. Peux-tu me la redonner ?' }, maxFollowUps: 2 }),
   open('3', 3, 'Dans quelle classe es-tu ?', 'Niveau scolaire : 6e, 5e, 4e ou 3e', 'Reconnaître les formulations équivalentes : 6e/sixième, 5e/cinquième, 4e/quatrième, 3e/troisième. Sinon demander de préciser.', { allowedValues: ['6e', '5e', '4e', '3e'], maxFollowUps: 2 }),
-  open('4', 4, 'Où habites-tu ? Dans quelle ville ? Et si tu connais ton quartier de résidence, indique-le !', 'Commune de résidence à La Réunion (974) et, si connu, quartier', 'Recueillir la commune et, si le répondant le connaît, le quartier ; ne pas insister si le quartier n’est pas connu. Accepter les variantes orthographiques identifiables. Si le répondant indique plusieurs lieux de résidence (par exemple parents séparés ou divorcés), demander de préciser celui où il a dormi hier soir. Si la commune manque, la demander.', {
+  open('4', 4, 'Où habites-tu ? Et si tu connais ton quartier, indique-le !', 'Commune de résidence à La Réunion (974) et, si connu, quartier', 'Recueillir la commune et, si le répondant le connaît, le quartier ; ne pas insister si le quartier n’est pas connu. Accepter les variantes orthographiques identifiables. Si le répondant indique plusieurs lieux de résidence (par exemple parents séparés ou divorcés), demander de préciser celui où il a dormi hier soir.   Si la commune manque, la demander. Ne jamais enregistrer ni demander l’adresse postale (numéro, rue, nom de résidence, code postal) : conserver uniquement la commune et, si connu, le quartier.', {
     maxFollowUps: 2,
-    followUps: ['Dans quelle ville habites-tu ?', 'Où as-tu dormi hier soir ?'],
+    residence: true,
+    followUps: ['Et si tu connais le nom de ton quartier, indique-le !', 'Dans quelle commune habites-tu ?', 'Où as-tu dormi hier soir ?'],
   }),
   open('5', 5, 'En te comptant, combien de personnes vivent chez toi ?', 'Nombre entier de 2 à 20', 'Si la réponse est vague, non numérique ou hors intervalle : demander un nombre précis.', { numeric: { min: 2, max: 20, message: 'Ce nombre me semble incorrect. Peux-tu me redonner le nombre de personnes qui vivent chez toi, en te comptant ?' }, maxFollowUps: 2 }),
   single('6', 6, 'Et parmi les personnes qui vivent chez toi, qui sont-elles ? Tu peux, par exemple, dire « mon père », « ma sœur »…', householdOptions, 'Une ou plusieurs catégories décrivant les personnes vivant avec l’adolescent', 'Recoder les réponses spontanées dans les catégories. Si la réponse est trop générale, demander uniquement la précision nécessaire. Ne pas relancer si le répondant préfère ne pas répondre.', {
-    groups: [{ id: 'q6-personnes-du-foyer', label: 'Personnes vivant au foyer', options: householdOptions, multiple: true, shuffle: true }],
+    groups: [{ id: 'q6-personnes-du-foyer', label: 'Personnes vivant au foyer', options: householdOptions, multiple: true }],
     textPrompt: { label: 'Précise qui', when: selections => Boolean(selections['q6-personnes-du-foyer']?.includes('Autres')) },
     maxFollowUps: 1,
   }),
-  {
-    id: '7', number: 7, label: '7', text: 'Quels métiers font tes parents ou tes tuteurs ?', ui: 'occupations',
-    hint: 'Pour chaque personne, indique son métier ou coche « Ne travaille pas ».',
-    groups: parentRoles.map(role => ({ id: `q7-${role}`, label: `Situation professionnelle de ${role}`, options: ['Ne travaille pas'], allowFreeText: true })),
-    expected: 'Métier de chaque parent ou tuteur, ou indication qu’il/elle ne travaille pas',
-    guidance: 'Demander des précisions successives jusqu’à disposer de suffisamment d’informations pour identifier la catégorie socioprofessionnelle : métier exercé, fonction ou tâches principales, statut si nécessaire. Ne pas suggérer de métier ni de catégorie au répondant. Pour chaque personne, la valeur libre doit regrouper le métier, les tâches et le statut déjà connus.',
-    maxFollowUps: 3,
-  },
-  single('8', 8, 'Est-ce que tu as de l’argent de poche : régulièrement, de temps en temps, ou pas du tout ?', ['Oui, de manière régulière', 'De temps en temps', 'Non'], 'Fréquence / existence d’argent de poche', 'Accepter une formulation équivalente et la recoder dans l’une des trois modalités.'),
+  single('8', 8, 'Est-ce que tu as de l’argent de poche : régulièrement, de temps en temps, ou pas du tout ?', ['Oui, chaque semaine', 'Oui, chaque mois', 'Oui, à certaines occasions (fêtes, bonne note, anniversaire…)', 'Non'], 'Fréquence / existence d’argent de poche', 'Accepter une formulation équivalente et la recoder dans l’une des quatre modalités.'),
   open('10', 10, 'Y a-t-il des choses que tu ne manges pas ou ne bois pas, quelle que soit la raison ? Si oui, lesquelles et pour quelle raison ?', 'Aliment(s) ou boisson(s) évité(s) et raison(s) associée(s), ou aucune éviction', 'Accepter « non », « rien » ou « je ne sais pas » comme réponse complète. Si le répondant cite des éléments, obtenir si possible l’aliment précis et la raison pour chacun ; une seule relance neutre si la raison manque. Pour la viande, préciser s’il s’agit de toute viande ou d’un type de viande. Pour les catégories générales (légumes, grains, légumes-racines), demander lesquels, sans suggérer d’exemples sauf nécessité de compréhension. Ne pas interpréter les raisons.', {
     maxFollowUps: 2,
+    ui: 'pairs',
+    hint: 'Si oui, prends le temps de réfléchir et pour chaque chose que tu ne manges pas ou que tu ne bois pas, précise bien la raison.',
+    pairLabels: ['Aliment ou boisson', 'Raison'],
     followUps: ['Pour quelle raison ?', 'Peux-tu préciser lesquels ?'],
   }),
   ...foods.flatMap((food, index): SurveyStep[] => [
     {
-      id: `11${food.key}`, number: 11, label: `11${food.key}`, text: `Est-ce qu’il t’arrive de consommer ${food.ask} ?`, ui: 'choices',
+      id: `11${food.key}`, number: 11, label: `11${food.key}`, text: `Dis-moi si tu en consommes ${food.ask}.`, ui: 'choices',
       intro: index === 0 ? '« Je vais te citer quelques aliments et boissons. Pour chacun, dis-moi à quelle fréquence tu en consommes : régulièrement dans la semaine, une à deux fois par mois, rarement ou jamais. »' : undefined,
       groups: [{ id: `q11${food.key}`, label: food.name, options: consumptionOptions }],
+      image: { src: food.image, alt: food.name },
       expected: 'Une réponse', guidance: 'Énoncer les 4 possibilités si besoin. Recueillir une seule réponse.', maxFollowUps: 0,
     },
     {
@@ -229,6 +238,7 @@ export const surveySteps: SurveyStep[] = [
       expected: 'Avec qui et dans quel contexte l’aliment est consommé, dans les mots du répondant',
       guidance: `${openGuidance} Si seul(e) « avec qui » ou seul « dans quel contexte » est donné, une seule relance neutre pour obtenir l’autre partie.`,
       maxFollowUps: 1,
+      image: { src: food.image, alt: food.name },
       followUps: ['Avec qui ?', 'Dans quel contexte ?'],
       skipIf: get => !consumed(get, food.key),
     },

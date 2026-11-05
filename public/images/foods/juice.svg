@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Jus de fruits en brique">
+  <ellipse cx="60" cy="110" rx="34" ry="6" fill="#000" opacity=".12"/>
+  <path d="M38 30 L70 30 L84 40 L84 108 L38 108 Z" fill="#ffa94d"/>
+  <path d="M70 30 L84 40 L84 108 L70 108 Z" fill="#f08c00"/>
+  <path d="M38 30 L52 20 L84 20 L70 30 Z" fill="#ffd8a8"/>
+  <path d="M66 22 L68 6 L80 6" fill="none" stroke="#e03131" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="38" y="56" width="32" height="34" rx="4" fill="#fff4e6"/>
+  <circle cx="54" cy="73" r="11" fill="#fd7e14"/>
+  <path d="M54 62 C50 58 56 54 59 58" fill="none" stroke="#2f9e44" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="50" cy="70" r="2" fill="#ffd8a8" opacity=".8"/>
+</svg>

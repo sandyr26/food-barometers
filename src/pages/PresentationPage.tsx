@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { api } from '../api';
+import { FaMicrophone } from 'react-icons/fa6';
 import { loadNarration } from '../narration';
 import { MascotPanel, NextButton, PresetChoices, QuestionCard, SurveyPageLayout } from '../components/SurveyLayout';
 import { VoiceReplyControls, VoiceTranscriptCard } from '../components/VoiceReply';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { surveyStyles } from '../surveyStyles';
 import type { ConversationState } from '../voiceMascot';
-import { CONSENT_PAUSE_MS, aiConsentQuestion, consentIntroSpeech, consentNoOption, consentParagraphs, consentQuestionSpeech, consentYesOption, declineMessage } from '../surveyConfig';
+import { CONSENT_PAUSE_MS, aiConsentQuestion, answerModeButtonLabel, answerModeIntro, answerModeIntroPrefix, consentIntroSpeech, consentNoOption, consentParagraphs, consentQuestionSpeech, consentYesOption, declineMessage } from '../surveyConfig';
 
 interface PresentationPageProps {
   onBack: () => void;
@@ -20,7 +21,7 @@ interface PresentationPageProps {
 const paragraphs = [
   'Nous menons une enquête sur l’alimentation de personnes âgées de 12 à 15 ans à La Réunion. Cette recherche est réalisée dans le cadre du projet OR-ALIM – Observation et Recherche sur l’Alimentation, porté par l’Institut de Recherche pour le Développement et l’Université de La Réunion.',
   'Dans le questionnaire il ne sera demandé ni ton nom ni ton prénom. Tes réponses sont confidentielles et seront utilisées uniquement dans le cadre de la recherche OR-ALIM, dans le respect des règles de protection des données personnelles.',
-  'Tu répondras toi-même au questionnaire. Il n’y a pas de bonne ou de mauvaise réponse : ce qui nous intéresse, c’est ce que toi, tu fais et ce que tu penses réellement. Tes réponses ne seront pas montrées à tes camarades, à tes enseignants ou à tes parents. Tu peux choisir de ne pas répondre à une question ou arrêter le questionnaire à tout moment, sans avoir à te justifier.',
+  'Tu répondras toi-même au questionnaire. Il n’y a pas de bonne ou de mauvaise réponse : ce qui nous intéresse, c’est ce que toi, tu fais et ce que tu penses réellement. Tes réponses ne seront pas montrées à tes camarades, à tes enseignants ou à tes parents. Tu peux choisir de ne pas répondre à une question ou arrêter le questionnaire à tout moment, sans avoir à expliquer pourquoi.',
   'Lis chaque question attentivement et réponds en choisissant la réponse qui te correspond le mieux. Pour certaines questions, tu pourras sélectionner plusieurs réponses ou écrire directement ta réponse. Ne t’inquiète pas pour les fautes d’orthographe : elles n’ont aucune importance pour tes réponses.',
   'Si tu ne comprends pas une question ou une consigne, n’hésite pas à nous demander une explication.',
 ];
@@ -109,7 +110,15 @@ const PresentationPage: React.FC<PresentationPageProps> = ({ onBack, onContinue,
   const pauseTimerRef = useRef<number | undefined>(undefined);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
-  const shownParagraphs = audioEnabled ? consentParagraphs(selectedMascot) : ['Bonjour,', ...paragraphs, <strong key="duration">Le questionnaire dure environ 30 minutes.</strong>];
+  const answerModeParagraph = (
+    <span key="answer-mode">
+      {answerModeIntroPrefix}
+      <strong style={{ whiteSpace: 'nowrap' }}>[<FaMicrophone aria-hidden="true" style={{ verticalAlign: '-0.1em' }} /> {answerModeButtonLabel}]</strong>.
+    </span>
+  );
+  const shownParagraphs = audioEnabled
+    ? consentParagraphs(selectedMascot).map(text => (text === answerModeIntro ? answerModeParagraph : text))
+    : ['Bonjour,', ...paragraphs, answerModeParagraph, <strong key="duration">Le questionnaire dure environ 30 minutes.</strong>];
   const shownQuestion = audioEnabled ? aiConsentQuestion : consentQuestion;
   const error = voiceError || speechError;
   let micLabel = 'Répondre';

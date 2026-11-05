@@ -42,17 +42,21 @@ interface QuestionCardProps {
   kicker: string;
   intros?: React.ReactNode[];
   question: string;
+  image?: { src: string; alt: string };
   repeatLabel?: string;
   repeatDisabled?: boolean;
   onRepeat?: () => void;
 }
 
-export const QuestionCard: React.FC<QuestionCardProps> = ({ kicker, intros = [], question, repeatLabel, repeatDisabled = false, onRepeat }) => (
-  <section style={surveyStyles.questionCard}>
-    <span style={surveyStyles.questionKicker}>{kicker}</span>
-    {intros.map((intro, index) => <p key={index} style={surveyStyles.intro}>{intro}</p>)}
-    <h2 style={surveyStyles.question}>{question}</h2>
-    {onRepeat && <button type="button" onClick={onRepeat} disabled={repeatDisabled} style={{ ...surveyStyles.repeatButton, ...(repeatDisabled ? surveyStyles.disabledButton : {}) }}>{repeatLabel}</button>}
+export const QuestionCard: React.FC<QuestionCardProps> = ({ kicker, intros = [], question, image, repeatLabel, repeatDisabled = false, onRepeat }) => (
+  <section style={{ ...surveyStyles.questionCard, ...(image ? surveyStyles.questionCardWithImage : {}) }}>
+    <div style={surveyStyles.questionContent}>
+      <span style={surveyStyles.questionKicker}>{kicker}</span>
+      {intros.map((intro, index) => <p key={index} style={surveyStyles.intro}>{intro}</p>)}
+      <h2 style={surveyStyles.question}>{question}</h2>
+      {onRepeat && <button type="button" onClick={onRepeat} disabled={repeatDisabled} style={{ ...surveyStyles.repeatButton, ...(repeatDisabled ? surveyStyles.disabledButton : {}) }}>{repeatLabel}</button>}
+    </div>
+    {image && <img src={image.src} alt={image.alt} style={surveyStyles.questionImage} />}
   </section>
 );
 

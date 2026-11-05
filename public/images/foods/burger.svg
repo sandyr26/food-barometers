@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Hamburger">
+  <ellipse cx="60" cy="108" rx="42" ry="6" fill="#000" opacity=".12"/>
+  <path d="M18 56 C18 26 40 14 60 14 C80 14 102 26 102 56 Z" fill="#e8943a"/>
+  <path d="M26 44 C28 30 40 22 52 20" fill="none" stroke="#f4b460" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="46" cy="30" rx="3" ry="1.6" fill="#fff4cc" transform="rotate(-20 46 30)"/>
+  <ellipse cx="62" cy="24" rx="3" ry="1.6" fill="#fff4cc"/>
+  <ellipse cx="78" cy="32" rx="3" ry="1.6" fill="#fff4cc" transform="rotate(20 78 32)"/>
+  <path d="M14 58 Q22 52 30 58 T46 58 T62 58 T78 58 T94 58 T106 58 L106 66 L14 66 Z" fill="#51cf66"/>
+  <rect x="16" y="64" width="88" height="8" rx="3" fill="#ffd43b"/>
+  <rect x="14" y="70" width="92" height="14" rx="7" fill="#7a4a2a"/>
+  <path d="M18 86 Q60 92 102 86 L102 90 Q60 96 18 90 Z" fill="#ff6b6b"/>
+  <path d="M18 88 C18 104 30 104 60 104 C90 104 102 104 102 88 Z" fill="#e8943a"/>
+</svg>

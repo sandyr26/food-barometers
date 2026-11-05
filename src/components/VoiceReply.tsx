@@ -20,7 +20,7 @@ interface VoiceTranscriptCardProps {
 export const VoiceTranscriptCard: React.FC<VoiceTranscriptCardProps> = ({ heard, reply, isProcessing }) => (
   <section style={styles.transcriptCard}>
     <div style={styles.transcriptHeader}><span>Ta réponse</span>{isProcessing && <span style={styles.processing}>Transcription…</span>}</div>
-    <p style={heard ? styles.transcript : styles.transcriptPlaceholder}>{heard || 'Appuie sur le micro et réponds naturellement.'}</p>
+    <p style={heard ? styles.transcript : styles.transcriptPlaceholder}>{heard || 'Appuie sur le micro et réponds.'}</p>
     {reply && <p style={styles.aiReply}>{reply}</p>}
   </section>
 );
