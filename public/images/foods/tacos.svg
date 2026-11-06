@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Tacos">
+  <ellipse cx="60" cy="108" rx="48" ry="6" fill="#000" opacity=".12"/>
+  <path d="M26 54 C32 40 40 50 46 40 C52 30 58 46 64 38 C70 30 76 46 84 42 C90 40 94 50 96 54 Z" fill="#40c057"/>
+  <path d="M30 54 C34 44 40 52 46 46 C52 40 58 52 66 46 C74 40 78 54 90 50 L92 56 L30 58 Z" fill="#ffd43b"/>
+  <rect x="16" y="52" width="88" height="48" rx="16" fill="#f1d9a8" stroke="#d9b77a" stroke-width="3"/>
+  <path d="M24 66 H96 M24 78 H96 M24 90 H96" stroke="#c98a3e" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  <path d="M34 54 L40 98 M60 54 L62 98 M84 54 L80 98" stroke="#c98a3e" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
+  <circle cx="44" cy="60" r="3" fill="#e03131"/>
+  <circle cx="76" cy="62" r="3" fill="#e03131"/>
+</svg>

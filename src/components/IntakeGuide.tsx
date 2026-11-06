@@ -34,24 +34,52 @@ const Sun: React.FC<{ y: number; color: string; sleepy: boolean }> = ({ y, color
   </g>
 );
 
-export const DayTimeline: React.FC<{ active?: DaySegmentKey }> = ({ active }) => (
+interface DayTimelineProps {
+  active?: DaySegmentKey;
+  // A segment the child can click (for example the rising sun), and a segment that blinks to attract attention.
+  selectable?: DaySegmentKey;
+  blinking?: DaySegmentKey;
+  onSelect?: (key: DaySegmentKey) => void;
+}
+
+const blinkKeyframes = '@keyframes daySegmentBlink { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(224,49,49,0); filter: none; } 50% { box-shadow: inset 0 0 0 5px #e03131; filter: brightness(1.12); } }';
+
+export const DayTimeline: React.FC<DayTimelineProps> = ({ active, selectable, blinking, onSelect }) => (
   <figure style={styles.timeline} aria-label="Ta journée d’hier, du tout-petit matin au soir">
-    {segments.map(segment => (
-      <div key={segment.key} style={{ ...styles.segment, ...(segment.key === active ? styles.segmentActive : {}) }} aria-current={segment.key === active ? 'true' : undefined}>
-        <svg viewBox="0 0 100 80" style={styles.sky} aria-hidden="true" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id={`sky-${segment.key}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor={segment.sky[0]} />
-              <stop offset="1" stopColor={segment.sky[1]} />
-            </linearGradient>
-          </defs>
-          <rect width="100" height="80" fill={`url(#sky-${segment.key})`} />
-          <Sun y={segment.sunY} color={segment.sun} sleepy={segment.sleepy} />
-          {segment.hill && <path d="M0 80 L0 72 Q50 56 100 72 L100 80 Z" fill={segment.key === 'evening' ? '#3f6578' : '#6f9aaa'} />}
-        </svg>
-        <figcaption style={styles.segmentLabel}>{segment.label}</figcaption>
-      </div>
-    ))}
+    <style>{blinkKeyframes}</style>
+    {segments.map(segment => {
+      const clickable = Boolean(onSelect) && segment.key === selectable;
+      const content = (
+        <>
+          <svg viewBox="0 0 100 80" style={styles.sky} aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id={`sky-${segment.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor={segment.sky[0]} />
+                <stop offset="1" stopColor={segment.sky[1]} />
+              </linearGradient>
+            </defs>
+            <rect width="100" height="80" fill={`url(#sky-${segment.key})`} />
+            <Sun y={segment.sunY} color={segment.sun} sleepy={segment.sleepy} />
+            {segment.hill && <path d="M0 80 L0 72 Q50 56 100 72 L100 80 Z" fill={segment.key === 'evening' ? '#3f6578' : '#6f9aaa'} />}
+          </svg>
+          <figcaption style={styles.segmentLabel}>{segment.label}</figcaption>
+        </>
+      );
+      const segmentStyle = {
+        ...styles.segment,
+        ...(segment.key === active ? styles.segmentActive : {}),
+        ...(segment.key === blinking ? styles.segmentBlinking : {}),
+      };
+      return clickable ? (
+        <button key={segment.key} type="button" onClick={() => onSelect?.(segment.key)} style={{ ...segmentStyle, ...styles.segmentButton }} aria-label={`${segment.label} : commencer`}>
+          {content}
+        </button>
+      ) : (
+        <div key={segment.key} style={segmentStyle} aria-current={segment.key === active ? 'true' : undefined}>
+          {content}
+        </div>
+      );
+    })}
   </figure>
 );
 
@@ -85,6 +113,8 @@ const styles: Record<string, React.CSSProperties> = {
   timeline: { display: 'flex', margin: '0.75rem 0 0', padding: 0, gap: 0, borderRadius: 10, overflow: 'hidden', border: '1px solid #ead9a2', background: '#fff' },
   segment: { position: 'relative', flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', borderRight: '1px solid rgba(60,90,100,0.25)', display: 'flex', flexDirection: 'column' },
   segmentActive: { outline: '3px solid #e03131', outlineOffset: -3, zIndex: 1 },
+  segmentBlinking: { animation: 'daySegmentBlink 0.9s ease-in-out infinite', zIndex: 2 },
+  segmentButton: { padding: 0, border: 'none', borderRight: '1px solid rgba(60,90,100,0.25)', background: 'transparent', font: 'inherit', cursor: 'pointer' },
   sky: { display: 'block', width: '100%', height: 64 },
   segmentLabel: { padding: '0.3rem 0.15rem', background: '#e9efe6', color: '#23415a', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15 },
   checklist: { marginTop: '0.75rem', padding: '0.6rem', border: '1px solid #ead9a2', borderRadius: 8, background: '#fffdf6' },

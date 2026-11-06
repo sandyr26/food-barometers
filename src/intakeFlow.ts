@@ -58,7 +58,7 @@ export const stageSpeech = (stage: IntakeStage, isFirstIntake: boolean) => (
 
 export const stageIntros = (stage: IntakeStage, isFirstIntake: boolean, assistant = true) => {
   if (stage.kind !== 'opening' || !isFirstIntake) return [];
-  return assistant ? intakeIntroParagraphs : intakeFormIntroParagraphs;
+  return assistant ? [intakeIntroParagraphs[1]] : intakeFormIntroParagraphs;
 };
 
 const completeWithoutMissing = (entry: IntakeEntry): IntakeEntry => ({

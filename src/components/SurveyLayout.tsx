@@ -53,7 +53,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({ kicker, intros = [],
     <div style={surveyStyles.questionContent}>
       <span style={surveyStyles.questionKicker}>{kicker}</span>
       {intros.map((intro, index) => <p key={index} style={surveyStyles.intro}>{intro}</p>)}
-      <h2 style={surveyStyles.question}>{question}</h2>
+      {question && <h2 style={surveyStyles.question}>{question}</h2>}
       {onRepeat && <button type="button" onClick={onRepeat} disabled={repeatDisabled} style={{ ...surveyStyles.repeatButton, ...(repeatDisabled ? surveyStyles.disabledButton : {}) }}>{repeatLabel}</button>}
     </div>
     {image && <img src={image.src} alt={image.alt} style={surveyStyles.questionImage} />}
@@ -66,10 +66,42 @@ interface PresetChoicesProps {
   values: string[];
   multiple?: boolean;
   exclusiveOption?: string;
+  // Pictures per option and the option being read aloud: the group is then shown as a scale of clickable pictures.
+  images?: Record<string, string>;
+  wideImages?: boolean;
+  maxSelections?: number;
+  highlighted?: string;
   onChange: (values: string[]) => void;
 }
 
-export const PresetChoices: React.FC<PresetChoicesProps> = ({ name, options, values, multiple = false, exclusiveOption, onChange }) => (
+export const PresetChoices: React.FC<PresetChoicesProps> = ({ name, options, values, multiple = false, exclusiveOption, images, wideImages = false, maxSelections, highlighted, onChange }) => (
+  images ? (
+    <div role={multiple ? 'group' : 'radiogroup'} aria-label={name} style={{ ...surveyStyles.scale, ...(wideImages ? surveyStyles.scaleWide : {}) }}>
+      {options.map(option => {
+        const checked = values.includes(option);
+        const isHighlighted = highlighted === option;
+        const full = multiple && !checked && maxSelections !== undefined && values.length >= maxSelections;
+        return (
+          <button
+            key={option}
+            type="button"
+            role={multiple ? 'checkbox' : 'radio'}
+            aria-checked={checked}
+            aria-disabled={full}
+            onClick={() => {
+              if (!multiple) onChange([option]);
+              else if (checked) onChange(values.filter(value => value !== option));
+              else if (!full) onChange([...values, option]);
+            }}
+            style={{ ...surveyStyles.scaleItem, ...(checked ? surveyStyles.scaleItemChecked : {}), ...(isHighlighted ? surveyStyles.scaleItemHighlighted : {}), ...(full ? surveyStyles.scaleItemFull : {}) }}
+          >
+            {images[option] && <img src={images[option]} alt="" aria-hidden="true" style={wideImages ? surveyStyles.scaleImageWide : surveyStyles.scaleImage} />}
+            <span style={surveyStyles.scaleLabel}>{option}</span>
+          </button>
+        );
+      })}
+    </div>
+  ) : (
   <fieldset style={surveyStyles.presetGroup}>
     {options.map(option => {
       const checked = values.includes(option);
@@ -97,6 +129,7 @@ export const PresetChoices: React.FC<PresetChoicesProps> = ({ name, options, val
       );
     })}
   </fieldset>
+  )
 );
 
 interface NextButtonProps {

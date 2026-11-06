@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Mes camarades">
+  <circle cx="60" cy="60" r="54" fill="#f3f0ff"/>
+  <path d="M10 104 C10 84 20 76 32 76 C44 76 52 84 52 104 Z" fill="#40c057"/>
+  <circle cx="32" cy="58" r="14" fill="#e0a070"/>
+  <path d="M18 56 C18 40 46 40 46 56 C40 50 24 50 18 56 Z" fill="#2b2220"/>
+  <path d="M68 104 C68 84 76 76 88 76 C100 76 110 84 110 104 Z" fill="#fa5252"/>
+  <circle cx="88" cy="58" r="14" fill="#f4b183"/>
+  <path d="M74 54 C76 40 100 40 102 54 C96 48 80 48 74 54 Z" fill="#c92a2a"/>
+  <path d="M36 104 C36 80 46 70 60 70 C74 70 84 80 84 104 Z" fill="#4dabf7"/>
+  <circle cx="60" cy="52" r="15" fill="#ffd8a8"/>
+  <path d="M45 48 C46 34 74 34 75 48 C68 42 52 42 45 48 Z" fill="#7a4a2a"/>
+  <circle cx="55" cy="54" r="2" fill="#3b2a22"/><circle cx="65" cy="54" r="2" fill="#3b2a22"/>
+  <path d="M54 61 Q60 67 66 61" fill="none" stroke="#3b2a22" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M22 26 L26 18 M98 26 L94 18 M60 22 V12" stroke="#ffc107" stroke-width="4" stroke-linecap="round"/>
+</svg>

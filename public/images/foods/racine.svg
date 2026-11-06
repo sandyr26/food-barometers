@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Racines">
+  <ellipse cx="60" cy="108" rx="48" ry="6" fill="#000" opacity=".12"/>
+  <path d="M12 70 C30 40 78 26 108 24 C110 34 104 54 88 64 C62 82 28 90 12 70 Z" fill="#a9743a"/>
+  <path d="M30 62 L36 56 M50 54 L56 48 M70 44 L76 38 M44 70 L50 64" stroke="#7d5224" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="106" cy="28" rx="7" ry="12" transform="rotate(30 106 28)" fill="#f8f0dc" stroke="#d9c9a0" stroke-width="2"/>
+  <ellipse cx="46" cy="92" rx="32" ry="15" transform="rotate(-8 46 92)" fill="#a23d63"/>
+  <path d="M24 90 Q44 82 66 88" stroke="#c9527d" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <ellipse cx="84" cy="94" rx="20" ry="10" transform="rotate(12 84 94)" fill="#c58a4a"/>
+  <ellipse cx="98" cy="98" rx="5" ry="7" transform="rotate(12 98 98)" fill="#f8f0dc" stroke="#d9c9a0" stroke-width="1.5"/>
+</svg>

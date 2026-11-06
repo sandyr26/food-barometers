@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Ni difficile ni facile">
+  <circle cx="60" cy="60" r="50" fill="#ffd43b" stroke="#e0a800" stroke-width="4"/>
+  <circle cx="44" cy="52" r="5.5" fill="#4a3a0a"/>
+  <circle cx="76" cy="52" r="5.5" fill="#4a3a0a"/>
+  <path d="M44 80 L76 80" stroke="#4a3a0a" stroke-width="5" stroke-linecap="round"/>
+</svg>

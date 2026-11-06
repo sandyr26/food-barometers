@@ -10,6 +10,12 @@ export interface PresetGroup {
   allowFreeText?: boolean;
   // Nominal options are shown in a random order per respondent; ordinal scales and Oui/Non are never shuffled.
   shuffle?: boolean;
+  // Picture for each option: the group is then shown as a row of clickable pictures.
+  images?: Record<string, string>;
+  // Wide illustrations (instead of small square icons).
+  wideImages?: boolean;
+  // Maximum number of options a multiple-choice group accepts.
+  maxSelections?: number;
 }
 
 export interface AnswerLite {
@@ -33,8 +39,10 @@ export interface SurveyStep {
   pairLabels?: [string, string];
   // Picture shown on the right of the question.
   image?: { src: string; alt: string };
+  // The mascot reads the options aloud one by one, highlighting each one (first question of a series).
+  readOptions?: boolean;
   groups: PresetGroup[];
-  textPrompt?: { label: string; when?: (selections: Record<string, string[]>) => boolean };
+  textPrompt?: { label: string; when?: (selections: Record<string, string[]>) => boolean; speech?: string };
   expected: string;
   guidance: string;
   maxFollowUps: number;
@@ -70,13 +78,36 @@ export const intakeIntroParagraphs = [
   'Chaque fois que tu as mangé ou bu quelque chose, même une petite quantité, nous avons besoin des 9 compléments d’informations ci-après que tu peux me donner en bloc à l’oral ou à l’écrit. Je me charge de les ranger pour toi !',
 ];
 export const intakeIntro = intakeIntroParagraphs.join(' ');
+// Guided start of the 24-hour recall: the mascot reads the first text (shown in the box), then calm music plays while
+// it helps the child concentrate (not shown), and finally it invites the child to click on the rising sun (shown).
+export const recallIntroParagraphs = [
+  'Maintenant, je vais te demander de te souvenir de tout ce que tu as mangé et bu hier, pendant toute la journée, depuis le moment où tu t’es levé(e) jusqu’au moment où tu es allé(e) te coucher.',
+  'Ce n’est pas une évaluation : il n’y a pas de bonnes ou de mauvaises réponses. Tu pourras répondre avec tes mots. Ce qui compte, c’est ce que tu as vraiment mangé et bu, même un petit bonbon ou un verre d’eau.',
+];
+export const recallIntroSpeech = recallIntroParagraphs.join(' ');
+export const RECALL_PAUSE_MS = 3000;
+// Each part is a separate voice clip so that the pauses (3 seconds) are exact.
+export const recallConcentrationScript = [
+  { text: 'Ça demande un peu de concentration pour bien se souvenir.', pauseMs: RECALL_PAUSE_MS },
+  { text: 'Prends 1 minute pour te rappeler. Tu peux fermer les yeux si ça t’aide.', pauseMs: RECALL_PAUSE_MS },
+  { text: 'Prends ton temps. Pour te remémorer, pense à hier.', pauseMs: RECALL_PAUSE_MS },
+  { text: 'C’était quel jour ?', pauseMs: RECALL_PAUSE_MS },
+  { text: 'Est-ce que tu es allé(e) au collège ?', pauseMs: RECALL_PAUSE_MS },
+  { text: 'Et hier matin, tu t’es levé(e) vers quelle heure, à peu près ?', pauseMs: RECALL_PAUSE_MS },
+  { text: 'Et hier soir, tu t’es couché(e) vers quelle heure ?', pauseMs: 0 },
+];
+export const recallInviteSpeech = 'Dès que tu es prêt(e), clique sur le soleil qui se lève.';
+// The music keeps playing this long after the invitation; the early-morning tab then blinks.
+export const RECALL_MUSIC_MS = 60_000;
+export const recallPrepSpeeches = [recallIntroSpeech, ...recallConcentrationScript.map(part => part.text), recallInviteSpeech];
 // Without the assistant nobody can be told "en bloc à l’oral": the same introduction asks to fill in the form.
 export const intakeFormIntroParagraphs = [
   intakeIntroParagraphs[0],
   'Chaque fois que tu as mangé ou bu quelque chose, même une petite quantité, remplis les 9 informations ci-dessous.',
 ];
 export const intakeOpeningFirst = 'Alors, le matin ?… Souviens-toi…';
-export const intakeOpeningFirstSpeech = `${intakeIntro} ${intakeOpeningFirst}`;
+// After the guided start, the mascot explains how to give the information and asks the first question.
+export const intakeOpeningFirstSpeech = `${intakeIntroParagraphs[1]} ${intakeOpeningFirst}`;
 export const intakeOpeningNext = 'Et après ça ? Souviens-toi : qu’as-tu encore mangé ou bu ?';
 // Asked once per occasion: whatever is still missing afterwards is recorded as not given.
 export const intakeMissingPrompt = 'Il me manque encore quelques informations. Regarde les questions en jaune à l’écran et donne-moi ce que tu peux, ou dis-moi qu’il n’y a rien d’autre.';
@@ -123,34 +154,80 @@ export const CONSENT_PAUSE_MS = 2000;
 
 const NEVER = 'Jamais';
 const yesNo = ['Oui', 'Non'];
-const influenceOptions = ['Camarades', 'Famille/parents', 'Réseaux sociaux', 'Coachs sportifs et équivalents', 'Professionnels de santé', 'Moi-même', 'Autre'];
+const influenceOptions = ['Moi-même', 'Ma famille et mes proches', 'Mes camarades', 'Les influenceurs sur les réseaux sociaux', 'Les professionnels de santé (médecins)', 'Autre'];
+const influenceImages: Record<string, string> = {
+  'Moi-même': '/images/influence/self.svg',
+  'Ma famille et mes proches': '/images/influence/family.svg',
+  'Mes camarades': '/images/influence/friends.svg',
+  'Les influenceurs sur les réseaux sociaux': '/images/influence/influencers.svg',
+  'Les professionnels de santé (médecins)': '/images/influence/health.svg',
+  'Autre': '/images/influence/other.svg',
+};
+const canteenRatings = ['Très bons', 'Plutôt bons', 'Plutôt pas bons', 'Pas bons du tout'];
+const canteenRatingImages: Record<string, string> = {
+  'Très bons': '/images/difficulty/very-easy.svg',
+  'Plutôt bons': '/images/difficulty/easy.svg',
+  'Plutôt pas bons': '/images/difficulty/hard.svg',
+  'Pas bons du tout': '/images/difficulty/very-hard.svg',
+};
+const canteenImpressions = [
+  'Avec les copains (Convivialité)', 'Bruyant', 'Longue attente (File d’attente)', 'Repas froid', 'À la chaîne (comme du bétail)',
+  'Découverte de nouveaux plats', 'Repas variés (Diversité)', 'Pas assez de temps pour manger', 'Pas assez à manger (Quantité)', 'Personnel sympa (Accueil, ambiance)',
+];
+const canteenImpressionImages: Record<string, string> = Object.fromEntries(canteenImpressions.map((label, index) => [label, `/images/canteen/${[
+  'friends', 'noisy', 'queue', 'cold', 'assembly-line', 'discovery', 'variety', 'no-time', 'not-enough', 'friendly-staff',
+][index]}.png`]));
+export const endThanksSpeech = 'Merci d’avoir répondu à nos questions !';
 const householdOptions = ['Moi-même', 'Maman', 'Papa', 'Sœurs/demi-sœurs', 'Frères/demi-frères', 'Grands-parents', 'Belle-mère', 'Beau-père', 'Oncles/tantes', 'Adultes qui s’occupent de toi', 'Vit en foyer d’accueil', 'Autres', 'Préfère ne pas répondre'];
 const parentRoles = ['Papa', 'Maman', 'Tuteur 1', 'Tuteur 2'];
-const consumptionOptions = ['Régulièrement dans la semaine', 'Une à deux fois par mois', 'Rarement', NEVER];
-const difficultyOptions = ['Très difficile', 'Difficile', 'Ni difficile ni facile', 'Facile', 'Très facile'];
+const consumptionOptions = ['Tous les jours ou presque', 'Toutes les semaines', 'Tous les mois', 'Plus rarement', NEVER];
+export const frequencyOptions = consumptionOptions;
+const frequencyImages: Record<string, string> = {
+  [consumptionOptions[0]]: '/images/frequency/daily.svg',
+  [consumptionOptions[1]]: '/images/frequency/weekly.svg',
+  [consumptionOptions[2]]: '/images/frequency/monthly.svg',
+  [consumptionOptions[3]]: '/images/frequency/rarely.svg',
+  [NEVER]: '/images/frequency/never.svg',
+};
+const situationOptions = ['Fête', 'Copains', 'Quotidien', 'Sport', 'Autre'];
+export const situationsOtherSpeech = 'Précise-moi dans quelles situations tu en consommes !';
+const difficultyOptions = ['Très difficile', 'Difficile', 'Ni difficile ni facile', 'Facile', 'Très facile', 'Je n’en consomme pas'];
+const difficultyImages: Record<string, string> = {
+  'Très difficile': '/images/difficulty/very-hard.svg',
+  'Difficile': '/images/difficulty/hard.svg',
+  'Ni difficile ni facile': '/images/difficulty/neutral.svg',
+  'Facile': '/images/difficulty/easy.svg',
+  'Très facile': '/images/difficulty/very-easy.svg',
+  'Je n’en consomme pas': '/images/difficulty/none.svg',
+};
 
+// The key of a food is part of the stored question ids, so it stays with the food when the order changes;
+// the letter shown to the interviewer follows the position in the list.
 const foods = [
+  { key: 'd', name: 'Pain-bouchon', ask: 'des pains-bouchons', image: '/images/foods/bun.svg' },
+  { key: 'g', name: 'Brèdes', ask: 'des brèdes', image: '/images/foods/bredes.svg' },
+  { key: 'h', name: 'Américains', ask: 'des américains', image: '/images/foods/americain.svg' },
+  { key: 'i', name: 'Lords', ask: 'des Lords', image: '/images/foods/lord.svg' },
+  { key: 'j', name: 'Tacos', ask: 'des tacos', image: '/images/foods/tacos.svg' },
+  { key: 'k', name: 'Racines', ask: 'des racines', image: '/images/foods/racine.svg' },
+  { key: 'e', name: 'Hamburgers', ask: 'des hamburgers', image: '/images/foods/burger.svg' },
+  { key: 'l', name: 'Fruits', ask: 'des fruits', image: '/images/foods/fruits.svg' },
+  { key: 'f', name: 'Biscuits Pépito, Oreo ou autres', ask: 'des biscuits comme les Pépito, les Oreo ou autres', image: '/images/foods/cookies.svg' },
+  { key: 'm', name: 'Sushis', ask: 'des sushis', image: '/images/foods/sushi.svg' },
   { key: 'a', name: 'Jus de fruits en brique', ask: 'des jus de fruits en brique', image: '/images/foods/juice.svg' },
   { key: 'b', name: 'Sodas', ask: 'des sodas', image: '/images/foods/soda.svg' },
   { key: 'c', name: 'Pizzas', ask: 'des pizzas', image: '/images/foods/pizza.svg' },
-  { key: 'd', name: 'Pains bouchons ou Lords', ask: 'des pains bouchons ou des Lords', image: '/images/foods/bun.svg' },
-  { key: 'e', name: 'Hamburgers', ask: 'des hamburgers', image: '/images/foods/burger.svg' },
-  { key: 'f', name: 'Biscuits, pâtisseries ou gâteaux', ask: 'des biscuits, des pâtisseries ou des gâteaux', image: '/images/foods/cake.svg' },
 ];
 
 const changes = [
-  'Qu’en est-il pour toi lorsqu’il s’agit de manger moins de produits sucrés ?',
-  'Manger moins de produits gras ?',
+  'Qu’en est-il pour toi lorsqu’il s’agit de manger moins de riz ?',
+  'Manger plus de grains ou de légumineuses, comme les lentilles ou les haricots secs par exemple ?',
   'Manger moins de viande ?',
   'Boire moins de boissons sucrées ?',
-  'Manger moins salé ?',
-  'Manger moins de riz ?',
   'Manger plus de légumes ?',
   'Manger plus de fruits ?',
-  'Manger plus de légumes-racines, comme le manioc ou la patate douce ?',
-  'Manger plus de grains ou de légumineuses, comme les lentilles, les pois du Cap ou les haricots secs ?',
-  'Manger plus de produits locaux ?',
-  'Manger plus de poissons ou de fruits de mer ?',
+  'Manger plus de racines, comme le manioc ou la patate douce par exemple ?',
+  'Manger plus de poissons ?',
 ];
 
 const letter = (index: number) => String.fromCharCode(97 + index);
@@ -227,50 +304,66 @@ export const surveySteps: SurveyStep[] = [
   }),
   ...foods.flatMap((food, index): SurveyStep[] => [
     {
-      id: `11${food.key}`, number: 11, label: `11${food.key}`, text: `Dis-moi si tu en consommes ${food.ask}.`, ui: 'choices',
-      intro: index === 0 ? '« Je vais te citer quelques aliments et boissons. Pour chacun, dis-moi à quelle fréquence tu en consommes : régulièrement dans la semaine, une à deux fois par mois, rarement ou jamais. »' : undefined,
-      groups: [{ id: `q11${food.key}`, label: food.name, options: consumptionOptions }],
+      id: `11${food.key}`, number: 11, label: `11${letter(index)}`, text: `Dis-moi si tu en consommes ${food.ask}.`, ui: 'choices',
+      intro: index === 0 ? '« Je vais te citer quelques aliments et boissons. Pour chacun, dis-moi à quelle fréquence tu en consommes. »' : undefined,
+      readOptions: index === 0,
+      groups: [{ id: `q11${food.key}`, label: food.name, options: consumptionOptions, images: frequencyImages }],
       image: { src: food.image, alt: food.name },
       expected: 'Une réponse', guidance: 'Énoncer les 4 possibilités si besoin. Recueillir une seule réponse.', maxFollowUps: 0,
     },
     {
-      id: `11${food.key}-ctx`, number: 11, label: `11${food.key} · contexte`, text: `Avec qui consommes-tu ${food.ask} et dans quel contexte ?`, ui: 'text', groups: [],
-      expected: 'Avec qui et dans quel contexte l’aliment est consommé, dans les mots du répondant',
-      guidance: `${openGuidance} Si seul(e) « avec qui » ou seul « dans quel contexte » est donné, une seule relance neutre pour obtenir l’autre partie.`,
-      maxFollowUps: 1,
+      id: `11${food.key}-ctx`, number: 11, label: `11${letter(index)} · contexte`, text: 'Dans quelles situations, tu as plusieurs choix possibles, le consommes-tu ?', ui: 'choices',
+      hint: 'Plusieurs choix possibles.',
+      groups: [{ id: `q11${food.key}-situations`, label: `Situations de consommation : ${food.name}`, options: situationOptions, multiple: true }],
+      textPrompt: { label: situationsOtherSpeech, speech: situationsOtherSpeech, when: selections => Boolean(selections[`q11${food.key}-situations`]?.includes('Autre')) },
+      expected: 'Une ou plusieurs situations de consommation (fête, copains, quotidien, sport, autre)',
+      guidance: 'Recoder les réponses spontanées dans les situations proposées ; plusieurs réponses sont possibles. Si « Autre » est donné, recueillir la situation dans les mots du répondant. Ne pas relancer si le répondant ne sait pas.',
+      maxFollowUps: 0,
       image: { src: food.image, alt: food.name },
-      followUps: ['Avec qui ?', 'Dans quel contexte ?'],
       skipIf: get => !consumed(get, food.key),
     },
   ]),
+  ...[
+    { suffix: 'a', text: 'Trop gras ?', example: 'trop gras', intro: '« On dit souvent qu’il faut manger moins gras, moins sucré, moins salé, peux-tu me donner un exemple de produit… »' },
+    { suffix: 'b', text: 'Trop sucré ?', example: 'trop sucré', intro: undefined },
+    { suffix: 'c', text: 'Trop salé ?', example: 'trop salé', intro: undefined },
+  ].map(({ suffix, text, example, intro }): SurveyStep => open(`11.5${suffix}`, 11.5, text, `Un exemple de produit jugé ${example}, tel que dit par le répondant`,
+    'Recueillir un exemple de produit tel qu’il est dit, sans l’interpréter, le corriger ni le compléter. Un seul produit suffit : ne pas relancer. Accepter « je ne sais pas » comme réponse.',
+    { intro, label: `11.5${suffix}` })),
   ...changes.map((script, index): SurveyStep => ({
     id: `12${letter(index)}`, number: 12, label: `12${letter(index)}`, text: script, ui: 'choices',
-    intro: index === 0 ? '« On dit souvent qu’il faut manger moins gras, moins sucré, moins salé. »' : undefined,
-    groups: [{ id: `q12${letter(index)}`, label: script.replace(/ \?$/, ''), options: difficultyOptions }],
-    expected: 'Une réponse', guidance: 'Attendre une réponse parmi les 5 modalités (très difficile, difficile, ni difficile ni facile, facile, très facile). Les rappeler si la réponse ne correspond pas clairement à l’une d’elles.', maxFollowUps: 0,
+    groups: [{ id: `q12${letter(index)}`, label: script.replace(/ \?$/, ''), options: difficultyOptions, images: difficultyImages }],
+    expected: 'Une réponse', guidance: 'Attendre une réponse parmi les 6 modalités (très difficile, difficile, ni difficile ni facile, facile, très facile, je n’en consomme pas). Les rappeler si la réponse ne correspond pas clairement à l’une d’elles.', maxFollowUps: 0,
   })),
   open('13', 13, 'Pour toi, qu’est-ce que ça veut dire « bien manger » ? Dis-le avec tes propres mots.', 'Représentation personnelle de « bien manger »', `${openGuidance} Relance possible : « Qu’est-ce que tu veux dire par là ? ».`, { maxFollowUps: 1, followUps: ['Qu’est-ce que tu veux dire par là ?'] }),
-  open('14', 14, 'Pour toi, qu’est-ce qu’il y a dans un « bon repas » ?', 'Composition précise d’un « bon repas » selon le répondant, de quoi imaginer le contenu de l’assiette', 'Faire préciser la composition du repas jusqu’à pouvoir imaginer le contenu de l’assiette : aliments, accompagnements, boisson éventuelle. Si la réponse reste générale (par exemple « équilibré », « sain », « bon ») ou ne cite que quelques éléments, relancer pour obtenir la composition, sans suggérer d’aliments. Une relance de plus est possible si la composition reste floue. Ne pas interpréter ni compléter la composition à la place du répondant.', { maxFollowUps: 2, followUps: ['Qu’est-ce qu’il y aurait dans l’assiette ?', 'Tu peux me dire tout ce que tu mettrais dedans ?'] }),
-  open('15', 15, 'Selon toi, y a-t-il des aliments qui sont bons pour la santé ? Si oui, peux-tu m’en citer jusqu’à trois ?', 'Jusqu’à 3 aliments considérés comme bons pour la santé', listGuidance, listRules),
-  open('16', 16, 'Selon toi, y a-t-il des aliments qu’il faut limiter pour la santé ? Si oui, peux-tu m’en citer jusqu’à trois ?', 'Jusqu’à 3 aliments dont la consommation devrait être limitée pour la santé', listGuidance, listRules),
+  open('14', 14, 'Pour toi, qu’est-ce qu’il y a dans un bon repas ? Décris ce qu’il y a dans ton assiette.', 'Composition d’un « bon repas » selon le répondant : le contenu de l’assiette', 'Le répondant doit décrire le contenu de l’assiette. Dès qu’il cite au moins un aliment ou une boisson concret (même une liste courte, par exemple « du riz, du poulet et des légumes »), la composition est donnée : accepter la réponse, ne pas relancer, ne pas demander de compléter. Relancer une seule fois, uniquement si aucune composition d’assiette n’est donnée : réponse générale ou abstraite sans aucun aliment (par exemple « équilibré », « sain », « bon », « manger bien »). Ne pas suggérer d’aliments. Ne pas interpréter ni compléter la composition à la place du répondant.', { maxFollowUps: 1, followUps: ['Qu’est-ce qu’il y aurait dans l’assiette ?'] }),
+  open('15', 15, 'Selon toi, y a-t-il des aliments qui sont bons pour être en bonne santé ? Si oui, peux-tu m’en citer jusqu’à trois maximum ?', 'Jusqu’à 3 aliments considérés comme bons pour être en bonne santé', listGuidance, listRules),
+  open('16', 16, 'Selon toi, y a-t-il des aliments qu’il faut limiter pour être en bonne santé ? Si oui, peux-tu m’en citer jusqu’à trois maximum ?', 'Jusqu’à 3 aliments dont la consommation devrait être limitée pour être en bonne santé', listGuidance, listRules),
   {
-    id: '17', number: 17, label: '17', text: 'Quand tu fais un choix important, notamment sur ce que tu manges, quelles sont les personnes ou les sources dont l’avis compte le plus pour toi ? Par exemple : tes camarades, ta famille ou tes parents, les réseaux sociaux, les coachs sportifs, les professionnels de santé, toi-même, ou une autre personne ou source. Tu peux en choisir jusqu’à trois. Indique-les du plus influent au moins influent.', ui: 'ranking',
-    hint: 'Tu peux en choisir jusqu’à 3, du plus influent au moins influent.',
-    groups: [1, 2, 3].map(rank => ({ id: `q17-choix-${rank}`, label: `Choix ${rank}`, options: influenceOptions, shuffle: true })),
-    textPrompt: { label: 'Précise l’autre influence', when: selections => [1, 2, 3].some(rank => selections[`q17-choix-${rank}`]?.includes('Autre')) },
+    id: '17', number: 17, label: '17', text: 'Quand tu fais un choix important, notamment sur ce que tu manges, quelles sont les personnes ou les sources dont l’avis compte le plus pour toi ? Par exemple : toi-même, ta famille et tes proches, tes camarades, les influenceurs sur les réseaux sociaux, les professionnels de santé (médecins), ou une autre personne ou source. Tu peux en choisir jusqu’à trois. Indique-les du plus influent au moins influent.', ui: 'ranking',
+    hint: 'Touche tes choix du plus influent au moins influent : 3 au maximum.',
+    groups: [1, 2, 3].map(rank => ({ id: `q17-choix-${rank}`, label: `Choix ${rank}`, options: influenceOptions, images: influenceImages })),
+    textPrompt: { label: 'Autre, précise !', when: selections => [1, 2, 3].some(rank => selections[`q17-choix-${rank}`]?.includes('Autre')) },
     expected: 'Jusqu’à 3 sources d’influence classées de la plus influente à la moins influente',
     guidance: 'Recueillir jusqu’à trois réponses et leur classement (choix 1 = la plus influente). Une seule relance au maximum : si plusieurs réponses sont citées sans ordre de priorité, demander au répondant de les classer du plus influent au moins influent. Si « Autre » est choisi, demander de préciser. Ne jamais établir le classement à la place du répondant.',
     maxFollowUps: 1,
     followUps: ['Peux-tu les classer, du plus influent au moins influent ?'],
   },
   single('18', 18, 'Est-ce que tu manges à la cantine ?', yesNo, 'Fréquentation de la cantine', 'Si oui : poser les questions 19 et 20. Si non : terminer le questionnaire.'),
-  single('19', 19, 'En général, comment trouves-tu les repas proposés à la cantine : très bons, plutôt bons, plutôt pas bons ou pas bons du tout ?', ['Très bons', 'Plutôt bons', 'Plutôt pas bons', 'Pas bons du tout'], 'Appréciation des repas de la cantine', 'Recueillir une réponse parmi les quatre modalités. Si la réponse ne correspond pas clairement à une modalité, rappeler les quatre choix et demander d’en choisir un.', { skipIf: get => answeredNo(get('18')) }),
-  open('20', 20, 'Au-delà du goût des repas, quels sont les deux premiers mots qui te viennent à l’esprit quand tu penses à la cantine de ton collège ?', 'Les deux premiers mots ou expressions qui viennent à l’esprit à propos de la cantine, tels que dits par le répondant', 'Recueillir les deux premiers mots ou expressions tels que dits, sans les interpréter ni les compléter. Un seul mot est une réponse valide : une seule relance neutre pour en obtenir un second. Si plus de deux sont donnés, garder ce qui est dit sans trier à la place du répondant.', {
-    maxFollowUps: 1,
-    list: { max: 2 },
-    followUps: ['Et quel est le deuxième mot ?'],
+  single('19', 19, 'En général, comment trouves-tu les repas proposés à la cantine : très bons, plutôt bons, plutôt pas bons ou pas bons du tout ?', canteenRatings, 'Appréciation des repas de la cantine', 'Recueillir une réponse parmi les quatre modalités. Si la réponse ne correspond pas clairement à une modalité, rappeler les quatre choix et demander d’en choisir un.', {
+    groups: [{ id: 'q19', label: 'Appréciation des repas de la cantine', options: canteenRatings, images: canteenRatingImages }],
     skipIf: get => answeredNo(get('18')),
   }),
+  {
+    id: '20', number: 20, label: '20', ui: 'choices',
+    text: 'À part le goût des repas, quels sont les deux premiers mots qui te viennent à l’esprit quand tu penses à la cantine de ton collège ?',
+    hint: 'Tu peux choisir 3 réponses au maximum.',
+    groups: [{ id: 'q20', label: 'Ce qui vient à l’esprit à propos de la cantine', options: canteenImpressions, images: canteenImpressionImages, wideImages: true, multiple: true, maxSelections: 3 }],
+    expected: 'Jusqu’à 3 propositions choisies parmi les impressions sur la cantine',
+    guidance: 'Recueillir jusqu’à trois propositions parmi celles affichées, dans les mots du répondant (recoder dans les propositions). Ne pas relancer. Si plus de trois sont citées, garder les trois premières. Ne pas interpréter ni compléter à la place du répondant.',
+    maxFollowUps: 0,
+    skipIf: get => answeredNo(get('18')),
+  },
 ];
 
 export const stepSpeech = (step: SurveyStep) => (step.intro ? `${step.intro} ${step.text}` : step.text);

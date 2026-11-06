@@ -16,8 +16,15 @@ import type { ConversationState } from '../voiceMascot';
 import {
   INTAKE_MAX,
   RECALL_ENABLED,
+  RECALL_MUSIC_MS,
+  endThanksSpeech,
   intakeFields,
   parentRoleNames,
+  recallConcentrationScript,
+  recallInviteSpeech,
+  recallIntroParagraphs,
+  recallIntroSpeech,
+  recallPrepSpeeches,
   stepSpeech,
   surveySteps,
   validateTypedAnswer,
@@ -94,11 +101,11 @@ interface HistoryEntry {
 }
 
 const INTAKE_QUESTION_NUMBER = 9;
-// Question 7 was removed: the questions after it are shown one number lower, while their ids and stored numbers are unchanged.
-const REMOVED_QUESTION_NUMBER = 7;
-const shownNumber = (number: number) => (number > REMOVED_QUESTION_NUMBER ? number - 1 : number);
-const shownLabel = (label: string) => label.replace(/^\d+/, digits => String(shownNumber(Number(digits))));
-const displayTotal = shownNumber(Math.max(INTAKE_QUESTION_NUMBER, ...surveySteps.map(step => step.number)));
+// Shown numbers follow the order of the questions (internal numbers have gaps, and a few steps sit between two numbers).
+const questionNumbers = [...new Set([...surveySteps.map(step => step.number), INTAKE_QUESTION_NUMBER])].sort((a, b) => a - b);
+const shownNumber = (number: number) => questionNumbers.indexOf(number) + 1;
+const shownLabel = (label: string) => label.replace(/^[\d.]+/, digits => String(shownNumber(Number(digits))));
+const displayTotal = questionNumbers.length;
 
 const stepIndexById = new Map(surveySteps.map((step, index) => [step.id, index]));
 const blankAnswer = (): RecordedAnswer => ({ text: '', mode: 'skipped', selections: {} });
@@ -165,6 +172,9 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [aiTurns, setAiTurns] = useState<AiTurn[]>([]);
   const [parentOccupations, setParentOccupations] = useState<Occupations>(emptyOccupations);
   const [pairRows, setPairRows] = useState<PairRow[]>(emptyPairRows);
+  const [highlightedOption, setHighlightedOption] = useState<string | undefined>();
+  const [recallPrepDone, setRecallPrepDone] = useState(false);
+  const [recallStep, setRecallStep] = useState<'intro' | 'concentrate' | 'invite' | 'waiting' | 'blinking'>('intro');
   const [aiReply, setAiReply] = useState('');
   const [error, setError] = useState('');
   const [responses, setResponses] = useState<RecordedAnswer[]>(() => surveySteps.map(blankAnswer));
@@ -190,9 +200,36 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const step = surveySteps[questionIndex];
   const isFirstIntake = intakes.length === 0;
+  // Guided start of the recall (music, calm-down script, invitation to click on the rising sun) before the first answer.
+  const prepActive = phase === 'intake' && aiEnabled && isFirstIntake && intakeStage.kind === 'opening' && currentIntake.heard.length === 0 && !recallPrepDone;
+  const prepInvited = prepActive && ['invite', 'waiting', 'blinking'].includes(recallStep);
   let currentQuestion = stepSpeech(step);
-  if (phase === 'intake') currentQuestion = stageSpeech(intakeStage, isFirstIntake);
+  if (phase === 'intake') currentQuestion = prepActive ? '' : stageSpeech(intakeStage, isFirstIntake);
   const voiceMascot = selectedMascot;
+  const optionsToRead = phase === 'questions' && step.readOptions ? step.groups[0]?.options ?? [] : [];
+
+  // Says each option in turn and highlights it while it is spoken; resolves false when interrupted.
+  const readOptionsAloud = async (labels: string[], signal: AbortSignal) => {
+    try {
+      for (const label of labels) {
+        const audio = await loadNarration(label, 'fr', voiceMascot, authToken, signal);
+        if (signal.aborted) return false;
+        setHighlightedOption(label);
+        await new Promise<void>(resolve => {
+          signal.addEventListener('abort', () => resolve(), { once: true });
+          playBlob(audio, audioRef, resolve, resolve);
+        });
+        if (signal.aborted) return false;
+      }
+      return true;
+    } catch {
+      return !signal.aborted;
+    } finally {
+      setHighlightedOption(undefined);
+    }
+  };
+  const optionsReaderRef = useRef({ optionsToRead, readOptionsAloud });
+  optionsReaderRef.current = { optionsToRead, readOptionsAloud };
 
   useEffect(() => {
     initSurveySync();
@@ -206,17 +243,32 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       setConversationState('listening');
       return;
     }
+    if (!currentQuestion) {
+      speechCleanupRef.current();
+      return;
+    }
     setConversationState('speaking');
     setIsLoadingNarration(true);
     const controller = new AbortController();
     let cancelled = false;
 
     const requestQuestionAudio = async () => {
+      const { optionsToRead: labels, readOptionsAloud: readLabels } = optionsReaderRef.current;
       try {
+        labels.forEach(label => preloadNarration(label, 'fr', voiceMascot, authToken));
         const audio = await loadNarration(currentQuestion, 'fr', voiceMascot, authToken, controller.signal);
         if (cancelled) return;
         setIsLoadingNarration(false);
-        playBlob(audio, audioRef, () => setConversationState('listening'), () => {
+        const afterQuestion = () => {
+          if (labels.length === 0) {
+            setConversationState('listening');
+            return;
+          }
+          void readLabels(labels, controller.signal).then(finished => {
+            if (finished) setConversationState('listening');
+          });
+        };
+        playBlob(audio, audioRef, afterQuestion, () => {
           setError('La synthèse vocale a échoué. Tu peux lire la question et répondre.');
           setConversationState('listening');
         });
@@ -235,6 +287,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       cancelled = true;
       controller.abort();
       stopAudio(audioRef);
+      setHighlightedOption(undefined);
     };
 
     return () => speechCleanupRef.current();
@@ -244,10 +297,117 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     if (!aiEnabled) return;
     if (phase === 'questions') {
       const nextStep = surveySteps[questionIndex + 1];
-      if (RECALL_ENABLED && step.id === '8') preloadNarration(stageSpeech({ kind: 'opening' }, true), 'fr', voiceMascot, authToken);
-      else if (nextStep) preloadNarration(stepSpeech(nextStep), 'fr', voiceMascot, authToken);
+      if (RECALL_ENABLED && step.id === '8') {
+        recallPrepSpeeches.forEach(text => preloadNarration(text, 'fr', voiceMascot, authToken));
+        preloadNarration(stageSpeech({ kind: 'opening' }, true), 'fr', voiceMascot, authToken);
+      } else if (nextStep) preloadNarration(stepSpeech(nextStep), 'fr', voiceMascot, authToken);
     }
   }, [aiEnabled, authToken, phase, questionIndex, step.id, voiceMascot]);
+
+  useEffect(() => {
+    if (phase !== 'intake') setRecallPrepDone(false);
+  }, [phase]);
+
+  useEffect(() => {
+    if (!prepActive) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    const music = new Audio('/audio/music/zen.mp3');
+    music.loop = true;
+    music.volume = 0.3;
+    const wait = (ms: number) => new Promise<void>(resolve => {
+      const timer = window.setTimeout(resolve, ms);
+      signal.addEventListener('abort', () => { window.clearTimeout(timer); resolve(); }, { once: true });
+    });
+    const say = async (text: string) => {
+      const audio = await loadNarration(text, 'fr', voiceMascot, authToken, signal);
+      if (signal.aborted) return;
+      await new Promise<void>(resolve => {
+        signal.addEventListener('abort', () => resolve(), { once: true });
+        playBlob(audio, audioRef, resolve, resolve);
+      });
+    };
+    const fadeOut = async () => {
+      for (let volume = music.volume; volume > 0.03 && !signal.aborted; volume -= 0.03) {
+        music.volume = Math.max(0, volume);
+        await wait(100);
+      }
+      music.pause();
+    };
+    const run = async () => {
+      try {
+        await say(recallIntroSpeech);
+        if (signal.aborted) return;
+        setRecallStep('concentrate');
+        void music.play().catch(() => {});
+        for (const part of recallConcentrationScript) {
+          await say(part.text);
+          if (signal.aborted) return;
+          if (part.pauseMs) await wait(part.pauseMs);
+          if (signal.aborted) return;
+        }
+        setRecallStep('invite');
+        await say(recallInviteSpeech);
+        if (signal.aborted) return;
+        setRecallStep('waiting');
+        setConversationState('listening');
+        await wait(RECALL_MUSIC_MS);
+        if (signal.aborted) return;
+        await fadeOut();
+        if (signal.aborted) return;
+        setRecallStep('blinking');
+      } catch {
+        if (signal.aborted) return;
+        setRecallStep('blinking');
+        setConversationState('listening');
+      }
+    };
+    const stop = () => {
+      controller.abort();
+      stopAudio(audioRef);
+      music.pause();
+    };
+    recallPrepSpeeches.forEach(text => preloadNarration(text, 'fr', voiceMascot, authToken));
+    setRecallStep('intro');
+    setConversationState('speaking');
+    speechCleanupRef.current = stop;
+    void run();
+    return stop;
+  }, [authToken, prepActive, voiceMascot]);
+
+  // When a choice opens a follow-up text field (for example « Autre »), the mascot says what to specify, once per question.
+  const promptSpeech = phase === 'questions' && step.textPrompt?.when?.(selectedOptions) ? step.textPrompt.speech : undefined;
+  const spokenPromptRef = useRef('');
+  useEffect(() => {
+    if (!promptSpeech) {
+      spokenPromptRef.current = '';
+      return;
+    }
+    if (!aiEnabled || spokenPromptRef.current === step.id || !['listening', 'ready'].includes(conversationState)) return;
+    spokenPromptRef.current = step.id;
+    const controller = new AbortController();
+    setConversationState('speaking');
+    speechCleanupRef.current = () => {
+      controller.abort();
+      stopAudio(audioRef);
+    };
+    loadNarration(promptSpeech, 'fr', voiceMascot, authToken, controller.signal)
+      .then(audio => playBlob(audio, audioRef, () => setConversationState('listening'), () => setConversationState('listening')))
+      .catch(() => { if (!controller.signal.aborted) setConversationState('listening'); });
+  }, [aiEnabled, authToken, conversationState, promptSpeech, step.id, voiceMascot]);
+
+  // The mascot thanks the participant once the survey is complete.
+  useEffect(() => {
+    if (phase !== 'complete' || !aiEnabled) return;
+    const controller = new AbortController();
+    loadNarration(endThanksSpeech, 'fr', voiceMascot, authToken, controller.signal)
+      .then(audio => playBlob(audio, audioRef, () => {}, () => {}))
+      .catch(() => {});
+    return () => {
+      controller.abort();
+      stopAudio(audioRef);
+    };
+  }, [aiEnabled, authToken, phase, voiceMascot]);
 
   useEffect(() => () => {
     stopAudio(audioRef);
@@ -344,6 +504,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       values={selectedOptions[group.id] || []}
       multiple={group.multiple}
       exclusiveOption={group.exclusiveOption}
+      images={group.images}
+      wideImages={group.wideImages}
+      maxSelections={group.maxSelections}
+      highlighted={highlightedOption}
       onChange={values => setSelection(group.id, values)}
     />
   );
@@ -393,23 +557,57 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     );
   };
 
-  const renderRanking = () => (
-    <div style={styles.presetCard}>
-      {step.hint && <p style={styles.presetHeading}>{step.hint}</p>}
-      {step.groups.map(group => {
-        const otherRanks = new Set(step.groups.filter(other => other.id !== group.id).flatMap(other => selectedOptions[other.id] || []));
-        return (
-          <label key={group.id} style={styles.fieldLabel}>{group.label}
-            <select style={styles.textInput} value={selectedOptions[group.id]?.[0] || ''} onChange={event => setSelection(group.id, event.target.value ? [event.target.value] : [])}>
-              <option value="">Choisir</option>
-              {optionsFor(group).filter(option => !otherRanks.has(option)).map(option => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </label>
-        );
-      })}
-      {renderTextPrompt()}
-    </div>
-  );
+  // Ranking: the options are touched in order of influence and climb a podium (1st in the middle, 2nd left, 3rd right).
+  const podiumColors = ['#f5b400', '#adb5bd', '#c98a4b'];
+  const podiumHeights = [78, 54, 38];
+  const renderRanking = () => {
+    const rankGroups = step.groups;
+    const [pictureGroup] = rankGroups;
+    const chosen = rankGroups.map(group => selectedOptions[group.id]?.[0] ?? '').filter(Boolean);
+    const setRanking = (next: string[]) => {
+      interruptNarration();
+      setRequiresRepeat(false);
+      setSelectedOptions(current => {
+        const updated = { ...current };
+        rankGroups.forEach((group, index) => { updated[group.id] = next[index] ? [next[index]] : []; });
+        return updated;
+      });
+    };
+    const slot = (rankIndex: number) => {
+      const option = chosen[rankIndex];
+      return (
+        <div key={rankIndex} style={styles.podiumSlot}>
+          {option ? (
+            <button type="button" onClick={() => setRanking(chosen.filter(value => value !== option))} style={styles.podiumPick} aria-label={`Retirer : ${option}`}>
+              {pictureGroup.images?.[option] && <img src={pictureGroup.images[option]} alt="" aria-hidden="true" style={styles.podiumImage} />}
+              <span style={styles.podiumName}>{option}</span>
+            </button>
+          ) : <span style={styles.podiumEmpty}>{rankIndex + 1}{rankIndex === 0 ? 'er' : 'e'} choix</span>}
+          <div style={{ ...styles.podiumStep, height: podiumHeights[rankIndex], background: podiumColors[rankIndex] }}>{rankIndex + 1}</div>
+        </div>
+      );
+    };
+    return (
+      <div style={styles.presetCard}>
+        {step.hint && <p style={styles.presetHeading}>{step.hint}</p>}
+        <div style={styles.podium} role="img" aria-label="Podium des influences">
+          {slot(1)}
+          {slot(0)}
+          {slot(2)}
+        </div>
+        <PresetChoices
+          name="influences"
+          options={pictureGroup.options}
+          values={chosen}
+          multiple
+          maxSelections={rankGroups.length}
+          images={pictureGroup.images}
+          onChange={setRanking}
+        />
+        {renderTextPrompt()}
+      </div>
+    );
+  };
 
   const updateIntakeField = (id: IntakeFieldId, value: string | string[]) => {
     interruptNarration();
@@ -417,7 +615,12 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   };
 
   const intakeTimeline = () => (
-    <DayTimeline active={isFirstIntake && !currentIntake.heard.length ? 'early' : daySegmentFor(currentIntake.fields.time ?? intakes.at(-1)?.fields.time)} />
+    <DayTimeline
+      active={isFirstIntake && !currentIntake.heard.length ? 'early' : daySegmentFor(currentIntake.fields.time ?? intakes.at(-1)?.fields.time)}
+      selectable={prepInvited ? 'early' : undefined}
+      blinking={prepActive && recallStep === 'blinking' ? 'early' : undefined}
+      onSelect={() => setRecallPrepDone(true)}
+    />
   );
 
   const intakeGuide = (highlightMissing: boolean) => (
@@ -963,6 +1166,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     speechCleanupRef.current = () => {
       controller.abort();
       stopAudio(audioRef);
+      setHighlightedOption(undefined);
     };
     const repeatFailure = 'Impossible de relire la question. Tu peux quand même répondre.';
     setError('');
@@ -972,7 +1176,16 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       const audio = await loadNarration(currentQuestion, 'fr', voiceMascot, authToken, controller.signal);
       if (controller.signal.aborted) return;
       setIsLoadingNarration(false);
-      playBlob(audio, audioRef, () => setConversationState('listening'), () => {
+      const afterQuestion = () => {
+        if (optionsToRead.length === 0) {
+          setConversationState('listening');
+          return;
+        }
+        void readOptionsAloud(optionsToRead, controller.signal).then(finished => {
+          if (finished) setConversationState('listening');
+        });
+      };
+      playBlob(audio, audioRef, afterQuestion, () => {
         setError(repeatFailure);
         setConversationState('listening');
       });
@@ -1006,7 +1219,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     return (
       <div style={styles.page}>
         <header style={styles.header}><BackButton onClick={onBack} /><h1 style={styles.title}>Questionnaire terminé</h1><div style={styles.headerSpacer} /></header>
-        <main style={styles.completePanel}><img src={mascotByState[voiceMascot].complete} alt="Mascotte" style={styles.completeMascot} /><h2 style={styles.completeTitle}>Merci d’avoir répondu aux questions.</h2>{offlineNotice && <p style={styles.errorMessage}>Pas de connexion : tes réponses sont enregistrées sur cet appareil et seront envoyées automatiquement dès que la connexion revient.</p>}<button type="button" onClick={onBack} style={styles.primaryButton}>Retour à l’accueil</button></main>
+        <main style={styles.completePanel}><img src="/images/end/thanks.svg" alt="" aria-hidden="true" style={styles.completeBanner} /><img src={mascotByState[voiceMascot].complete} alt="Mascotte" style={styles.completeMascot} /><h2 style={styles.completeTitle}>{endThanksSpeech}</h2>{offlineNotice && <p style={styles.errorMessage}>Pas de connexion : tes réponses sont enregistrées sur cet appareil et seront envoyées automatiquement dès que la connexion revient.</p>}<button type="button" onClick={onBack} style={styles.primaryButton}>Retour à l’accueil</button></main>
       </div>
     );
   }
@@ -1015,7 +1228,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   let intros: string[] = [];
   if (phase === 'questions') intros = step.intro ? [step.intro] : [];
-  else if (phase === 'intake') intros = stageIntros(intakeStage, isFirstIntake, aiEnabled);
+  else if (phase === 'intake') intros = prepActive ? recallIntroParagraphs : stageIntros(intakeStage, isFirstIntake, aiEnabled);
 
   return (
     <SurveyPageLayout title="Questionnaire OR-ALIM" progressLabel={questionLabel} isVoice={aiEnabled} onBack={onBack}>
@@ -1023,11 +1236,11 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         <QuestionCard
           kicker={kicker}
           intros={intros}
-          question={phase === 'questions' ? step.text : stageQuestion(intakeStage, isFirstIntake)}
+          question={phase === 'questions' ? step.text : (prepActive ? (prepInvited ? recallInviteSpeech : '') : stageQuestion(intakeStage, isFirstIntake))}
           image={phase === 'questions' ? step.image : undefined}
           repeatLabel={isLoadingNarration ? 'Préparation de la lecture…' : '🔊 Réécouter la question'}
           repeatDisabled={isLoadingNarration}
-          onRepeat={aiEnabled ? () => void handleRepeatQuestion() : undefined}
+          onRepeat={aiEnabled && !prepActive ? () => void handleRepeatQuestion() : undefined}
         />
         <div onChangeCapture={interruptNarration}>
           {presetAnswers}
@@ -1079,6 +1292,7 @@ const styles: Record<string, React.CSSProperties> = {
   answerInput: { width: '100%', minHeight: 68, padding: '0.6rem 0.7rem', boxSizing: 'border-box', border: '1px solid #c8b879', borderRadius: 7, resize: 'vertical', font: 'inherit', fontWeight: 400 },
   skipButton: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', minHeight: 44, padding: '0.55rem 0.7rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
   completePanel: { width: '100%', maxWidth: 560, margin: '0 auto', padding: '2rem 1rem', boxSizing: 'border-box', textAlign: 'center' },
+  completeBanner: { width: '100%', maxWidth: 320, height: 'auto' },
   completeMascot: { width: 160, height: 160, objectFit: 'contain' },
   completeTitle: { fontSize: '1.35rem', lineHeight: 1.4 },
   primaryButton: { marginTop: '1rem', padding: '0.8rem 1.2rem', border: 0, borderRadius: 8, background: '#332d1c', color: '#fff', fontWeight: 800, cursor: 'pointer' },

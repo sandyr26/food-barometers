@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Moi-même">
+  <circle cx="60" cy="60" r="54" fill="#e7f5ff"/>
+  <path d="M24 104 C24 80 40 72 60 72 C80 72 96 80 96 104 Z" fill="#339af0"/>
+  <circle cx="60" cy="46" r="22" fill="#f4b183"/>
+  <path d="M38 44 C36 24 52 18 62 20 C76 22 84 32 82 44 C76 38 70 32 60 32 C50 32 44 36 38 44 Z" fill="#4a2c1a"/>
+  <circle cx="52" cy="48" r="2.6" fill="#3b2a22"/>
+  <circle cx="68" cy="48" r="2.6" fill="#3b2a22"/>
+  <path d="M52 58 Q60 66 68 58" fill="none" stroke="#3b2a22" stroke-width="3" stroke-linecap="round"/>
+  <path d="M92 26 C92 20 100 18 102 24 C104 18 112 20 112 26 C112 34 102 38 102 40 C102 38 92 34 92 26 Z" fill="#fa5252"/>
+</svg>

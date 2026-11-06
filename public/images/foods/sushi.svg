@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Sushis">
+  <ellipse cx="60" cy="110" rx="50" ry="6" fill="#000" opacity=".12"/>
+  <ellipse cx="34" cy="82" rx="22" ry="24" fill="#1f2a2e"/>
+  <ellipse cx="34" cy="82" rx="16" ry="18" fill="#fff"/>
+  <ellipse cx="34" cy="82" rx="8" ry="9" fill="#ff8a5b"/>
+  <ellipse cx="34" cy="82" rx="3" ry="3.5" fill="#51cf66"/>
+  <ellipse cx="86" cy="82" rx="22" ry="24" fill="#1f2a2e"/>
+  <ellipse cx="86" cy="82" rx="16" ry="18" fill="#fff"/>
+  <ellipse cx="86" cy="82" rx="8" ry="9" fill="#ffd43b"/>
+  <ellipse cx="86" cy="82" rx="3" ry="3.5" fill="#e03131"/>
+  <ellipse cx="60" cy="48" rx="22" ry="24" fill="#1f2a2e"/>
+  <ellipse cx="60" cy="48" rx="16" ry="18" fill="#fff"/>
+  <ellipse cx="60" cy="48" rx="8" ry="9" fill="#f783ac"/>
+  <ellipse cx="60" cy="48" rx="3" ry="3.5" fill="#51cf66"/>
+</svg>

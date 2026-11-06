@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Biscuits Pépito, Oreo ou autres">
+  <ellipse cx="60" cy="108" rx="50" ry="6" fill="#000" opacity=".12"/>
+  <circle cx="42" cy="58" r="30" fill="#2b2220"/>
+  <circle cx="42" cy="58" r="30" fill="none" stroke="#fff" stroke-width="2.5" stroke-dasharray="3 4" opacity=".55"/>
+  <circle cx="42" cy="58" r="21" fill="none" stroke="#4a3a33" stroke-width="3"/>
+  <circle cx="42" cy="58" r="9" fill="none" stroke="#4a3a33" stroke-width="3"/>
+  <path d="M42 28 V38 M42 78 V88 M12 58 H22 M62 58 H72 M21 37 L28 44 M56 72 L63 79 M21 79 L28 72 M56 44 L63 37" stroke="#4a3a33" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="84" cy="74" r="26" fill="#d9a05b" stroke="#b9803e" stroke-width="3"/>
+  <circle cx="84" cy="74" r="18" fill="#7a4a2a" opacity=".9"/>
+  <circle cx="84" cy="74" r="8" fill="#d9a05b" stroke="#b9803e" stroke-width="2"/>
+  <circle cx="72" cy="62" r="3" fill="#5c3a1e"/><circle cx="98" cy="64" r="3" fill="#5c3a1e"/><circle cx="96" cy="88" r="3" fill="#5c3a1e"/><circle cx="72" cy="86" r="3" fill="#5c3a1e"/>
+  <path d="M70 22 L74 12 M82 20 L88 10 M94 24 L102 16" stroke="#b9803e" stroke-width="3" stroke-linecap="round"/>
+</svg>
