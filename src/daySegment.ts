@@ -1,5 +1,11 @@
 export type DaySegmentKey = 'early' | 'morning' | 'noon' | 'afternoon' | 'evening';
 
+export const daySegmentOrder: DaySegmentKey[] = ['early', 'morning', 'noon', 'afternoon', 'evening'];
+
+export const laterSegment = (a: DaySegmentKey, b: DaySegmentKey | undefined): DaySegmentKey => (
+  b && daySegmentOrder.indexOf(b) > daySegmentOrder.indexOf(a) ? b : a
+);
+
 // Rough part of the day for a time said by the respondent; it only moves the highlight on the timeline.
 export const daySegmentFor = (time: string | string[] | undefined): DaySegmentKey | undefined => {
   const text = (Array.isArray(time) ? time.join(' ') : (time ?? '')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');

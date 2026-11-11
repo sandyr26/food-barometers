@@ -66,6 +66,7 @@ interface PresetChoicesProps {
   values: string[];
   multiple?: boolean;
   exclusiveOption?: string;
+  lockedOption?: string;
   // Pictures per option and the option being read aloud: the group is then shown as a scale of clickable pictures.
   images?: Record<string, string>;
   wideImages?: boolean;
@@ -74,7 +75,7 @@ interface PresetChoicesProps {
   onChange: (values: string[]) => void;
 }
 
-export const PresetChoices: React.FC<PresetChoicesProps> = ({ name, options, values, multiple = false, exclusiveOption, images, wideImages = false, maxSelections, highlighted, onChange }) => (
+export const PresetChoices: React.FC<PresetChoicesProps> = ({ name, options, values, multiple = false, exclusiveOption, lockedOption, images, wideImages = false, maxSelections, highlighted, onChange }) => (
   images ? (
     <div role={multiple ? 'group' : 'radiogroup'} aria-label={name} style={{ ...surveyStyles.scale, ...(wideImages ? surveyStyles.scaleWide : {}) }}>
       {options.map(option => {
@@ -104,14 +105,17 @@ export const PresetChoices: React.FC<PresetChoicesProps> = ({ name, options, val
   ) : (
   <fieldset style={surveyStyles.presetGroup}>
     {options.map(option => {
-      const checked = values.includes(option);
+      const locked = option === lockedOption;
+      const checked = locked || values.includes(option);
       return (
         <label key={option} style={surveyStyles.presetOption}>
           <input
             type={multiple ? 'checkbox' : 'radio'}
             name={name}
             checked={checked}
+            disabled={locked}
             onChange={() => {
+              if (locked) return;
               if (!multiple) {
                 onChange([option]);
                 return;

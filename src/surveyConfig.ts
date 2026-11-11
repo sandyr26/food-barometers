@@ -7,6 +7,8 @@ export interface PresetGroup {
   options: string[];
   multiple?: boolean;
   exclusiveOption?: string;
+  // Option that is always checked and cannot be unchecked.
+  lockedOption?: string;
   allowFreeText?: boolean;
   // Nominal options are shown in a random order per respondent; ordinal scales and Oui/Non are never shuffled.
   shuffle?: boolean;
@@ -16,6 +18,10 @@ export interface PresetGroup {
   wideImages?: boolean;
   // Maximum number of options a multiple-choice group accepts.
   maxSelections?: number;
+  // Question shown above the group when a page asks several questions.
+  question?: string;
+  // The page cannot be validated until this group is answered.
+  required?: boolean;
 }
 
 export interface AnswerLite {
@@ -60,7 +66,7 @@ export interface SurveyStep {
 export const RECALL_ENABLED = true;
 export const INTAKE_MAX = 15;
 
-export type IntakeFieldId = 'time' | 'solids' | 'drinks' | 'name' | 'place' | 'companionship' | 'talking' | 'screen' | 'posture';
+export type IntakeFieldId = 'time' | 'solids' | 'drinks' | 'name' | 'place' | 'companionship' | 'companions' | 'activities';
 export type IntakeRecord = Partial<Record<IntakeFieldId, string | string[]>>;
 
 export interface IntakeField {
@@ -75,7 +81,6 @@ export interface IntakeField {
 
 export const intakeIntroParagraphs = [
   'Nous allons maintenant revenir sur ta journée d’hier pour noter tout ce que tu as mangé et bu, et dans quelles conditions.',
-  'Chaque fois que tu as mangé ou bu quelque chose, même une petite quantité, nous avons besoin des 9 compléments d’informations ci-après que tu peux me donner en bloc à l’oral ou à l’écrit. Je me charge de les ranger pour toi !',
 ];
 export const intakeIntro = intakeIntroParagraphs.join(' ');
 // Guided start of the 24-hour recall: the mascot reads the first text (shown in the box), then calm music plays while
@@ -103,25 +108,41 @@ export const recallPrepSpeeches = [recallIntroSpeech, ...recallConcentrationScri
 // Without the assistant nobody can be told "en bloc à l’oral": the same introduction asks to fill in the form.
 export const intakeFormIntroParagraphs = [
   intakeIntroParagraphs[0],
-  'Chaque fois que tu as mangé ou bu quelque chose, même une petite quantité, remplis les 9 informations ci-dessous.',
+  'Chaque fois que tu as mangé ou bu quelque chose, même une petite quantité, remplis les informations ci-dessous.',
 ];
-export const intakeOpeningFirst = 'Alors, le matin ?… Souviens-toi…';
-// After the guided start, the mascot explains how to give the information and asks the first question.
-export const intakeOpeningFirstSpeech = `${intakeIntroParagraphs[1]} ${intakeOpeningFirst}`;
+export const intakeOpeningFirst = 'Nous sommes au tout petit matin, quand tu t’es levé(e), est-ce que tu as mangé ou bu quelque chose ?';
+// After the guided start, the mascot goes straight to the first question.
+export const intakeOpeningFirstSpeech = intakeOpeningFirst;
 export const intakeOpeningNext = 'Et après ça ? Souviens-toi : qu’as-tu encore mangé ou bu ?';
+const severalMoments = 'Si tu as mangé ou bu à plusieurs moments, clique sur + pour les ajouter. Commence par le premier moment.';
+// The first question of each part of the day.
+export const intakePhaseOpening = {
+  early: intakeOpeningFirst,
+  morning: `Dans la matinée, avant midi, qu’as-tu mangé ou bu ? ${severalMoments}`,
+  noon: 'Nous sommes maintenant au moment du midi, est-ce que tu as mangé ou bu quelque chose ?',
+  afternoon: `Nous sommes maintenant dans l’après-midi, avant le soir, qu’as-tu mangé ou bu ? ${severalMoments}`,
+  evening: `Nous sommes maintenant dans la soirée, qu’as-tu mangé ou bu ? ${severalMoments}`,
+};
 // Asked once per occasion: whatever is still missing afterwards is recorded as not given.
-export const intakeMissingPrompt = 'Il me manque encore quelques informations. Regarde les questions en jaune à l’écran et donne-moi ce que tu peux, ou dis-moi qu’il n’y a rien d’autre.';
+export const intakeMissingPrompt = 'Il me manque encore quelques informations. Donne-moi ce que tu peux, ou dis-moi qu’il n’y a rien d’autre.';
+
+export const placeOptions = ['Maison', 'Chez quelqu’un', 'Collège', 'Trajet (bus, rue…)', 'Commerce (snack…)', 'Autre'];
+export const companionshipOptions = ['Seul(e)', 'Accompagné(e)'];
+export const companionOptions = ['Parents', 'Copains, copines', 'Frères et sœurs', 'Adultes du collège', 'Autre famille', 'Autre'];
+export const activityNone = 'Rien d’autre';
+export const activityOptions = [activityNone, 'Un écran (TV, téléphone, tablette, console)', 'Je discutais', 'Je marchais', 'J’étais dans le bus', 'Je faisais mes devoirs', 'Autre'];
+// When « Autre » is chosen the child writes the answer: it is then stored as « Autre : … ».
+export const otherOption = 'Autre';
 
 export const intakeFields: IntakeField[] = [
   { id: 'time', label: 'Heure', icon: '🕒', kind: 'text', question: 'À quelle heure ?', guidance: 'Heure approximative ou précise de la prise, retranscrite telle que dite par le répondant (par exemple « vers 7 heures »). Ne jamais déduire une heure.' },
   { id: 'solids', label: 'Aliments', icon: '🍽️', kind: 'text', question: 'Qu’as-tu mangé ? N’oublie pas les accompagnements !', guidance: 'Tous les aliments solides et accompagnements explicitement cités, avec les précisions données. Une prise sans aliment solide est possible : accepter « rien » (retranscrire « rien »). Ne pas inventer la composition d’un plat.' },
   { id: 'drinks', label: 'Boissons', icon: '🥤', kind: 'text', question: 'Qu’as-tu bu ?', guidance: 'Boisson(s) explicitement citée(s). Une prise sans boisson est possible : accepter « rien » (retranscrire « rien »). Ne pas déduire une boisson à partir des aliments.' },
   { id: 'name', label: 'Nom du moment', icon: '🏷️', kind: 'text', question: 'Comment appelles-tu ce moment ? (Petit-déjeuner, déjeuner, goûter, grignotage…)', guidance: 'Nom donné spontanément par le répondant, avec ses propres mots. Ne jamais déduire « petit-déjeuner », « déjeuner », « goûter », « dîner » à partir de l’heure ou des aliments.' },
-  { id: 'place', label: 'Lieu', icon: '📍', kind: 'single', options: ['Là où je vis ou chez mes proches', 'Au collège ou aux abords du collège', 'À l’extérieur'], question: 'Où étais-tu ?', guidance: 'Une modalité uniquement si le lieu a été explicitement donné. Ne pas recoder un lieu ambigu à sa place.' },
-  { id: 'companionship', label: 'Avec qui', icon: '👥', kind: 'single', options: ['Accompagné(e)', 'Seul(e)'], question: 'Avec qui étais-tu ? Ou étais-tu seul(e) ?', guidance: '« Seul(e) » ou « Accompagné(e) » uniquement si explicitement dit. L’identité des personnes n’est pas demandée.' },
-  { id: 'talking', label: 'Conversation', icon: '💬', kind: 'single', options: ['En discutant', 'En silence'], question: 'Discutais-tu avec des gens ?', guidance: 'Une modalité uniquement si explicitement donnée. Ne pas interpréter à sa place.' },
-  { id: 'screen', label: 'Écran', icon: '📱', kind: 'single', options: ['Devant un écran de TV', 'Devant une tablette ou un smartphone', 'Sans écran'], question: 'Y avait-il un écran ? (Télévision, téléphone, tablette…)', guidance: 'Une modalité uniquement si explicitement donnée. Ne pas interpréter à sa place.' },
-  { id: 'posture', label: 'Posture', icon: '🪑', kind: 'single', options: ['Assis', 'Debout'], question: 'Étais-tu assis(e) ou debout ?', guidance: 'Une modalité uniquement si explicitement donnée. Ne pas interpréter à sa place.' },
+  { id: 'place', label: 'Lieu', icon: '📍', kind: 'single', options: placeOptions, question: 'Où étais-tu ?', guidance: 'Une modalité uniquement si le lieu a été explicitement donné : « Autre » pour un lieu qui n’est dans aucune autre modalité. Ne pas recoder un lieu ambigu à sa place.' },
+  { id: 'companionship', label: 'Seul(e) ou accompagné(e)', icon: '👥', kind: 'single', options: companionshipOptions, question: 'Tu étais seul(e) ou avec quelqu’un ?', guidance: '« Seul(e) » ou « Accompagné(e) » uniquement si explicitement dit. L’identité des personnes n’est pas demandée.' },
+  { id: 'companions', label: 'Avec qui', icon: '👥', kind: 'multi', options: companionOptions, question: 'Avec qui ? Plusieurs choix sont possibles.', guidance: 'Uniquement si le répondant était accompagné(e) : toutes les modalités explicitement citées (« Autre famille » pour un autre membre de la famille, « Autre » pour une autre personne). Ne pas interpréter à sa place.' },
+  { id: 'activities', label: 'Pendant le repas', icon: '🥄', kind: 'multi', options: activityOptions, question: 'Pendant que tu mangeais ou buvais, tu faisais autre chose ? Plusieurs choix sont possibles.', guidance: 'Toutes les modalités explicitement citées. « Rien d’autre » seul si le répondant dit qu’il ne faisait rien d’autre. Ne pas interpréter à sa place.' },
 ];
 
 export const mascotNames: Record<Mascot, string> = { girl: 'NAÏA', boy: 'NOAH' };
@@ -141,7 +162,7 @@ export const answerModeIntro = `${answerModeIntroPrefix}${answerModeButtonLabel}
 
 export const consentParagraphs = (mascot: Mascot) => [
   'Bonjour,',
-  `${mascot === 'girl' ? 'Enchantée' : 'Enchanté'} ! Je m’appelle ${mascotNames[mascot]} et je vais t’accompagner pour répondre à l’enquête sur l’alimentation. Si tu as des questions ou s’il y a un mot ou une phrase qui n’est pas clair, n’hésite pas à demander à un animateur.`,
+  `${mascot === 'girl' ? 'Enchantée' : 'Enchanté'} ! Je m’appelle ${mascotNames[mascot]} et je vais t’accompagner pour répondre à l’enquête sur l’alimentation. Si tu as des questions ou si il y a un mot ou une phrase qui n’est pas clair, n’hésite pas à demander à un animateur.`,
   'Je te rassure, il n’y a pas de bonne ou de mauvaise réponse : ce qui nous intéresse, c’est ce que toi, tu fais et tu penses réellement. Tu peux choisir de ne pas répondre à une question ou d’arrêter le questionnaire à tout moment, sans avoir à expliquer pourquoi.',
   answerModeIntro,
   'Le questionnaire dure environ 30 minutes.',
@@ -190,7 +211,15 @@ const frequencyImages: Record<string, string> = {
   [NEVER]: '/images/frequency/never.svg',
 };
 const situationOptions = ['Fête', 'Copains', 'Quotidien', 'Sport', 'Autre'];
+const situationImages: Record<string, string> = {
+  'Fête': '/images/situation/party.svg',
+  'Copains': '/images/influence/friends.svg',
+  'Quotidien': '/images/frequency/daily.svg',
+  'Sport': '/images/situation/sport.svg',
+  'Autre': '/images/influence/other.svg',
+};
 export const situationsOtherSpeech = 'Précise-moi dans quelles situations tu en consommes !';
+export const situationsQuestion = 'Dans quelles situations, tu as plusieurs choix possibles, le consommes-tu ?';
 const difficultyOptions = ['Très difficile', 'Difficile', 'Ni difficile ni facile', 'Facile', 'Très facile', 'Je n’en consomme pas'];
 const difficultyImages: Record<string, string> = {
   'Très difficile': '/images/difficulty/very-hard.svg',
@@ -219,16 +248,17 @@ const foods = [
   { key: 'c', name: 'Pizzas', ask: 'des pizzas', image: '/images/foods/pizza.svg' },
 ];
 
+// The verb follows the food: « boire » for a drink, « manger » otherwise.
 const changes = [
-  'Qu’en est-il pour toi lorsqu’il s’agit de manger moins de riz ?',
-  'Manger plus de grains ou de légumineuses, comme les lentilles ou les haricots secs par exemple ?',
-  'Manger moins de viande ?',
-  'Boire moins de boissons sucrées ?',
-  'Manger plus de légumes ?',
-  'Manger plus de fruits ?',
-  'Manger plus de racines, comme le manioc ou la patate douce par exemple ?',
-  'Manger plus de poissons ?',
-];
+  { verb: 'manger', item: 'moins de riz' },
+  { verb: 'manger', item: 'plus de grains ou de légumineuses, comme les lentilles ou les haricots secs par exemple' },
+  { verb: 'manger', item: 'moins de viande' },
+  { verb: 'boire', item: 'moins de boissons sucrées' },
+  { verb: 'manger', item: 'plus de légumes' },
+  { verb: 'manger', item: 'plus de fruits' },
+  { verb: 'manger', item: 'plus de racines, comme le manioc ou la patate douce par exemple' },
+  { verb: 'manger', item: 'plus de poissons' },
+].map(({ verb, item }) => `Serait-il possible pour toi de ${verb} ${item} ?`);
 
 const letter = (index: number) => String.fromCharCode(97 + index);
 
@@ -242,13 +272,7 @@ export const isYes = (value: string) => /^(oui|ouais)\b/i.test(value.trim().norm
 
 const answeredNo = (answer: AnswerLite | undefined) => Boolean(answer && answer.mode !== 'skipped' && firstValue(answer).trim() && !isYes(firstValue(answer)));
 
-// The context question only follows a food that is actually consumed (a frequency other than "Jamais").
-const consumed = (get: AnswerLookup, key: string) => {
-  const frequency = get(`11${key}`)?.selections[`q11${key}`]?.[0];
-  return Boolean(frequency) && frequency !== NEVER;
-};
-
-const plainAnswer = (text: string) => ` ${text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()} `;
+const plainAnswer =  (text: string) => ` ${text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()} `;
 const declinePhrases = [
   'je ne sais pas', 'je sais pas', 'sais pas', 'chais pas', 'j sais pas', 'aucune idee', 'pas d idee', 'je n ai pas d idee',
   'je ne me souviens pas', 'je me souviens pas', 'je ne connais pas', 'je prefere ne pas repondre', 'prefere ne pas repondre',
@@ -283,46 +307,40 @@ export const surveySteps: SurveyStep[] = [
   single('1', 1, 'Es-tu une fille ou un garçon ?', ['Fille', 'Garçon'], 'Genre', 'Accepter la réponse. Accepter un refus de répondre sans relancer.', {}, true),
   open('2', 2, 'Quelle est ton année de naissance ?', 'Année de naissance : 2009–2018', 'Si la réponse est hors intervalle, ambiguë ou donnée sous une autre forme, demander une précision sans suggérer de réponse.', { numeric: { min: 2009, max: 2018, message: 'Ton année de naissance semble incorrecte. Peux-tu me la redonner ?' }, maxFollowUps: 2 }),
   open('3', 3, 'Dans quelle classe es-tu ?', 'Niveau scolaire : 6e, 5e, 4e ou 3e', 'Reconnaître les formulations équivalentes : 6e/sixième, 5e/cinquième, 4e/quatrième, 3e/troisième. Sinon demander de préciser.', { allowedValues: ['6e', '5e', '4e', '3e'], maxFollowUps: 2 }),
-  open('4', 4, 'Où habites-tu ? Et si tu connais ton quartier, indique-le !', 'Commune de résidence à La Réunion (974) et, si connu, quartier', 'Recueillir la commune et, si le répondant le connaît, le quartier ; ne pas insister si le quartier n’est pas connu. Accepter les variantes orthographiques identifiables. Si le répondant indique plusieurs lieux de résidence (par exemple parents séparés ou divorcés), demander de préciser celui où il a dormi hier soir.   Si la commune manque, la demander. Ne jamais enregistrer ni demander l’adresse postale (numéro, rue, nom de résidence, code postal) : conserver uniquement la commune et, si connu, le quartier.', {
+  open('4', 4, 'Où habites-tu? C’est-à-dire l’endroit où tu habites le plus souvent. Et si tu connais ton quartier, indique-le !', 'Commune de résidence à La Réunion (974) et, si connu, quartier', 'Recueillir la commune et, si le répondant le connaît, le quartier ; ne pas insister si le quartier n’est pas connu. Accepter les variantes orthographiques identifiables. Si le répondant indique plusieurs lieux de résidence (par exemple parents séparés ou divorcés), demander de préciser celui où il a dormi hier soir.   Si la commune manque, la demander. Ne jamais enregistrer ni demander l’adresse postale (numéro, rue, nom de résidence, code postal) : conserver uniquement la commune et, si connu, le quartier.', {
     maxFollowUps: 2,
     residence: true,
     followUps: ['Et si tu connais le nom de ton quartier, indique-le !', 'Dans quelle commune habites-tu ?', 'Où as-tu dormi hier soir ?'],
   }),
   open('5', 5, 'En te comptant, combien de personnes vivent chez toi ?', 'Nombre entier de 2 à 20', 'Si la réponse est vague, non numérique ou hors intervalle : demander un nombre précis.', { numeric: { min: 2, max: 20, message: 'Ce nombre me semble incorrect. Peux-tu me redonner le nombre de personnes qui vivent chez toi, en te comptant ?' }, maxFollowUps: 2 }),
   single('6', 6, 'Et parmi les personnes qui vivent chez toi, qui sont-elles ? Tu peux, par exemple, dire « mon père », « ma sœur »…', householdOptions, 'Une ou plusieurs catégories décrivant les personnes vivant avec l’adolescent', 'Recoder les réponses spontanées dans les catégories. Si la réponse est trop générale, demander uniquement la précision nécessaire. Ne pas relancer si le répondant préfère ne pas répondre.', {
-    groups: [{ id: 'q6-personnes-du-foyer', label: 'Personnes vivant au foyer', options: householdOptions, multiple: true }],
+    groups: [{ id: 'q6-personnes-du-foyer', label: 'Personnes vivant au foyer', options: householdOptions, multiple: true, lockedOption: 'Moi-même' }],
     textPrompt: { label: 'Précise qui', when: selections => Boolean(selections['q6-personnes-du-foyer']?.includes('Autres')) },
     maxFollowUps: 1,
   }),
-  single('8', 8, 'Est-ce que tu as de l’argent de poche : régulièrement, de temps en temps, ou pas du tout ?', ['Oui, chaque semaine', 'Oui, chaque mois', 'Oui, à certaines occasions (fêtes, bonne note, anniversaire…)', 'Non'], 'Fréquence / existence d’argent de poche', 'Accepter une formulation équivalente et la recoder dans l’une des quatre modalités.'),
-  open('10', 10, 'Y a-t-il des choses que tu ne manges pas ou ne bois pas, quelle que soit la raison ? Si oui, lesquelles et pour quelle raison ?', 'Aliment(s) ou boisson(s) évité(s) et raison(s) associée(s), ou aucune éviction', 'Accepter « non », « rien » ou « je ne sais pas » comme réponse complète. Si le répondant cite des éléments, obtenir si possible l’aliment précis et la raison pour chacun ; une seule relance neutre si la raison manque. Pour la viande, préciser s’il s’agit de toute viande ou d’un type de viande. Pour les catégories générales (légumes, grains, légumes-racines), demander lesquels, sans suggérer d’exemples sauf nécessité de compréhension. Ne pas interpréter les raisons.', {
+  single('8', 8, 'Est-ce que tu as de l’argent de poche . Si Oui, chaque semaine, chaque mois ou à certaines occasions (fêtes, bonne note, anniversaire…) ?', ['Oui, chaque semaine', 'Oui, chaque mois', 'Oui, à certaines occasions (fêtes, bonne note, anniversaire…)', 'Non'], 'Fréquence / existence d’argent de poche', 'Accepter une formulation équivalente et la recoder dans l’une des quatre modalités.'),
+  open('10', 10, 'Y a-t-il des choses que tu ne manges pas ou ne bois pas, quelle que soit la raison ? Si oui, lesquelles et pour quelles raison ?', 'Aliment(s) ou boisson(s) évité(s) et raison(s) associée(s), ou aucune éviction', 'Accepter « non », « rien » ou « je ne sais pas » comme réponse complète. Si le répondant cite des éléments, obtenir si possible l’aliment précis et la raison pour chacun ; une seule relance neutre si la raison manque. Pour la viande, préciser s’il s’agit de toute viande ou d’un type de viande. Pour les catégories générales (légumes, grains, légumes-racines), demander lesquels, sans suggérer d’exemples sauf nécessité de compréhension. Ne pas interpréter les raisons.', {
     maxFollowUps: 2,
     ui: 'pairs',
     hint: 'Si oui, prends le temps de réfléchir et pour chaque chose que tu ne manges pas ou que tu ne bois pas, précise bien la raison.',
     pairLabels: ['Aliment ou boisson', 'Raison'],
     followUps: ['Pour quelle raison ?', 'Peux-tu préciser lesquels ?'],
   }),
-  ...foods.flatMap((food, index): SurveyStep[] => [
-    {
-      id: `11${food.key}`, number: 11, label: `11${letter(index)}`, text: `Dis-moi si tu en consommes ${food.ask}.`, ui: 'choices',
-      intro: index === 0 ? '« Je vais te citer quelques aliments et boissons. Pour chacun, dis-moi à quelle fréquence tu en consommes. »' : undefined,
-      readOptions: index === 0,
-      groups: [{ id: `q11${food.key}`, label: food.name, options: consumptionOptions, images: frequencyImages }],
-      image: { src: food.image, alt: food.name },
-      expected: 'Une réponse', guidance: 'Énoncer les 4 possibilités si besoin. Recueillir une seule réponse.', maxFollowUps: 0,
-    },
-    {
-      id: `11${food.key}-ctx`, number: 11, label: `11${letter(index)} · contexte`, text: 'Dans quelles situations, tu as plusieurs choix possibles, le consommes-tu ?', ui: 'choices',
-      hint: 'Plusieurs choix possibles.',
-      groups: [{ id: `q11${food.key}-situations`, label: `Situations de consommation : ${food.name}`, options: situationOptions, multiple: true }],
-      textPrompt: { label: situationsOtherSpeech, speech: situationsOtherSpeech, when: selections => Boolean(selections[`q11${food.key}-situations`]?.includes('Autre')) },
-      expected: 'Une ou plusieurs situations de consommation (fête, copains, quotidien, sport, autre)',
-      guidance: 'Recoder les réponses spontanées dans les situations proposées ; plusieurs réponses sont possibles. Si « Autre » est donné, recueillir la situation dans les mots du répondant. Ne pas relancer si le répondant ne sait pas.',
-      maxFollowUps: 0,
-      image: { src: food.image, alt: food.name },
-      skipIf: get => !consumed(get, food.key),
-    },
-  ]),
+  ...foods.map((food, index): SurveyStep => ({
+    id: `11${food.key}`, number: 11, label: `11${letter(index)}`, text: `Dis-moi si tu consommes ${food.ask}.`, ui: 'choices',
+    intro: index === 0 ? '« Je vais te citer quelques aliments et boissons. Pour chacun, dis-moi à quelle fréquence tu en consommes. »' : undefined,
+    readOptions: index === 0,
+    // The situations are asked on the same page, below the frequency, and are always visible.
+    groups: [
+      { id: `q11${food.key}`, label: food.name, options: consumptionOptions, images: frequencyImages, required: true },
+      { id: `q11${food.key}-situations`, label: `Situations de consommation : ${food.name}`, question: situationsQuestion, options: situationOptions, images: situationImages, multiple: true },
+    ],
+    textPrompt: { label: situationsOtherSpeech, speech: situationsOtherSpeech, when: selections => Boolean(selections[`q11${food.key}-situations`]?.includes('Autre')) },
+    image: { src: food.image, alt: food.name },
+    expected: 'La fréquence de consommation (une réponse), puis une ou plusieurs situations de consommation (fête, copains, quotidien, sport, autre)',
+    guidance: 'Énoncer les 4 possibilités si besoin. Recueillir une seule fréquence. Recoder les situations spontanées dans les situations proposées ; plusieurs réponses sont possibles. Si « Autre » est donné, recueillir la situation dans les mots du répondant. Ne pas relancer si le répondant ne sait pas.',
+    maxFollowUps: 0,
+  })),
   ...[
     { suffix: 'a', text: 'Trop gras ?', example: 'trop gras', intro: '« On dit souvent qu’il faut manger moins gras, moins sucré, moins salé, peux-tu me donner un exemple de produit… »' },
     { suffix: 'b', text: 'Trop sucré ?', example: 'trop sucré', intro: undefined },
@@ -366,7 +384,7 @@ export const surveySteps: SurveyStep[] = [
   },
 ];
 
-export const stepSpeech = (step: SurveyStep) => (step.intro ? `${step.intro} ${step.text}` : step.text);
+export const stepSpeech = (step: SurveyStep) => [step.intro, step.text, ...step.groups.map(group => group.question)].filter(Boolean).join(' ');
 
 export const parentRoleNames = parentRoles;
 

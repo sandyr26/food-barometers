@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Sport">
+  <circle cx="60" cy="60" r="54" fill="#ebfbee"/>
+  <circle cx="60" cy="60" r="34" fill="#fff" stroke="#212529" stroke-width="4"/>
+  <path d="M60 42 L77 54 L70 74 H50 L43 54 Z" fill="#212529"/>
+  <path d="M60 42 V26 M77 54 L92 49 M70 74 L80 88 M50 74 L40 88 M43 54 L28 49" stroke="#212529" stroke-width="4" stroke-linecap="round"/>
+</svg>

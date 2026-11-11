@@ -5,10 +5,11 @@ import { api } from '../api';
 import { loadNarration, preloadNarration } from '../narration';
 import BackButton from '../components/BackButton';
 import { MascotPanel, NextButton, PresetChoices, QuestionCard, SurveyPageLayout } from '../components/SurveyLayout';
-import { DayTimeline, IntakeChecklist } from '../components/IntakeGuide';
+import { DayTimeline, IntakeBlock } from '../components/IntakeGuide';
 import { VoiceReplyControls, VoiceTranscriptCard } from '../components/VoiceReply';
 import { emptyLevels } from '../hooks/useVoiceRecorder';
-import { daySegmentFor } from '../daySegment';
+import { daySegmentFor, daySegmentOrder, laterSegment } from '../daySegment';
+import type { DaySegmentKey } from '../daySegment';
 import { orderedOptions } from '../randomize';
 import { ICON_SIZE, surveyStyles } from '../surveyStyles';
 import { mascotByState } from '../voiceMascot';
@@ -97,6 +98,7 @@ interface HistoryEntry {
   intakes: IntakeEntry[];
   currentIntake: IntakeEntry;
   intakeStage: IntakeStage;
+  dayPhase: DaySegmentKey;
   aiTurns: AiTurn[];
 }
 
@@ -166,12 +168,13 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [isLoadingNarration, setIsLoadingNarration] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [typedAnswer, setTypedAnswer] = useState('');
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+  const [chosenOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
   const [requiresRepeat, setRequiresRepeat] = useState(false);
   const [followUpsDone, setFollowUpsDone] = useState(0);
   const [aiTurns, setAiTurns] = useState<AiTurn[]>([]);
   const [parentOccupations, setParentOccupations] = useState<Occupations>(emptyOccupations);
   const [pairRows, setPairRows] = useState<PairRow[]>(emptyPairRows);
+  const [advanceWhenReady, setAdvanceWhenReady] = useState(false);
   const [highlightedOption, setHighlightedOption] = useState<string | undefined>();
   const [recallPrepDone, setRecallPrepDone] = useState(false);
   const [recallStep, setRecallStep] = useState<'intro' | 'concentrate' | 'invite' | 'waiting' | 'blinking'>('intro');
@@ -181,6 +184,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [intakes, setIntakes] = useState<IntakeEntry[]>([]);
   const [currentIntake, setCurrentIntake] = useState<IntakeEntry>(emptyIntake);
   const [intakeStage, setIntakeStage] = useState<IntakeStage>({ kind: 'opening' });
+  const [dayPhase, setDayPhase] = useState<DaySegmentKey>('early');
   const [intakeHeard, setIntakeHeard] = useState('');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -199,12 +203,23 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [orderSeed] = useState(() => Math.random().toString(36).slice(2));
 
   const step = surveySteps[questionIndex];
+  // Locked options are always part of the selection, whatever was typed, spoken or cleared.
+  const selectedOptions = { ...chosenOptions };
+  if (phase === 'questions') {
+    for (const group of step.groups) {
+      if (group.lockedOption && !selectedOptions[group.id]?.includes(group.lockedOption)) {
+        selectedOptions[group.id] = [group.lockedOption, ...(selectedOptions[group.id] ?? [])];
+      }
+    }
+  }
   const isFirstIntake = intakes.length === 0;
+  const intakeSegment = laterSegment(dayPhase, daySegmentFor(currentIntake.fields.time ?? intakes.at(-1)?.fields.time));
+  const recordedInPhase = intakes.filter(entry => (entry.phase ?? daySegmentFor(entry.fields.time) ?? 'early') === intakeSegment).length;
   // Guided start of the recall (music, calm-down script, invitation to click on the rising sun) before the first answer.
   const prepActive = phase === 'intake' && aiEnabled && isFirstIntake && intakeStage.kind === 'opening' && currentIntake.heard.length === 0 && !recallPrepDone;
   const prepInvited = prepActive && ['invite', 'waiting', 'blinking'].includes(recallStep);
   let currentQuestion = stepSpeech(step);
-  if (phase === 'intake') currentQuestion = prepActive ? '' : stageSpeech(intakeStage, isFirstIntake);
+  if (phase === 'intake') currentQuestion = prepActive ? '' : stageSpeech(intakeStage, recordedInPhase === 0, intakeSegment);
   const voiceMascot = selectedMascot;
   const optionsToRead = phase === 'questions' && step.readOptions ? step.groups[0]?.options ?? [] : [];
 
@@ -299,7 +314,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       const nextStep = surveySteps[questionIndex + 1];
       if (RECALL_ENABLED && step.id === '8') {
         recallPrepSpeeches.forEach(text => preloadNarration(text, 'fr', voiceMascot, authToken));
-        preloadNarration(stageSpeech({ kind: 'opening' }, true), 'fr', voiceMascot, authToken);
+        preloadNarration(stageSpeech({ kind: 'opening' }, true, 'early'), 'fr', voiceMascot, authToken);
       } else if (nextStep) preloadNarration(stepSpeech(nextStep), 'fr', voiceMascot, authToken);
     }
   }, [aiEnabled, authToken, phase, questionIndex, step.id, voiceMascot]);
@@ -454,6 +469,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setSelectedOptions({});
     setParentOccupations(emptyOccupations());
     setPairRows(emptyPairRows());
+    setAdvanceWhenReady(false);
     setError('');
   };
 
@@ -497,19 +513,22 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const optionsFor = (group: PresetGroup) => orderedOptions(group, orderSeed, step.ui === 'ranking' ? step.id : group.id);
 
   const renderChoices = (group: PresetGroup) => (
-    <PresetChoices
-      key={group.id}
-      name={group.id}
-      options={optionsFor(group)}
-      values={selectedOptions[group.id] || []}
-      multiple={group.multiple}
-      exclusiveOption={group.exclusiveOption}
-      images={group.images}
-      wideImages={group.wideImages}
-      maxSelections={group.maxSelections}
-      highlighted={highlightedOption}
-      onChange={values => setSelection(group.id, values)}
-    />
+    <React.Fragment key={group.id}>
+      {group.question && <h3 style={{ ...styles.presetHeading, marginTop: '1rem' }}>{group.question}</h3>}
+      <PresetChoices
+        name={group.id}
+        options={optionsFor(group)}
+        values={selectedOptions[group.id] || []}
+        multiple={group.multiple}
+        exclusiveOption={group.exclusiveOption}
+        lockedOption={group.lockedOption}
+        images={group.images}
+        wideImages={group.wideImages}
+        maxSelections={group.maxSelections}
+        highlighted={highlightedOption}
+        onChange={values => setSelection(group.id, values)}
+      />
+    </React.Fragment>
   );
 
   const renderTextPrompt = () => {
@@ -616,18 +635,12 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const intakeTimeline = () => (
     <DayTimeline
-      active={isFirstIntake && !currentIntake.heard.length ? 'early' : daySegmentFor(currentIntake.fields.time ?? intakes.at(-1)?.fields.time)}
+      active={intakeSegment}
       selectable={prepInvited ? 'early' : undefined}
-      blinking={prepActive && recallStep === 'blinking' ? 'early' : undefined}
+      // The early-morning tab blinks as soon as the child is invited to click on the sun, then the tab of the current moment.
+      blinking={prepActive ? (prepInvited ? 'early' : undefined) : intakeSegment}
       onSelect={() => setRecallPrepDone(true)}
     />
-  );
-
-  const intakeGuide = (highlightMissing: boolean) => (
-    <>
-      {intakeTimeline()}
-      <IntakeChecklist fields={currentIntake.fields} skipped={currentIntake.skipped} highlightMissing={highlightMissing} />
-    </>
   );
 
   // The form is its own checklist: every field carries its icon and the validated question.
@@ -659,8 +672,19 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const renderIntakeAssistant = () => (
     <>
-      {intakeGuide(intakeStage.kind === 'missing')}
-      {intakeStage.kind === 'opening' && <button type="button" onClick={() => handleNoMoreIntakes()} disabled={busy} style={styles.shortcutButton}>{isFirstIntake ? 'Je n’ai rien mangé ni bu' : 'Je n’ai plus rien mangé ni bu jusqu’au coucher'}</button>}
+      {intakeTimeline()}
+      {!prepActive && (
+        <IntakeBlock
+          phase={intakeSegment}
+          recorded={recordedInPhase}
+          fields={currentIntake.fields}
+          onChange={updateIntakeField}
+          onAdd={handleAddIntake}
+          onNothing={handleNothingInPhase}
+          addDisabled={busy || !intakeHasContent(currentIntake)}
+          nothingDisabled={busy || intakeHasContent(currentIntake)}
+        />
+      )}
       {intakeStage.kind === 'missing' && <button type="button" onClick={() => handleNothingMore()} disabled={busy} style={styles.shortcutButton}>Rien d’autre à ajouter</button>}
     </>
   );
@@ -748,6 +772,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         list: step.list,
         followUps: step.followUps,
         residence: step.residence,
+        pairs: step.ui === 'pairs',
       }));
     }
     // Fixed replies are played from recorded or pre-generated clips, so the server does not synthesise them.
@@ -756,6 +781,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       formData.append('currentTranscript', previous.transcript);
       formData.append('currentSelections', JSON.stringify(previous.selections));
     }
+    if (phase === 'questions' && step.ui === 'pairs') formData.append('currentPairs', JSON.stringify(answeredPairs(pairRows)));
 
     try {
       const response = await api.post('/api/ai/turn', formData, {
@@ -769,9 +795,14 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       const freeTextGroups = (response.data.freeTextGroups ?? {}) as Record<string, string>;
       const needsRepeat = response.data.needsRepeat === true;
       const followUp = response.data.followUp === true;
+      const askMore = response.data.askMore === true;
+      const heardPairs = Array.isArray(response.data.pairs) ? response.data.pairs as PairRow[] : undefined;
       const keepPrevious = needsRepeat && previous !== null;
       const blocksNext = needsRepeat && !keepPrevious;
-      const expectsMore = blocksNext || followUp;
+      const expectsMore = blocksNext || followUp || askMore;
+      if (heardPairs && !needsRepeat) setPairRows(heardPairs.length > 0 ? heardPairs : emptyPairRows());
+      // « Non » to « Y a-t-il autre chose ? »: the survey goes on by itself once the reply has been heard.
+      if (heardPairs && response.data.done === true && !needsRepeat) setAdvanceWhenReady(true);
       if (!keepPrevious) setTranscript(nextTranscript);
       setAiTurns(current => [...current, {
         transcript: String(response.data.transcript ?? ''),
@@ -835,7 +866,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const saveInBackground = (patch: SurveyPatch) => recordSurvey(patch);
 
-  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, pairRows, typedAnswer, transcript, intakes, currentIntake, intakeStage, aiTurns }]);
+  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, pairRows, typedAnswer, transcript, intakes, currentIntake, intakeStage, dayPhase, aiTurns }]);
 
   const finishIntakes = (finished: IntakeEntry[]) => {
     clearCurrentAnswer();
@@ -843,6 +874,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setIntakes(finished);
     setCurrentIntake(emptyIntake());
     setIntakeStage({ kind: 'opening' });
+    setDayPhase('early');
     setPhase('questions');
     setQuestionIndex(stepIndexById.get('10') ?? 0);
   };
@@ -861,7 +893,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
     clearCurrentAnswer();
     if (outcome === 'complete') {
-      const finished = [...intakes, entry];
+      const finished = [...intakes, { ...entry, phase: intakeSegment }];
       saveInBackground({ yesterdayIntakes: finished.map((item, index) => serializeIntake(item, index, aiEnabled)), currentIntake: null });
       if (finished.length >= INTAKE_MAX) {
         finishIntakes(finished);
@@ -870,6 +902,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       setIntakes(finished);
       setCurrentIntake(emptyIntake());
       setIntakeStage({ kind: 'opening' });
+      setDayPhase(intakeSegment);
       return;
     }
     saveInBackground({ currentIntake: serializeIntake(entry, intakes.length, aiEnabled) });
@@ -932,6 +965,27 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   };
 
   const handleNoMoreIntakes = () => settleIntake(currentIntake, 'endOfDay');
+
+  // The occasion is kept as it is and a new one starts in the same part of the day.
+  const handleAddIntake = () => {
+    const { entry, outcome } = skipStage(currentIntake, { kind: 'missing' });
+    settleIntake(entry, outcome);
+  };
+
+  // Nothing eaten or drunk in this part of the day: go on with the next one, or end the recall after the evening.
+  const handleNothingInPhase = () => {
+    const next = daySegmentOrder[daySegmentOrder.indexOf(intakeSegment) + 1];
+    if (!next) {
+      handleNoMoreIntakes();
+      return;
+    }
+    interruptNarration();
+    pushHistory();
+    clearCurrentAnswer();
+    setCurrentIntake(emptyIntake());
+    setIntakeStage({ kind: 'opening' });
+    setDayPhase(next);
+  };
 
   const handleIntakeNext = () => {
     const text = typedAnswer.trim();
@@ -1082,6 +1136,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setIntakes(entry.intakes);
     setCurrentIntake(entry.currentIntake);
     setIntakeStage(entry.intakeStage);
+    setDayPhase(entry.dayPhase);
     setIntakeHeard('');
     setRequiresRepeat(false);
     setFollowUpsDone(0);
@@ -1106,6 +1161,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       setIntakes([]);
       setCurrentIntake(emptyIntake());
       setIntakeStage({ kind: 'opening' });
+      setDayPhase('early');
       setPhase('intake');
       return;
     }
@@ -1144,6 +1200,14 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
     advanceWithAnswer(makeCurrentAnswer());
   };
+
+  useEffect(() => {
+    if (!advanceWhenReady || conversationState !== 'ready') return;
+    setAdvanceWhenReady(false);
+    handleNext();
+    // handleNext is rebuilt on every render and always reads the latest answer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advanceWhenReady, conversationState]);
 
   const handleSkip = () => {
     if (phase !== 'intake') {
@@ -1224,7 +1288,8 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     );
   }
 
-  const nextDisabled = !hasCurrentAnswer || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState);
+  const missingRequired = phase === 'questions' && step.groups.some(group => group.required && !(selectedOptions[group.id]?.length));
+  const nextDisabled = !hasCurrentAnswer || missingRequired || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState);
 
   let intros: string[] = [];
   if (phase === 'questions') intros = step.intro ? [step.intro] : [];
@@ -1236,7 +1301,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         <QuestionCard
           kicker={kicker}
           intros={intros}
-          question={phase === 'questions' ? step.text : (prepActive ? (prepInvited ? recallInviteSpeech : '') : stageQuestion(intakeStage, isFirstIntake))}
+          question={phase === 'questions' ? step.text : (prepActive ? (prepInvited ? recallInviteSpeech : '') : stageQuestion(intakeStage, recordedInPhase === 0, intakeSegment))}
           image={phase === 'questions' ? step.image : undefined}
           repeatLabel={isLoadingNarration ? 'Préparation de la lecture…' : '🔊 Réécouter la question'}
           repeatDisabled={isLoadingNarration}
@@ -1265,10 +1330,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
           />
         )}
         <div style={styles.actions}>
-          {history.length > 0 && <button type="button" onClick={handlePrevious} disabled={busy}           style={styles.skipButton}>
-                      <FaCircleArrowLeft size={ICON_SIZE} aria-hidden="true" style={styles.buttonIcon} />
-                      Précédent
-                    </button>}
+          <button type="button" onClick={handlePrevious} disabled={busy || history.length === 0} style={{ ...styles.skipButton, ...(history.length === 0 ? styles.disabledButton : {}) }}>
+            <FaCircleArrowLeft size={ICON_SIZE} aria-hidden="true" style={styles.buttonIcon} />
+            Précédent
+          </button>
                     <button type="button" onClick={handleSkip} disabled={busy} style={styles.skipButton}>
                       {phase === 'intake' && !aiEnabled ? 'Aucune autre prise' : 'Passer cette question'}
                       <FaForwardStep size={ICON_SIZE} aria-hidden="true" style={styles.buttonIcon} />

@@ -1,13 +1,12 @@
 import {
   intakeFields,
   intakeFormIntroParagraphs,
-  intakeIntroParagraphs,
   intakeMissingPrompt,
-  intakeOpeningFirst,
-  intakeOpeningFirstSpeech,
   intakeOpeningNext,
+  intakePhaseOpening,
 } from './surveyConfig';
 import type { IntakeFieldId, IntakeRecord } from './surveyConfig';
+import type { DaySegmentKey } from './daySegment';
 
 export interface IntakeTurn {
   stage: IntakeStage['kind'];
@@ -23,6 +22,8 @@ export interface IntakeEntry {
   missingAsked: boolean;
   heard: string[];
   turns: IntakeTurn[];
+  // Part of the day the occasion was recorded in.
+  phase?: DaySegmentKey;
 }
 
 // 'opening' collects everything the respondent says in one go; 'missing' asks once for what is still missing.
@@ -45,20 +46,19 @@ const hasValue = (value: string | string[] | undefined) => (Array.isArray(value)
 
 export const isFieldFilled = (entry: IntakeEntry, id: IntakeFieldId) => hasValue(entry.fields[id]) || entry.skipped.includes(id);
 
-export const missingFields = (entry: IntakeEntry) => intakeFields.filter(field => !isFieldFilled(entry, field.id));
+// Someone who was alone has nobody to name.
+export const missingFields = (entry: IntakeEntry) => intakeFields.filter(field => !isFieldFilled(entry, field.id) && !(field.id === 'companions' && entry.fields.companionship === 'Seul(e)'));
 
-export const stageQuestion = (stage: IntakeStage, isFirstIntake: boolean) => {
+export const stageQuestion = (stage: IntakeStage, firstInPhase: boolean, phase: DaySegmentKey = 'early') => {
   if (stage.kind === 'missing') return intakeMissingPrompt;
-  return isFirstIntake ? intakeOpeningFirst : intakeOpeningNext;
+  return firstInPhase ? intakePhaseOpening[phase] : intakeOpeningNext;
 };
 
-export const stageSpeech = (stage: IntakeStage, isFirstIntake: boolean) => (
-  stage.kind === 'opening' && isFirstIntake ? intakeOpeningFirstSpeech : stageQuestion(stage, isFirstIntake)
-);
+export const stageSpeech = (stage: IntakeStage, firstInPhase: boolean, phase: DaySegmentKey = 'early') => stageQuestion(stage, firstInPhase, phase);
 
 export const stageIntros = (stage: IntakeStage, isFirstIntake: boolean, assistant = true) => {
   if (stage.kind !== 'opening' || !isFirstIntake) return [];
-  return assistant ? [intakeIntroParagraphs[1]] : intakeFormIntroParagraphs;
+  return assistant ? [] : intakeFormIntroParagraphs;
 };
 
 const completeWithoutMissing = (entry: IntakeEntry): IntakeEntry => ({

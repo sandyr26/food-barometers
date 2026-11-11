@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Fête">
+  <circle cx="60" cy="60" r="54" fill="#fff0f6"/>
+  <path d="M24 100 L44 50 L70 76 Z" fill="#fcc419" stroke="#e8590c" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M34 78 L50 64 M40 90 L58 72" stroke="#e8590c" stroke-width="3" stroke-linecap="round"/>
+  <path d="M52 40 C56 28 66 30 66 20" fill="none" stroke="#40c057" stroke-width="4" stroke-linecap="round"/>
+  <path d="M74 56 C86 52 84 40 96 38" fill="none" stroke="#4dabf7" stroke-width="4" stroke-linecap="round"/>
+  <path d="M80 80 C90 82 94 74 102 78" fill="none" stroke="#fa5252" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="76" cy="28" r="4" fill="#f783ac"/>
+  <circle cx="98" cy="58" r="4" fill="#ffd43b"/>
+  <circle cx="90" cy="96" r="4" fill="#74c0fc"/>
+  <circle cx="40" cy="30" r="4" fill="#ff8787"/>
+</svg>
