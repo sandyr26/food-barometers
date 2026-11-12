@@ -679,8 +679,9 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
           recorded={recordedInPhase}
           fields={currentIntake.fields}
           onChange={updateIntakeField}
-          onAdd={handleAddIntake}
-          onNothing={handleNothingInPhase}
+          // Declared further down than the point where this is rendered, so they are only referenced when clicked.
+          onAdd={() => handleAddIntake()}
+          onNothing={() => handleNothingInPhase()}
           addDisabled={busy || !intakeHasContent(currentIntake)}
           nothingDisabled={busy || intakeHasContent(currentIntake)}
         />
