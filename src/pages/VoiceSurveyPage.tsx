@@ -32,14 +32,23 @@ import {
 } from '../surveyConfig';
 import type { IntakeFieldId, Mascot, PresetGroup, SurveyStep } from '../surveyConfig';
 import {
+  answerableFields,
   applyExtraction,
+  completeEarly,
   emptyIntake,
   intakeHasContent,
+  intakeStageOf,
   intakeText,
-  skipStage,
+  isFoodField,
+  pendingField,
+  settleField,
+  skipPending,
+  stageForField,
   stageIntros,
   stageQuestion,
   stageSpeech,
+  visibleFields,
+  withField,
 } from '../intakeFlow';
 import type { IntakeEntry, IntakeExtraction, IntakeOutcome, IntakeStage } from '../intakeFlow';
 import { beginSurvey, flushSurveys, initSurveySync, recordSurvey, subscribeSurveySync } from '../surveySync';
@@ -97,7 +106,6 @@ interface HistoryEntry {
   transcript: string;
   intakes: IntakeEntry[];
   currentIntake: IntakeEntry;
-  intakeStage: IntakeStage;
   dayPhase: DaySegmentKey;
   aiTurns: AiTurn[];
 }
@@ -183,9 +191,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [responses, setResponses] = useState<RecordedAnswer[]>(() => surveySteps.map(blankAnswer));
   const [intakes, setIntakes] = useState<IntakeEntry[]>([]);
   const [currentIntake, setCurrentIntake] = useState<IntakeEntry>(emptyIntake);
-  const [intakeStage, setIntakeStage] = useState<IntakeStage>({ kind: 'opening' });
   const [dayPhase, setDayPhase] = useState<DaySegmentKey>('early');
   const [intakeHeard, setIntakeHeard] = useState('');
+  // What is typed for each question of the occasion before it is validated.
+  const [intakeDrafts, setIntakeDrafts] = useState<Partial<Record<IntakeFieldId, string>>>({});
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -213,13 +222,16 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
   }
   const isFirstIntake = intakes.length === 0;
+  // The stage follows from what is already known about the occasion.
+  const intakeStage = intakeStageOf(currentIntake);
+  const pendingIntakeField = pendingField(currentIntake);
   const intakeSegment = laterSegment(dayPhase, daySegmentFor(currentIntake.fields.time ?? intakes.at(-1)?.fields.time));
   const recordedInPhase = intakes.filter(entry => (entry.phase ?? daySegmentFor(entry.fields.time) ?? 'early') === intakeSegment).length;
   // Guided start of the recall (music, calm-down script, invitation to click on the rising sun) before the first answer.
   const prepActive = phase === 'intake' && aiEnabled && isFirstIntake && intakeStage.kind === 'opening' && currentIntake.heard.length === 0 && !recallPrepDone;
   const prepInvited = prepActive && ['invite', 'waiting', 'blinking'].includes(recallStep);
   let currentQuestion = stepSpeech(step);
-  if (phase === 'intake') currentQuestion = prepActive ? '' : stageSpeech(intakeStage, recordedInPhase === 0, intakeSegment);
+  if (phase === 'intake') currentQuestion = prepActive ? '' : stageSpeech(currentIntake, recordedInPhase === 0, intakeSegment);
   const voiceMascot = selectedMascot;
   const optionsToRead = phase === 'questions' && step.readOptions ? step.groups[0]?.options ?? [] : [];
 
@@ -314,7 +326,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       const nextStep = surveySteps[questionIndex + 1];
       if (RECALL_ENABLED && step.id === '8') {
         recallPrepSpeeches.forEach(text => preloadNarration(text, 'fr', voiceMascot, authToken));
-        preloadNarration(stageSpeech({ kind: 'opening' }, true, 'early'), 'fr', voiceMascot, authToken);
+        preloadNarration(stageSpeech(emptyIntake(), true, 'early'), 'fr', voiceMascot, authToken);
       } else if (nextStep) preloadNarration(stepSpeech(nextStep), 'fr', voiceMascot, authToken);
     }
   }, [aiEnabled, authToken, phase, questionIndex, step.id, voiceMascot]);
@@ -469,6 +481,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setSelectedOptions({});
     setParentOccupations(emptyOccupations());
     setPairRows(emptyPairRows());
+    setIntakeDrafts({});
     setAdvanceWhenReady(false);
     setError('');
   };
@@ -633,10 +646,21 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setCurrentIntake(current => ({ ...current, fields: { ...current.fields, [id]: value } }));
   };
 
+  // With the assistant, the clock and the single choices finish the question being asked as soon as they are given.
+  const updateAssistantField = (id: IntakeFieldId, value: string | string[]) => {
+    const given = Array.isArray(value) ? value.length > 0 : value.trim() !== '';
+    if (id === pendingIntakeField && given && ['time', 'place', 'companionship'].includes(id)) {
+      interruptNarration();
+      advanceIntake(settleField(withField(currentIntake, id, value), id));
+      return;
+    }
+    updateIntakeField(id, value);
+  };
+
   const intakeTimeline = () => (
     <DayTimeline
       active={intakeSegment}
-      selectable={prepInvited ? 'early' : undefined}
+      selectable={prepActive ? 'early' : undefined}
       // The early-morning tab blinks as soon as the child is invited to click on the sun, then the tab of the current moment.
       blinking={prepActive ? (prepInvited ? 'early' : undefined) : intakeSegment}
       onSelect={() => setRecallPrepDone(true)}
@@ -678,15 +702,22 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
           phase={intakeSegment}
           recorded={recordedInPhase}
           fields={currentIntake.fields}
-          onChange={updateIntakeField}
+          visible={visibleFields(currentIntake)}
+          active={answerableFields(currentIntake)}
+          details={currentIntake.details}
+          drafts={intakeDrafts}
+          busy={busy}
           // Declared further down than the point where this is rendered, so they are only referenced when clicked.
+          onChange={(id, value) => updateAssistantField(id, value)}
+          onDraftChange={(id, value) => { interruptNarration(); setIntakeDrafts(current => ({ ...current, [id]: value })); setError(''); }}
+          onSubmitDraft={id => handleSubmitDraft(id)}
+          onConfirm={id => handleConfirmChoices(id)}
           onAdd={() => handleAddIntake()}
           onNothing={() => handleNothingInPhase()}
           addDisabled={busy || !intakeHasContent(currentIntake)}
           nothingDisabled={busy || intakeHasContent(currentIntake)}
         />
       )}
-      {intakeStage.kind === 'missing' && <button type="button" onClick={() => handleNothingMore()} disabled={busy} style={styles.shortcutButton}>Rien d’autre à ajouter</button>}
     </>
   );
 
@@ -715,13 +746,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     || Object.values(parentOccupations).some(value => value.occupation.trim() || value.notWorking)
     || (phase === 'questions' && step.ui === 'pairs' && answeredPairs(pairRows).length > 0)
   );
-  if (phase === 'intake') {
-    if (!aiEnabled) hasCurrentAnswer = intakeHasContent(currentIntake);
-    else hasCurrentAnswer = Boolean(typedAnswer.trim());
-  }
+  if (phase === 'intake') hasCurrentAnswer = !aiEnabled && intakeHasContent(currentIntake);
   const busy = conversationState === 'saving' || conversationState === 'thinking' || conversationState === 'recording';
   const presetAnswers = renderPresetAnswers();
-  const showTypedAnswer = (phase === 'intake' && aiEnabled) || (phase === 'questions' && step.ui === 'text');
+  const showTypedAnswer = phase === 'questions' && step.ui === 'text';
   const hasReplied = hasCurrentAnswer && !requiresRepeat;
   let micLabel = hasCurrentAnswer && phase === 'questions' ? 'Compléter ou corriger' : 'Répondre';
   if (conversationState === 'recording') micLabel = 'Terminer l’enregistrement';
@@ -867,14 +895,13 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const saveInBackground = (patch: SurveyPatch) => recordSurvey(patch);
 
-  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, pairRows, typedAnswer, transcript, intakes, currentIntake, intakeStage, dayPhase, aiTurns }]);
+  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, pairRows, typedAnswer, transcript, intakes, currentIntake, dayPhase, aiTurns }]);
 
   const finishIntakes = (finished: IntakeEntry[]) => {
     clearCurrentAnswer();
     setIntakeHeard('');
     setIntakes(finished);
     setCurrentIntake(emptyIntake());
-    setIntakeStage({ kind: 'opening' });
     setDayPhase('early');
     setPhase('questions');
     setQuestionIndex(stepIndexById.get('10') ?? 0);
@@ -902,16 +929,31 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       }
       setIntakes(finished);
       setCurrentIntake(emptyIntake());
-      setIntakeStage({ kind: 'opening' });
       setDayPhase(intakeSegment);
       return;
     }
     saveInBackground({ currentIntake: serializeIntake(entry, intakes.length, aiEnabled) });
     setCurrentIntake(entry);
-    setIntakeStage(outcome);
   };
 
-  const sendIntake = async (audio: Blob | null, text: string) => {
+  // The next question of the occasion is asked, or the occasion is recorded when every question has been answered.
+  const advanceIntake = (entry: IntakeEntry) => settleIntake(entry, pendingField(entry) ? 'continue' : 'complete');
+
+  // The text typed for a question: foods and drinks are sent to be checked, the name of the moment is kept as it is.
+  const handleSubmitDraft = (id: IntakeFieldId) => {
+    const text = (intakeDrafts[id] ?? '').trim();
+    if (!text) return;
+    if (isFoodField(id)) {
+      // Before anything is known the answer is read like a spoken one, so that « j'ai rien mangé » moves on to the next part of the day.
+      void sendIntake(null, text, intakeStage.kind === 'opening' ? intakeStage : stageForField(currentIntake, id));
+      return;
+    }
+    advanceIntake(settleField(withField(currentIntake, id, text), id));
+  };
+
+  const handleConfirmChoices = (id: IntakeFieldId) => advanceIntake(settleField(currentIntake, id));
+
+  const sendIntake = async (audio: Blob | null, text: string, stage: IntakeStage = intakeStage) => {
     if (!authToken) {
       setError('Ta session a expiré. Reconnecte-toi pour répondre.');
       setConversationState('listening');
@@ -931,7 +973,13 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     formData.append('language', 'fr');
     formData.append('mascot', voiceMascot);
     formData.append('replyAudio', 'client');
-    formData.append('payload', JSON.stringify({ stage: intakeStage.kind, record: currentIntake.fields, fields: intakeFields }));
+    formData.append('payload', JSON.stringify({
+      stage: stage.kind,
+      ...(stage.kind === 'opening' ? {} : { targetField: stage.field }),
+      record: currentIntake.fields,
+      fields: intakeFields,
+      detailRounds: currentIntake.detailRounds,
+    }));
     setConversationState('thinking');
     setError('');
 
@@ -939,7 +987,13 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       const response = await api.post('/api/ai/intake', formData, { headers: { Authorization: `Bearer ${authToken}` }, timeout: 60000 });
       const result = response.data as IntakeExtraction & { reply?: string; audio?: string };
       setIntakeHeard(result.transcript);
-      const { entry, outcome } = applyExtraction(currentIntake, intakeStage, result);
+      const { entry, outcome } = applyExtraction(currentIntake, stage, result);
+      if (outcome === 'nothing') {
+        setAiReply('');
+        setConversationState('listening');
+        handleNothingInPhase();
+        return;
+      }
       if (outcome === 'clarify' && result.reply) {
         setAiReply(result.reply);
         setCurrentIntake(entry);
@@ -949,7 +1003,12 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       }
       setAiReply('');
       setConversationState('listening');
+      // What is typed for the other questions still to be answered is kept.
+      const keptDrafts = outcome === 'continue' && stage.kind !== 'opening'
+        ? Object.fromEntries(Object.entries(intakeDrafts).filter(([id]) => id !== stage.field && answerableFields(entry).includes(id as IntakeFieldId)))
+        : {};
       settleIntake(entry, outcome);
+      setIntakeDrafts(keptDrafts);
     } catch (requestError) {
       let message = 'Impossible de traiter cette réponse. Réessaie.';
       if (axios.isAxiosError(requestError)) {
@@ -960,18 +1019,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
   };
 
-  const handleNothingMore = () => {
-    const { entry, outcome } = applyExtraction(currentIntake, intakeStage, { transcript: 'Non', updates: {}, nothingMore: true });
-    settleIntake(entry, outcome);
-  };
-
   const handleNoMoreIntakes = () => settleIntake(currentIntake, 'endOfDay');
 
   // The occasion is kept as it is and a new one starts in the same part of the day.
-  const handleAddIntake = () => {
-    const { entry, outcome } = skipStage(currentIntake, { kind: 'missing' });
-    settleIntake(entry, outcome);
-  };
+  const handleAddIntake = () => settleIntake(completeEarly(currentIntake), 'complete');
 
   // Nothing eaten or drunk in this part of the day: go on with the next one, or end the recall after the evening.
   const handleNothingInPhase = () => {
@@ -983,14 +1034,9 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     interruptNarration();
     pushHistory();
     clearCurrentAnswer();
+    setIntakeHeard('');
     setCurrentIntake(emptyIntake());
-    setIntakeStage({ kind: 'opening' });
     setDayPhase(next);
-  };
-
-  const handleIntakeNext = () => {
-    const text = typedAnswer.trim();
-    if (text) void sendIntake(null, text);
   };
 
   const finishFormIntakes = () => {
@@ -1133,10 +1179,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setParentOccupations(entry.parentOccupations);
     setPairRows(entry.pairRows);
     setTypedAnswer(entry.typedAnswer);
+    setIntakeDrafts({});
     setTranscript(entry.transcript);
     setIntakes(entry.intakes);
     setCurrentIntake(entry.currentIntake);
-    setIntakeStage(entry.intakeStage);
     setDayPhase(entry.dayPhase);
     setIntakeHeard('');
     setRequiresRepeat(false);
@@ -1161,7 +1207,6 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       setIntakeHeard('');
       setIntakes([]);
       setCurrentIntake(emptyIntake());
-      setIntakeStage({ kind: 'opening' });
       setDayPhase('early');
       setPhase('intake');
       return;
@@ -1186,8 +1231,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const handleNext = () => {
     if (phase === 'intake') {
-      if (aiEnabled) handleIntakeNext();
-      else handleFormNext();
+      if (!aiEnabled) handleFormNext();
       return;
     }
     if (phase === 'questions') {
@@ -1220,8 +1264,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     } else if (intakeStage.kind === 'opening') {
       handleNoMoreIntakes();
     } else {
-      const { entry, outcome } = skipStage(currentIntake, intakeStage);
-      settleIntake(entry, outcome);
+      advanceIntake(skipPending(currentIntake));
     }
   };
 
@@ -1278,7 +1321,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   projectedAnswers[questionIndex] = makeCurrentAnswer();
   const isLastStep = phase === 'questions' && findNextStep(questionIndex, projectedAnswers) >= surveySteps.length;
   let nextLabel = isLastStep ? 'Terminer' : 'Question suivante';
-  if (phase === 'intake') nextLabel = aiEnabled ? 'Valider' : 'Valider cette prise';
+  if (phase === 'intake' && !aiEnabled) nextLabel = 'Valider cette prise';
 
   if (phase === 'complete') {
     return (
@@ -1292,9 +1335,12 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const missingRequired = phase === 'questions' && step.groups.some(group => group.required && !(selectedOptions[group.id]?.length));
   const nextDisabled = !hasCurrentAnswer || missingRequired || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState);
 
+  // Before the child clicks on the first moment of the day, there is nothing to answer yet.
+  const showVoiceControls = aiEnabled && !prepActive;
+
   let intros: string[] = [];
   if (phase === 'questions') intros = step.intro ? [step.intro] : [];
-  else if (phase === 'intake') intros = prepActive ? recallIntroParagraphs : stageIntros(intakeStage, isFirstIntake, aiEnabled);
+  else if (phase === 'intake') intros = prepActive ? recallIntroParagraphs : stageIntros(currentIntake, isFirstIntake, aiEnabled);
 
   return (
     <SurveyPageLayout title="Questionnaire OR-ALIM" progressLabel={questionLabel} isVoice={aiEnabled} onBack={onBack}>
@@ -1302,7 +1348,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         <QuestionCard
           kicker={kicker}
           intros={intros}
-          question={phase === 'questions' ? step.text : (prepActive ? (prepInvited ? recallInviteSpeech : '') : stageQuestion(intakeStage, recordedInPhase === 0, intakeSegment))}
+          question={phase === 'questions' ? step.text : (prepActive ? (prepInvited ? recallInviteSpeech : '') : stageQuestion(currentIntake, recordedInPhase === 0, intakeSegment))}
           image={phase === 'questions' ? step.image : undefined}
           repeatLabel={isLoadingNarration ? 'Préparation de la lecture…' : '🔊 Réécouter la question'}
           repeatDisabled={isLoadingNarration}
@@ -1315,11 +1361,11 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
           <span>{aiEnabled ? 'Ou écris ta réponse' : 'Écris ta réponse'}</span>
           <textarea value={typedAnswer} onChange={event => { interruptNarration(); setTypedAnswer(event.target.value); setRequiresRepeat(false); setError(''); }} placeholder="Écris ta réponse ici…" rows={3} style={styles.answerInput} />
         </label>}
-        {aiEnabled && <VoiceTranscriptCard heard={phase === 'intake' ? intakeHeard : transcript} reply={aiReply} isProcessing={conversationState === 'thinking'} />}
-        {aiEnabled && <p style={styles.privacyNotice}>Ton enregistrement est envoyé à OpenAI pour transcription et traitement. Tu peux passer une question.</p>}
+        {showVoiceControls && <VoiceTranscriptCard heard={phase === 'intake' ? intakeHeard : transcript} reply={aiReply} isProcessing={conversationState === 'thinking'} />}
+        {showVoiceControls && <p style={styles.privacyNotice}>Ton enregistrement est envoyé à OpenAI pour transcription et traitement. Tu peux passer une question.</p>}
         {error && <p role="alert" style={styles.errorMessage}>{error}</p>}
         {syncStatus.pending && syncStatus.failed && <output style={styles.errorMessage}>Connexion perdue : tes réponses sont gardées sur cet appareil et seront envoyées automatiquement dès que la connexion revient.</output>}
-        {aiEnabled && (
+        {showVoiceControls && (
           <VoiceReplyControls
             isRecording={conversationState === 'recording'}
             isBusy={conversationState === 'thinking' || conversationState === 'saving'}
@@ -1347,7 +1393,6 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
 const styles: Record<string, React.CSSProperties> = {
   ...surveyStyles,
-  shortcutButton: { marginTop: '0.6rem', minHeight: 44, padding: '0.55rem 0.8rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', fontWeight: 700, cursor: 'pointer' },
   parentOccupation: { display: 'grid', gridTemplateColumns: 'minmax(115px, 0.6fr) minmax(130px, 1fr)', alignItems: 'center', gap: '0.5rem' },
   pairRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem', fontSize: '0.85rem', color: '#765800' },
   addRowButton: { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.6rem', minHeight: 44, padding: '0 0.9rem', border: '1px solid #8b6e15', borderRadius: 8, background: '#fff4cc', color: '#332d1c', font: 'inherit', fontWeight: 800, cursor: 'pointer' },

@@ -113,7 +113,14 @@ export const intakeFormIntroParagraphs = [
 export const intakeOpeningFirst = 'Nous sommes au tout petit matin, quand tu t’es levé(e), est-ce que tu as mangé ou bu quelque chose ?';
 // After the guided start, the mascot goes straight to the first question.
 export const intakeOpeningFirstSpeech = intakeOpeningFirst;
-export const intakeOpeningNext = 'Et après ça ? Souviens-toi : qu’as-tu encore mangé ou bu ?';
+// The next occasions of a part of the day ask what else was eaten or drunk in that part of the day.
+export const intakePhaseNext = {
+  early: 'Et après ça ? Souviens-toi : qu’as-tu encore mangé ou bu pour le tout-petit matin ?',
+  morning: 'Et après ça ? Souviens-toi : qu’as-tu encore mangé ou bu pour la matinée ?',
+  noon: 'Et après ça ? Souviens-toi : qu’as-tu encore mangé ou bu pour le midi ?',
+  afternoon: 'Et après ça ? Souviens-toi : qu’as-tu encore mangé ou bu pour l’après-midi ?',
+  evening: 'Et après ça ? Souviens-toi : qu’as-tu encore mangé ou bu pour le soir ?',
+};
 const severalMoments = 'Si tu as mangé ou bu à plusieurs moments, clique sur + pour les ajouter. Commence par le premier moment.';
 // The first question of each part of the day.
 export const intakePhaseOpening = {
@@ -127,7 +134,8 @@ export const intakePhaseOpening = {
 export const intakeMissingPrompt = 'Il me manque encore quelques informations. Donne-moi ce que tu peux, ou dis-moi qu’il n’y a rien d’autre.';
 
 export const placeOptions = ['Maison', 'Chez quelqu’un', 'Collège', 'Trajet (bus, rue…)', 'Commerce (snack…)', 'Autre'];
-export const companionshipOptions = ['Seul(e)', 'Accompagné(e)'];
+export const companionshipAccompanied = 'Accompagné(e)';
+export const companionshipOptions = ['Seul(e)', companionshipAccompanied];
 export const companionOptions = ['Parents', 'Copains, copines', 'Frères et sœurs', 'Adultes du collège', 'Autre famille', 'Autre'];
 export const activityNone = 'Rien d’autre';
 export const activityOptions = [activityNone, 'Un écran (TV, téléphone, tablette, console)', 'Je discutais', 'Je marchais', 'J’étais dans le bus', 'Je faisais mes devoirs', 'Autre'];
@@ -144,6 +152,13 @@ export const intakeFields: IntakeField[] = [
   { id: 'companions', label: 'Avec qui', icon: '👥', kind: 'multi', options: companionOptions, question: 'Avec qui ? Plusieurs choix sont possibles.', guidance: 'Uniquement si le répondant était accompagné(e) : toutes les modalités explicitement citées (« Autre famille » pour un autre membre de la famille, « Autre » pour une autre personne). Ne pas interpréter à sa place.' },
   { id: 'activities', label: 'Pendant le repas', icon: '🥄', kind: 'multi', options: activityOptions, question: 'Pendant que tu mangeais ou buvais, tu faisais autre chose ? Plusieurs choix sont possibles.', guidance: 'Toutes les modalités explicitement citées. « Rien d’autre » seul si le répondant dit qu’il ne faisait rien d’autre. Ne pas interpréter à sa place.' },
 ];
+
+// What the mascot says for each field of an occasion: the question of the form, except for the two that read better aloud.
+export const intakeFlowSpeech: Record<IntakeFieldId, string> = {
+  ...(Object.fromEntries(intakeFields.map(field => [field.id, field.question])) as Record<IntakeFieldId, string>),
+  solids: 'Qu’as-tu mangé ?',
+  time: 'C’était vers quelle heure, à peu près ?',
+};
 
 export const mascotNames: Record<Mascot, string> = { girl: 'NAÏA', boy: 'NOAH' };
 // What the narrator says on the mascot page, and what each mascot says about itself (also generated ahead of time).

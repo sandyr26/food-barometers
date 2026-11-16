@@ -2,6 +2,7 @@ import React from 'react';
 import type { IntakeFieldId, IntakeRecord } from '../surveyConfig';
 import { activityNone, activityOptions, companionOptions, otherOption, placeOptions } from '../surveyConfig';
 import type { DaySegmentKey } from '../daySegment';
+import type { FoodDetails } from '../intakeFlow';
 
 const segments: { key: DaySegmentKey; label: string; sky: [string, string]; sunY: number; sleepy: boolean; hill: boolean; sun: string }[] = [
   { key: 'early', label: 'Tout-petit matin', sky: ['#bfe4e0', '#fbeec3'], sunY: 64, sleepy: false, hill: true, sun: '#ffd23f' },
@@ -134,29 +135,81 @@ interface IntakeBlockProps {
   // Occasions already recorded in this phase.
   recorded: number;
   fields: IntakeRecord;
+  // Corrects a field by hand; the fields shown so far and the ones that can be answered now.
   onChange: (id: IntakeFieldId, value: string | string[]) => void;
+  visible: IntakeFieldId[];
+  active: IntakeFieldId[];
+  // The precisions asked about the foods and drinks, and the text typed to answer each question.
+  details: FoodDetails;
+  drafts: Partial<Record<IntakeFieldId, string>>;
+  onDraftChange: (id: IntakeFieldId, value: string) => void;
+  onSubmitDraft: (id: IntakeFieldId) => void;
+  // Ends a question that takes several choices.
+  onConfirm: (id: IntakeFieldId) => void;
+  busy: boolean;
   onAdd: () => void;
   onNothing: () => void;
   addDisabled: boolean;
   nothingDisabled: boolean;
 }
 
-// What the child is asked for each occasion, laid out like a form card; the voice assistant fills it in and every field can be corrected by hand.
-export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, fields, onChange, onAdd, onNothing, addDisabled, nothingDisabled }) => {
+// What the child is asked for each occasion, laid out like a form card, one question after the other; the voice assistant fills it in and every field can be corrected by hand.
+export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, fields, onChange, visible, active, details, drafts, onDraftChange, onSubmitDraft, onConfirm, busy, onAdd, onNothing, addDisabled, nothingDisabled }) => {
+  const shows = (id: IntakeFieldId) => visible.includes(id);
   const text = (id: IntakeFieldId) => (typeof fields[id] === 'string' ? fields[id] as string : '');
   const list = (id: IntakeFieldId) => {
     const value = fields[id];
     return Array.isArray(value) ? value : (value ? [value] : []);
   };
-  const textRow = (id: IntakeFieldId, icon: string, title: string, hint: string | undefined, placeholder: string) => (
-    <div style={styles.blockRow}>
-      <span style={styles.blockIcon} aria-hidden="true">{icon}</span>
-      <label style={styles.blockQuestion}>
-        <span><strong>{title}</strong>{hint && <small style={styles.blockHint}> {hint}</small>}</span>
-        <input style={styles.blockInput} value={text(id)} placeholder={placeholder} onChange={event => onChange(id, event.target.value)} />
-      </label>
-    </div>
-  );
+  const draftInput = (id: IntakeFieldId, label: string, placeholder: string) => {
+    const draft = drafts[id] ?? '';
+    const canSubmit = !busy && draft.trim().length > 0;
+    const submit = () => {
+      if (canSubmit) onSubmitDraft(id);
+    };
+    return (
+      <div style={styles.inlineForm}>
+        <input
+          style={{ ...styles.blockInput, flex: '1 1 auto', width: 'auto' }}
+          aria-label={label}
+          value={draft}
+          placeholder={placeholder}
+          onChange={event => onDraftChange(id, event.target.value)}
+          onKeyDown={event => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            submit();
+          }}
+        />
+        <button type="button" onClick={submit} disabled={!canSubmit} style={{ ...styles.confirmButton, ...(canSubmit ? {} : styles.buttonDisabled) }}>Valider</button>
+      </div>
+    );
+  };
+  // A question still to be answered takes a draft that is checked when it is validated; the finished ones are corrected directly.
+  const textRow = (id: IntakeFieldId, icon: string, title: string, hint: string | undefined, placeholder: string) => {
+    const asking = active.includes(id);
+    const detail = id === 'solids' || id === 'drinks' ? details[id] : undefined;
+    return (
+      <div style={styles.blockRow}>
+        <span style={styles.blockIcon} aria-hidden="true">{icon}</span>
+        <div style={styles.blockQuestion}>
+          <span><strong>{title}</strong>{hint && <small style={styles.blockHint}> {hint}</small>}</span>
+          {asking && !detail
+            ? draftInput(id, title, placeholder)
+            : <input style={styles.blockInput} aria-label={title} value={text(id)} placeholder={placeholder} onChange={event => onChange(id, event.target.value)} />}
+          {asking && detail && (
+            <div style={styles.detailBox}>
+              <span style={styles.detailQuestion}>{detail}</span>
+              {draftInput(id, `Ta précision : ${title}`, 'Ta précision…')}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+  const confirmChoices = (id: IntakeFieldId) => (active.includes(id) ? (
+    <button type="button" onClick={() => onConfirm(id)} disabled={busy || list(id).length === 0} style={{ ...styles.confirmButton, alignSelf: 'flex-start', ...(busy || list(id).length === 0 ? styles.buttonDisabled : {}) }}>Valider</button>
+  ) : null);
   // The clock only accepts HH:MM (24 h); a time said aloud ("vers 7 heures et demie") is converted when it can be read.
   const clockValue = () => {
     const spoken = /(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?/i.exec(text('time'));
@@ -230,46 +283,54 @@ export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, field
         <strong style={styles.blockTitle}>Prise {recorded + 1} – {phaseLabels[phase]}</strong>
         <span style={styles.blockBadge}>{recorded} {recorded > 1 ? 'prises enregistrées' : 'prise enregistrée'}</span>
       </header>
-      {textRow('solids', '🍽️', 'Qu’as-tu mangé ?', '(aliments solides)', 'Ex. : un sandwich, des fruits, un gâteau…')}
-      {textRow('drinks', '🥤', 'Qu’as-tu bu ?', '(boissons)', 'Ex. : de l’eau, un jus, un soda…')}
-      {timeRow()}
-      {textRow('name', '🏷️', 'Comment appelles-tu ce moment ?', '(Petit-déjeuner, déjeuner, goûter, grignotage…)', 'Ex. : goûter, collation…')}
-      <div style={styles.blockRow}>
-        <span style={styles.blockIcon} aria-hidden="true">📍</span>
-        <div style={styles.blockQuestion}>
-          <strong>Où étais-tu ?</strong>
-          {tiles('place', placeTiles)}
-          {isOther(text('place')) && (
-            <input
-              style={styles.blockInput}
-              aria-label="Précise le lieu"
-              placeholder="Précise le lieu…"
-              value={otherText(text('place'))}
-              onChange={event => onChange('place', event.target.value.trim() ? `${otherOption} : ${event.target.value}` : otherOption)}
-            />
-          )}
+      {shows('solids') && textRow('solids', '🍽️', 'Qu’as-tu mangé ?', '(aliments solides)', 'Ex. : un sandwich, des fruits, un gâteau…')}
+      {shows('drinks') && textRow('drinks', '🥤', 'Qu’as-tu bu ?', '(boissons)', 'Ex. : de l’eau, un jus, un soda…')}
+      {shows('time') && timeRow()}
+      {shows('name') && textRow('name', '🏷️', 'Comment appelles-tu ce moment ?', '(Petit-déjeuner, déjeuner, goûter, grignotage…)', 'Ex. : goûter, collation…')}
+      {shows('place') && (
+        <div style={styles.blockRow}>
+          <span style={styles.blockIcon} aria-hidden="true">📍</span>
+          <div style={styles.blockQuestion}>
+            <strong>Où étais-tu ?</strong>
+            {tiles('place', placeTiles)}
+            {isOther(text('place')) && (
+              <input
+                style={styles.blockInput}
+                aria-label="Précise le lieu"
+                placeholder="Précise le lieu…"
+                value={otherText(text('place'))}
+                onChange={event => onChange('place', event.target.value.trim() ? `${otherOption} : ${event.target.value}` : otherOption)}
+              />
+            )}
+          </div>
         </div>
-      </div>
-      <div style={styles.blockRow}>
-        <span style={styles.blockIcon} aria-hidden="true">👥</span>
-        <div style={styles.blockQuestion}>
-          <strong>Tu étais seul(e) ou avec quelqu’un ?</strong>
-          {tiles('companionship', companionshipTiles)}
-          {text('companionship') === 'Accompagné(e)' && (
-            <>
-              <span><strong>Avec qui ?</strong><small style={styles.blockHint}> (plusieurs choix possibles)</small></span>
-              {multiTiles('companions', companionTiles)}
-            </>
-          )}
+      )}
+      {shows('companionship') && (
+        <div style={styles.blockRow}>
+          <span style={styles.blockIcon} aria-hidden="true">👥</span>
+          <div style={styles.blockQuestion}>
+            <strong>Tu étais seul(e) ou avec quelqu’un ?</strong>
+            {tiles('companionship', companionshipTiles)}
+            {shows('companions') && (
+              <>
+                <span><strong>Avec qui ?</strong><small style={styles.blockHint}> (plusieurs choix possibles)</small></span>
+                {multiTiles('companions', companionTiles)}
+                {confirmChoices('companions')}
+              </>
+            )}
+          </div>
         </div>
-      </div>
-      <div style={styles.blockRow}>
-        <span style={styles.blockIcon} aria-hidden="true">🥄</span>
-        <div style={styles.blockQuestion}>
-          <span><strong>Pendant que tu mangeais ou buvais, tu faisais autre chose ?</strong><small style={styles.blockHint}> (plusieurs choix possibles)</small></span>
-          {multiTiles('activities', activityTiles, activityNone)}
+      )}
+      {shows('activities') && (
+        <div style={styles.blockRow}>
+          <span style={styles.blockIcon} aria-hidden="true">🥄</span>
+          <div style={styles.blockQuestion}>
+            <span><strong>Pendant que tu mangeais ou buvais, tu faisais autre chose ?</strong><small style={styles.blockHint}> (plusieurs choix possibles)</small></span>
+            {multiTiles('activities', activityTiles, activityNone)}
+            {confirmChoices('activities')}
+          </div>
         </div>
-      </div>
+      )}
       <div style={styles.blockActions}>
         <button type="button" onClick={onAdd} disabled={addDisabled} style={{ ...styles.addButton, ...(addDisabled ? styles.buttonDisabled : {}) }}>
           <span style={styles.actionIcon} aria-hidden="true">＋</span>
@@ -303,6 +364,10 @@ const styles: Record<string, React.CSSProperties> = {
   blockQuestion: { flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.9rem' },
   blockHint: { color: '#6b5e3a', fontSize: '0.75rem' },
   blockInput: { width: '100%', minHeight: 36, padding: '0.4rem 0.6rem', boxSizing: 'border-box', border: '1px solid #d9c98d', borderRadius: 6, background: '#fff', color: '#332d1c', font: 'inherit' },
+  inlineForm: { display: 'flex', gap: '0.4rem', alignItems: 'stretch' },
+  confirmButton: { flex: '0 0 auto', minHeight: 36, padding: '0 0.9rem', border: '1px solid #8b6e15', borderRadius: 6, background: '#fff4cc', color: '#332d1c', font: 'inherit', fontWeight: 800, cursor: 'pointer' },
+  detailBox: { display: 'flex', flexDirection: 'column', gap: '0.3rem', padding: '0.4rem 0.5rem', borderLeft: '3px solid #e8590c', borderRadius: 6, background: '#fff1e0' },
+  detailQuestion: { fontWeight: 700 },
   tiles: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem' },
   blockActions: { display: 'flex', flexWrap: 'wrap', gap: '0.6rem', padding: '0.7rem' },
   addButton: { flex: '1 1 14rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', minHeight: 56, padding: '0.5rem 0.8rem', border: '1px solid #4c8ed9', borderRadius: 12, background: '#dbeafe', color: '#12385f', font: 'inherit', fontWeight: 800, cursor: 'pointer' },
