@@ -1,6 +1,7 @@
 import React from 'react';
 import type { IntakeFieldId, IntakeRecord } from '../surveyConfig';
 import { activityNone, activityOptions, companionOptions, otherOption, placeOptions } from '../surveyConfig';
+import { clockValueFromSpeech } from '../daySegment';
 import type { DaySegmentKey } from '../daySegment';
 import type { FoodDetails } from '../intakeFlow';
 
@@ -210,12 +211,8 @@ export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, field
   const confirmChoices = (id: IntakeFieldId) => (active.includes(id) ? (
     <button type="button" onClick={() => onConfirm(id)} disabled={busy || list(id).length === 0} style={{ ...styles.confirmButton, alignSelf: 'flex-start', ...(busy || list(id).length === 0 ? styles.buttonDisabled : {}) }}>Valider</button>
   ) : null);
-  // The clock only accepts HH:MM (24 h); a time said aloud ("vers 7 heures et demie") is converted when it can be read.
-  const clockValue = () => {
-    const spoken = /(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?/i.exec(text('time'));
-    if (!spoken || Number(spoken[1]) > 23) return '';
-    return `${spoken[1].padStart(2, '0')}:${spoken[2] ?? '00'}`;
-  };
+  // The clock only accepts HH:MM (24 h), so spoken French number words must be converted first.
+  const clockValue = () => clockValueFromSpeech(text('time'));
   const timeRow = () => (
     <div style={styles.blockRow}>
       <span style={styles.blockIcon} aria-hidden="true">🕒</span>

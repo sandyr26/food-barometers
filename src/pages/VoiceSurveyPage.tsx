@@ -1119,6 +1119,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setError('');
     setRequiresRepeat(false);
     setAiReply('');
+    if (phase === 'intake') setIntakeHeard('');
     const occupationLines = phase === 'questions' && step.ui === 'occupations'
       ? Object.entries(parentOccupations).filter(([, value]) => value.occupation.trim()).map(([role, value]) => `${role}: ${value.occupation.trim()}`)
       : phase === 'questions' && step.ui === 'pairs' ? pairsText(pairRows).split('\n').filter(Boolean) : [];
