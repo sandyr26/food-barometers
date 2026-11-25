@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaCheck, FaForwardStep } from 'react-icons/fa6';
 import type { IntakeFieldId, IntakeRecord } from '../surveyConfig';
 import { activityNone, activityOptions, companionOptions, otherOption, placeOptions } from '../surveyConfig';
 import { clockValueFromSpeech } from '../daySegment';
@@ -135,6 +136,8 @@ interface IntakeBlockProps {
   phase: DaySegmentKey;
   // Occasions already recorded in this phase.
   recorded: number;
+  recordedSummaries: string[];
+  awaitingAnotherIntake: boolean;
   fields: IntakeRecord;
   // Corrects a field by hand; the fields shown so far and the ones that can be answered now.
   onChange: (id: IntakeFieldId, value: string | string[]) => void;
@@ -145,8 +148,9 @@ interface IntakeBlockProps {
   drafts: Partial<Record<IntakeFieldId, string>>;
   onDraftChange: (id: IntakeFieldId, value: string) => void;
   onSubmitDraft: (id: IntakeFieldId) => void;
+  onSkip: (id: IntakeFieldId) => void;
   // Ends a question that takes several choices.
-  onConfirm: (id: IntakeFieldId) => void;
+  onConfirm: (id: IntakeFieldId, value?: string) => void;
   busy: boolean;
   onAdd: () => void;
   onNothing: () => void;
@@ -155,12 +159,22 @@ interface IntakeBlockProps {
 }
 
 // What the child is asked for each occasion, laid out like a form card, one question after the other; the voice assistant fills it in and every field can be corrected by hand.
-export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, fields, onChange, visible, active, details, drafts, onDraftChange, onSubmitDraft, onConfirm, busy, onAdd, onNothing, addDisabled, nothingDisabled }) => {
+export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, recordedSummaries, awaitingAnotherIntake, fields, onChange, visible, active, details, drafts, onDraftChange, onSubmitDraft, onSkip, onConfirm, busy, onAdd, onNothing, addDisabled, nothingDisabled }) => {
   const shows = (id: IntakeFieldId) => visible.includes(id);
   const text = (id: IntakeFieldId) => (typeof fields[id] === 'string' ? fields[id] as string : '');
+  const nextPhase = segments[segments.findIndex(segment => segment.key === phase) + 1];
+  const timeValue = typeof fields.time === 'string' ? fields.time : '';
+  const [timeDraft, setTimeDraft] = React.useState(() => clockValueFromSpeech(timeValue));
+  React.useEffect(() => {
+    setTimeDraft(clockValueFromSpeech(timeValue));
+  }, [timeValue]);
   const list = (id: IntakeFieldId) => {
     const value = fields[id];
     return Array.isArray(value) ? value : (value ? [value] : []);
+  };
+  const skipQuestion = (id: IntakeFieldId) => {
+    if (id === 'time') setTimeDraft('');
+    onSkip(id);
   };
   const draftInput = (id: IntakeFieldId, label: string, placeholder: string) => {
     const draft = drafts[id] ?? '';
@@ -182,7 +196,16 @@ export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, field
             submit();
           }}
         />
-        <button type="button" onClick={submit} disabled={!canSubmit} style={{ ...styles.confirmButton, ...(canSubmit ? {} : styles.buttonDisabled) }}>Valider</button>
+        <div style={styles.inlineActions}>
+          <button type="button" onClick={submit} disabled={!canSubmit} style={{ ...styles.confirmButton, ...(canSubmit ? {} : styles.buttonDisabled) }}>
+            <FaCheck aria-hidden="true" />
+            Valider
+          </button>
+          <button type="button" onClick={() => skipQuestion(id)} disabled={busy} style={{ ...styles.skipFieldButton, ...(busy ? styles.buttonDisabled : {}) }}>
+            <FaForwardStep aria-hidden="true" />
+            Passer
+          </button>
+        </div>
       </div>
     );
   };
@@ -208,18 +231,32 @@ export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, field
       </div>
     );
   };
-  const confirmChoices = (id: IntakeFieldId) => (active.includes(id) ? (
-    <button type="button" onClick={() => onConfirm(id)} disabled={busy || list(id).length === 0} style={{ ...styles.confirmButton, alignSelf: 'flex-start', ...(busy || list(id).length === 0 ? styles.buttonDisabled : {}) }}>Valider</button>
-  ) : null);
+  const confirmChoices = (id: IntakeFieldId, value?: string) => {
+    const hasAnswer = id === 'time' ? Boolean(value?.trim()) : list(id).length > 0;
+    return active.includes(id) ? (
+      <div style={styles.inlineActions}>
+        <button type="button" onClick={() => onConfirm(id, value)} disabled={busy || !hasAnswer} style={{ ...styles.confirmButton, ...(busy || !hasAnswer ? styles.buttonDisabled : {}) }}>
+          <FaCheck aria-hidden="true" />
+          Valider
+        </button>
+        <button type="button" onClick={() => skipQuestion(id)} disabled={busy} style={{ ...styles.skipFieldButton, ...(busy ? styles.buttonDisabled : {}) }}>
+          <FaForwardStep aria-hidden="true" />
+          Passer
+        </button>
+      </div>
+    ) : null;
+  };
   // The clock only accepts HH:MM (24 h), so spoken French number words must be converted first.
-  const clockValue = () => clockValueFromSpeech(text('time'));
   const timeRow = () => (
     <div style={styles.blockRow}>
       <span style={styles.blockIcon} aria-hidden="true">🕒</span>
-      <label style={styles.blockQuestion}>
-        <span><strong>C’était vers quelle heure, à peu près ?</strong></span>
-        <input type="time" style={{ ...styles.blockInput, width: 'auto', alignSelf: 'flex-start' }} value={clockValue()} onChange={event => onChange('time', event.target.value)} />
-      </label>
+      <div style={styles.blockQuestion}>
+        <label htmlFor="intake-time"><strong>C’était vers quelle heure, à peu près ?</strong></label>
+        <div style={styles.inlineForm}>
+          <input id="intake-time" type="time" style={{ ...styles.blockInput, width: 'auto', minWidth: 0, alignSelf: 'flex-start' }} value={timeDraft} onChange={event => setTimeDraft(event.target.value)} />
+          {confirmChoices('time', timeDraft)}
+        </div>
+      </div>
     </div>
   );
   const tiles = (id: IntakeFieldId, options: ChoiceTile[]) => (
@@ -274,70 +311,92 @@ export const IntakeBlock: React.FC<IntakeBlockProps> = ({ phase, recorded, field
   const companionIcons: Record<string, string> = { 'Parents': '👪', 'Copains, copines': '🧑‍🤝‍🧑', 'Frères et sœurs': '👫', 'Adultes du collège': '🧑‍🏫', 'Autre famille': '👵', [otherOption]: '⋯' };
   const companionTiles: ChoiceTile[] = companionOptions.map(option => ({ value: option, icon: companionIcons[option] ?? '•', label: option }));
   return (
-    <section style={styles.block} aria-label={`Prise ${recorded + 1} – ${phaseLabels[phase]}`}>
+    <section style={styles.block} aria-label={awaitingAnotherIntake ? 'Choix de la prochaine prise' : `Prise ${recorded + 1} – ${phaseLabels[phase]}`}>
       <header style={styles.blockHeader}>
-        <span style={styles.blockNumber}>{recorded + 1}</span>
-        <strong style={styles.blockTitle}>Prise {recorded + 1} – {phaseLabels[phase]}</strong>
-        <span style={styles.blockBadge}>{recorded} {recorded > 1 ? 'prises enregistrées' : 'prise enregistrée'}</span>
+        <span style={styles.blockNumber}>{awaitingAnotherIntake ? recorded : recorded + 1}</span>
+        <strong style={styles.blockTitle}>{awaitingAnotherIntake
+          ? `${recorded > 1 ? 'Prises enregistrées' : 'Prise enregistrée'} – ${phaseLabels[phase]}`
+          : `Prise ${recorded + 1} – ${phaseLabels[phase]}`}</strong>
       </header>
-      {shows('solids') && textRow('solids', '🍽️', 'Qu’as-tu mangé ?', '(aliments solides)', 'Ex. : un sandwich, des fruits, un gâteau…')}
-      {shows('drinks') && textRow('drinks', '🥤', 'Qu’as-tu bu ?', '(boissons)', 'Ex. : de l’eau, un jus, un soda…')}
-      {shows('time') && timeRow()}
-      {shows('name') && textRow('name', '🏷️', 'Comment appelles-tu ce moment ?', '(Petit-déjeuner, déjeuner, goûter, grignotage…)', 'Ex. : goûter, collation…')}
-      {shows('place') && (
-        <div style={styles.blockRow}>
-          <span style={styles.blockIcon} aria-hidden="true">📍</span>
-          <div style={styles.blockQuestion}>
-            <strong>Où étais-tu ?</strong>
-            {tiles('place', placeTiles)}
-            {isOther(text('place')) && (
-              <input
-                style={styles.blockInput}
-                aria-label="Précise le lieu"
-                placeholder="Précise le lieu…"
-                value={otherText(text('place'))}
-                onChange={event => onChange('place', event.target.value.trim() ? `${otherOption} : ${event.target.value}` : otherOption)}
-              />
-            )}
-          </div>
-        </div>
+      {recorded > 0 && (
+        <p style={styles.recordedSummary} aria-live="polite">
+          <strong>{recorded} {recorded > 1 ? 'prises enregistrées' : 'prise enregistrée'}</strong>
+          {recordedSummaries.length > 0 && <> : {recordedSummaries.join(' ; ')}</>}
+        </p>
       )}
-      {shows('companionship') && (
-        <div style={styles.blockRow}>
-          <span style={styles.blockIcon} aria-hidden="true">👥</span>
-          <div style={styles.blockQuestion}>
-            <strong>Tu étais seul(e) ou avec quelqu’un ?</strong>
-            {tiles('companionship', companionshipTiles)}
-            {shows('companions') && (
-              <>
-                <span><strong>Avec qui ?</strong><small style={styles.blockHint}> (plusieurs choix possibles)</small></span>
-                {multiTiles('companions', companionTiles)}
-                {confirmChoices('companions')}
-              </>
-            )}
-          </div>
+      {awaitingAnotherIntake ? (
+        <div style={styles.blockActions}>
+          <button type="button" onClick={onAdd} disabled={busy || addDisabled} style={{ ...styles.addButton, ...(busy || addDisabled ? styles.buttonDisabled : {}) }}>
+            <span style={styles.actionIcon} aria-hidden="true">＋</span>
+            Oui, ajouter une autre prise
+          </button>
+          <button type="button" onClick={onNothing} disabled={busy || nothingDisabled} style={{ ...styles.nothingButton, ...(busy || nothingDisabled ? styles.buttonDisabled : {}) }}>
+            <span style={styles.actionIcon} aria-hidden="true">→</span>
+            {nextPhase ? `Non, passer à ${nextPhase.label.toLowerCase()}` : 'Non, terminer la journée'}
+          </button>
         </div>
-      )}
-      {shows('activities') && (
-        <div style={styles.blockRow}>
-          <span style={styles.blockIcon} aria-hidden="true">🥄</span>
-          <div style={styles.blockQuestion}>
-            <span><strong>Pendant que tu mangeais ou buvais, tu faisais autre chose ?</strong><small style={styles.blockHint}> (plusieurs choix possibles)</small></span>
-            {multiTiles('activities', activityTiles, activityNone)}
-            {confirmChoices('activities')}
+      ) : (
+        <>
+          {shows('solids') && textRow('solids', '🍽️', 'Qu’as-tu mangé ?', '(aliments solides)', 'Ex. : un sandwich, des fruits, un gâteau…')}
+          {shows('drinks') && textRow('drinks', '🥤', 'Qu’as-tu bu ?', '(boissons)', 'Ex. : de l’eau, un jus, un soda…')}
+          {shows('time') && timeRow()}
+          {shows('name') && textRow('name', '🏷️', 'Comment appelles-tu ce moment ?', '(Petit-déjeuner, déjeuner, goûter, grignotage…)', 'Ex. : goûter, collation…')}
+          {shows('place') && (
+            <div style={styles.blockRow}>
+              <span style={styles.blockIcon} aria-hidden="true">📍</span>
+              <div style={styles.blockQuestion}>
+                <strong>Où étais-tu ?</strong>
+                {tiles('place', placeTiles)}
+                {isOther(text('place')) && (
+                  <input
+                    style={styles.blockInput}
+                    aria-label="Précise le lieu"
+                    placeholder="Précise le lieu…"
+                    value={otherText(text('place'))}
+                    onChange={event => onChange('place', event.target.value.trim() ? `${otherOption} : ${event.target.value}` : otherOption)}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+          {shows('companionship') && (
+            <div style={styles.blockRow}>
+              <span style={styles.blockIcon} aria-hidden="true">👥</span>
+              <div style={styles.blockQuestion}>
+                <strong>Tu étais seul(e) ou avec quelqu’un ?</strong>
+                {tiles('companionship', companionshipTiles)}
+                {shows('companions') && (
+                  <>
+                    <span><strong>Avec qui ?</strong><small style={styles.blockHint}> (plusieurs choix possibles)</small></span>
+                    {multiTiles('companions', companionTiles)}
+                    {confirmChoices('companions')}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {shows('activities') && (
+            <div style={styles.blockRow}>
+              <span style={styles.blockIcon} aria-hidden="true">🥄</span>
+              <div style={styles.blockQuestion}>
+                <span><strong>Pendant que tu mangeais ou buvais, tu faisais autre chose ?</strong><small style={styles.blockHint}> (plusieurs choix possibles)</small></span>
+                {multiTiles('activities', activityTiles, activityNone)}
+                {confirmChoices('activities')}
+              </div>
+            </div>
+          )}
+          <div style={styles.blockActions}>
+            <button type="button" onClick={onAdd} disabled={addDisabled} style={{ ...styles.addButton, ...(addDisabled ? styles.buttonDisabled : {}) }}>
+              <span style={styles.actionIcon} aria-hidden="true">＋</span>
+              Ajouter une autre prise {phaseIn[phase]}
+            </button>
+            <button type="button" onClick={onNothing} disabled={nothingDisabled} style={{ ...styles.nothingButton, ...(nothingDisabled ? styles.buttonDisabled : {}) }}>
+              <span style={styles.actionIcon} aria-hidden="true">🚫</span>
+              Je n’ai rien mangé ni bu {phaseIn[phase]}
+            </button>
           </div>
-        </div>
+        </>
       )}
-      <div style={styles.blockActions}>
-        <button type="button" onClick={onAdd} disabled={addDisabled} style={{ ...styles.addButton, ...(addDisabled ? styles.buttonDisabled : {}) }}>
-          <span style={styles.actionIcon} aria-hidden="true">＋</span>
-          Ajouter une autre prise {phaseIn[phase]}
-        </button>
-        <button type="button" onClick={onNothing} disabled={nothingDisabled} style={{ ...styles.nothingButton, ...(nothingDisabled ? styles.buttonDisabled : {}) }}>
-          <span style={styles.actionIcon} aria-hidden="true">🚫</span>
-          Je n’ai rien mangé ni bu {phaseIn[phase]}
-        </button>
-      </div>
     </section>
   );
 };
@@ -355,14 +414,16 @@ const styles: Record<string, React.CSSProperties> = {
   blockHeader: { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.55rem 0.7rem', background: '#fdf1d0', borderBottom: '1px solid #ead9a2' },
   blockNumber: { flex: '0 0 auto', width: 26, height: 26, borderRadius: '50%', background: '#e8590c', color: '#fff', fontWeight: 800, textAlign: 'center', lineHeight: '26px' },
   blockTitle: { flex: '1 1 auto', fontSize: '1rem' },
-  blockBadge: { flex: '0 0 auto', padding: '0.2rem 0.6rem', border: '1px solid #ead9a2', borderRadius: 999, background: '#fff', fontSize: '0.75rem', fontWeight: 700 },
+  recordedSummary: { margin: 0, padding: '0.45rem 0.7rem', borderBottom: '1px solid #ead9a2', background: '#fff8e6', color: '#5f4b10', fontSize: '0.82rem', lineHeight: 1.4 },
   blockRow: { display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.6rem 0.7rem', borderBottom: '1px solid #f1e6c3' },
   blockIcon: { flex: '0 0 auto', width: 32, textAlign: 'center', fontSize: '1.6rem', lineHeight: 1.2, fontFamily: '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif' },
   blockQuestion: { flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.9rem' },
   blockHint: { color: '#6b5e3a', fontSize: '0.75rem' },
   blockInput: { width: '100%', minHeight: 36, padding: '0.4rem 0.6rem', boxSizing: 'border-box', border: '1px solid #d9c98d', borderRadius: 6, background: '#fff', color: '#332d1c', font: 'inherit' },
-  inlineForm: { display: 'flex', gap: '0.4rem', alignItems: 'stretch' },
-  confirmButton: { flex: '0 0 auto', minHeight: 36, padding: '0 0.9rem', border: '1px solid #8b6e15', borderRadius: 6, background: '#fff4cc', color: '#332d1c', font: 'inherit', fontWeight: 800, cursor: 'pointer' },
+  inlineForm: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' },
+  inlineActions: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem' },
+  confirmButton: { flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', minHeight: 36, padding: '0 0.75rem', border: '1px solid #8b6e15', borderRadius: 6, background: '#fff4cc', color: '#332d1c', font: 'inherit', fontWeight: 800, cursor: 'pointer' },
+  skipFieldButton: { flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', minHeight: 36, padding: '0 0.65rem', border: '1px solid #8b8b8b', borderRadius: 6, background: '#fff', color: '#332d1c', font: 'inherit', fontWeight: 700, cursor: 'pointer' },
   detailBox: { display: 'flex', flexDirection: 'column', gap: '0.3rem', padding: '0.4rem 0.5rem', borderLeft: '3px solid #e8590c', borderRadius: 6, background: '#fff1e0' },
   detailQuestion: { fontWeight: 700 },
   tiles: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem' },

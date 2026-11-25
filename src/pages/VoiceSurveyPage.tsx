@@ -18,6 +18,8 @@ import {
   INTAKE_MAX,
   RECALL_ENABLED,
   RECALL_MUSIC_MS,
+  RECALL_PAUSE_MS,
+  activityNone,
   endThanksSpeech,
   intakeFields,
   parentRoleNames,
@@ -34,7 +36,6 @@ import type { IntakeFieldId, Mascot, PresetGroup, SurveyStep } from '../surveyCo
 import {
   answerableFields,
   applyExtraction,
-  completeEarly,
   emptyIntake,
   intakeHasContent,
   intakeStageOf,
@@ -42,6 +43,7 @@ import {
   isFoodField,
   pendingField,
   settleField,
+  skipField,
   skipPending,
   stageForField,
   stageIntros,
@@ -107,7 +109,15 @@ interface HistoryEntry {
   intakes: IntakeEntry[];
   currentIntake: IntakeEntry;
   dayPhase: DaySegmentKey;
+  awaitingAnotherIntake: boolean;
   aiTurns: AiTurn[];
+}
+
+interface PendingActivityAcknowledgment {
+  entry: IntakeEntry;
+  askForAnother: boolean;
+  question: string;
+  speech: string;
 }
 
 const INTAKE_QUESTION_NUMBER = 9;
@@ -121,6 +131,15 @@ const stepIndexById = new Map(surveySteps.map((step, index) => [step.id, index])
 const blankAnswer = (): RecordedAnswer => ({ text: '', mode: 'skipped', selections: {} });
 const emptyOccupations = (): Occupations => Object.fromEntries(parentRoleNames.map(role => [role, { occupation: '', notWorking: false }]));
 const emptyPairRows = (): PairRow[] => [{ item: '', reason: '' }];
+const activityAcknowledgmentSpeech = (entry: IntakeEntry): string | undefined => {
+  const activities = Array.isArray(entry.fields.activities)
+    ? entry.fields.activities
+    : entry.fields.activities ? [entry.fields.activities] : [];
+  if (activities.length === 0) return undefined;
+  if (activities.includes(activityNone)) return 'D’accord, j’ai noté que tu ne faisais rien d’autre.';
+  const answer = activities.map(value => `${value.charAt(0).toLowerCase()}${value.slice(1)}`).join(' et ');
+  return `D’accord, j’ai noté : ${answer}.`;
+};
 const answeredPairs = (rows: PairRow[]) => rows.map(row => ({ item: row.item.trim(), reason: row.reason.trim() })).filter(row => row.item || row.reason);
 const pairsText = (rows: PairRow[]) => answeredPairs(rows).map(row => (row.reason ? `${row.item} : ${row.reason}` : row.item)).join('\n');
 const serializeStep = (surveyStep: SurveyStep, answer: RecordedAnswer) => ({ id: surveyStep.id, number: surveyStep.number, question: surveyStep.text, ...answer });
@@ -144,10 +163,17 @@ const stopAudio = (audioRef: React.RefObject<HTMLAudioElement | null>) => {
   audioRef.current = null;
 };
 
-const playBlob = (blob: Blob, audioRef: React.RefObject<HTMLAudioElement | null>, onEnded: () => void, onError: () => void) => {
+const playBlob = (
+  blob: Blob,
+  audioRef: React.RefObject<HTMLAudioElement | null>,
+  onEnded: () => void,
+  onError: () => void,
+  playbackRate = 1,
+) => {
   stopAudio(audioRef);
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
+  audio.playbackRate = playbackRate;
   audioRef.current = audio;
   const cleanup = () => {
     URL.revokeObjectURL(url);
@@ -192,6 +218,8 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const [intakes, setIntakes] = useState<IntakeEntry[]>([]);
   const [currentIntake, setCurrentIntake] = useState<IntakeEntry>(emptyIntake);
   const [dayPhase, setDayPhase] = useState<DaySegmentKey>('early');
+  const [awaitingAnotherIntake, setAwaitingAnotherIntake] = useState(false);
+  const [pendingActivityAcknowledgment, setPendingActivityAcknowledgment] = useState<PendingActivityAcknowledgment | null>(null);
   const [intakeHeard, setIntakeHeard] = useState('');
   // What is typed for each question of the occasion before it is validated.
   const [intakeDrafts, setIntakeDrafts] = useState<Partial<Record<IntakeFieldId, string>>>({});
@@ -226,12 +254,26 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const intakeStage = intakeStageOf(currentIntake);
   const pendingIntakeField = pendingField(currentIntake);
   const intakeSegment = laterSegment(dayPhase, daySegmentFor(currentIntake.fields.time ?? intakes.at(-1)?.fields.time));
-  const recordedInPhase = intakes.filter(entry => (entry.phase ?? daySegmentFor(entry.fields.time) ?? 'early') === intakeSegment).length;
+  const intakesInPhase = intakes.filter(entry => (entry.phase ?? daySegmentFor(entry.fields.time) ?? 'early') === intakeSegment);
+  const recordedInPhase = intakesInPhase.length;
+  const recordedSummaries = intakesInPhase.map(entry => [entry.fields.solids, entry.fields.drinks]
+    .flatMap(value => Array.isArray(value) ? value : [value ?? ''])
+    .flatMap(value => value.split(/\s*[|,;]\s*/))
+    .map(value => value.trim())
+    .filter(value => value && value.toLowerCase() !== 'rien')
+    .join(' | '))
+    .filter(Boolean);
+  const anotherIntakeQuestion = `${recordedInPhase} ${recordedInPhase === 1 ? 'prise enregistrée' : 'prises enregistrées'}${recordedSummaries.length > 0 ? ` : ${recordedSummaries.join(' ; ')}` : ''}. Est-ce que tu as mangé ou bu autre chose ?`;
   // Guided start of the recall (music, calm-down script, invitation to click on the rising sun) before the first answer.
   const prepActive = phase === 'intake' && aiEnabled && isFirstIntake && intakeStage.kind === 'opening' && currentIntake.heard.length === 0 && !recallPrepDone;
   const prepInvited = prepActive && ['invite', 'waiting', 'blinking'].includes(recallStep);
   let currentQuestion = stepSpeech(step);
-  if (phase === 'intake') currentQuestion = prepActive ? '' : stageSpeech(currentIntake, recordedInPhase === 0, intakeSegment);
+  if (phase === 'intake') {
+    currentQuestion = prepActive
+      ? ''
+      : pendingActivityAcknowledgment?.question
+        ?? (awaitingAnotherIntake ? anotherIntakeQuestion : stageSpeech(currentIntake, recordedInPhase === 0, intakeSegment));
+  }
   const voiceMascot = selectedMascot;
   const optionsToRead = phase === 'questions' && step.readOptions ? step.groups[0]?.options ?? [] : [];
 
@@ -346,12 +388,12 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       const timer = window.setTimeout(resolve, ms);
       signal.addEventListener('abort', () => { window.clearTimeout(timer); resolve(); }, { once: true });
     });
-    const say = async (text: string) => {
+    const say = async (text: string, playbackRate = 1) => {
       const audio = await loadNarration(text, 'fr', voiceMascot, authToken, signal);
       if (signal.aborted) return;
       await new Promise<void>(resolve => {
         signal.addEventListener('abort', () => resolve(), { once: true });
-        playBlob(audio, audioRef, resolve, resolve);
+        playBlob(audio, audioRef, resolve, resolve, playbackRate);
       });
     };
     const fadeOut = async () => {
@@ -367,8 +409,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         if (signal.aborted) return;
         setRecallStep('concentrate');
         void music.play().catch(() => {});
+        await wait(RECALL_PAUSE_MS);
+        if (signal.aborted) return;
         for (const part of recallConcentrationScript) {
-          await say(part.text);
+          await say(part.text, 0.85);
           if (signal.aborted) return;
           if (part.pauseMs) await wait(part.pauseMs);
           if (signal.aborted) return;
@@ -646,10 +690,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setCurrentIntake(current => ({ ...current, fields: { ...current.fields, [id]: value } }));
   };
 
-  // With the assistant, the clock and the single choices finish the question being asked as soon as they are given.
+  // With the assistant, single choices finish as soon as they are given; the clock and multi-choice answers are confirmed.
   const updateAssistantField = (id: IntakeFieldId, value: string | string[]) => {
     const given = Array.isArray(value) ? value.length > 0 : value.trim() !== '';
-    if (id === pendingIntakeField && given && ['time', 'place', 'companionship'].includes(id)) {
+    if (id === pendingIntakeField && given && ['place', 'companionship'].includes(id)) {
       interruptNarration();
       advanceIntake(settleField(withField(currentIntake, id, value), id));
       return;
@@ -694,32 +738,43 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     </>
   );
 
-  const renderIntakeAssistant = () => (
-    <>
-      {intakeTimeline()}
-      {!prepActive && (
+  const renderIntakeAssistant = () => {
+    const displayedIntake = pendingActivityAcknowledgment?.entry ?? currentIntake;
+    return (
+      <>
+        {intakeTimeline()}
+        {!prepActive && (
+          <div
+            aria-disabled={Boolean(pendingActivityAcknowledgment)}
+            style={pendingActivityAcknowledgment ? { pointerEvents: 'none' } : undefined}
+          >
         <IntakeBlock
           phase={intakeSegment}
           recorded={recordedInPhase}
-          fields={currentIntake.fields}
-          visible={visibleFields(currentIntake)}
-          active={answerableFields(currentIntake)}
-          details={currentIntake.details}
+          recordedSummaries={recordedSummaries}
+          awaitingAnotherIntake={awaitingAnotherIntake}
+          fields={displayedIntake.fields}
+          visible={visibleFields(displayedIntake)}
+          active={answerableFields(displayedIntake)}
+          details={displayedIntake.details}
           drafts={intakeDrafts}
           busy={busy}
           // Declared further down than the point where this is rendered, so they are only referenced when clicked.
           onChange={(id, value) => updateAssistantField(id, value)}
           onDraftChange={(id, value) => { interruptNarration(); setIntakeDrafts(current => ({ ...current, [id]: value })); setError(''); }}
           onSubmitDraft={id => handleSubmitDraft(id)}
+          onSkip={id => handleSkipIntakeField(id)}
           onConfirm={id => handleConfirmChoices(id)}
-          onAdd={() => handleAddIntake()}
+          onAdd={() => awaitingAnotherIntake ? startAnotherIntake() : handleAddIntake()}
           onNothing={() => handleNothingInPhase()}
-          addDisabled={busy || !intakeHasContent(currentIntake)}
-          nothingDisabled={busy || intakeHasContent(currentIntake)}
+          addDisabled={busy || (!awaitingAnotherIntake && (Boolean(pendingField(currentIntake)) || !intakeHasContent(currentIntake)))}
+          nothingDisabled={busy || (!awaitingAnotherIntake && intakeHasContent(currentIntake))}
         />
-      )}
-    </>
-  );
+          </div>
+        )}
+      </>
+    );
+  };
 
   const renderPresetAnswers = () => {
     if (phase === 'intake') return aiEnabled ? renderIntakeAssistant() : renderIntakeForm();
@@ -747,11 +802,11 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     || (phase === 'questions' && step.ui === 'pairs' && answeredPairs(pairRows).length > 0)
   );
   if (phase === 'intake') hasCurrentAnswer = !aiEnabled && intakeHasContent(currentIntake);
-  const busy = conversationState === 'saving' || conversationState === 'thinking' || conversationState === 'recording';
+  const busy = conversationState === 'saving' || conversationState === 'thinking' || conversationState === 'recording' || Boolean(pendingActivityAcknowledgment);
   const presetAnswers = renderPresetAnswers();
   const showTypedAnswer = phase === 'questions' && step.ui === 'text';
   const hasReplied = hasCurrentAnswer && !requiresRepeat;
-  let micLabel = hasCurrentAnswer && phase === 'questions' ? 'Compléter ou corriger' : 'Répondre';
+  let micLabel = awaitingAnotherIntake ? 'Réponds oui ou non' : hasCurrentAnswer && phase === 'questions' ? 'Compléter ou corriger' : 'Répondre';
   if (conversationState === 'recording') micLabel = 'Terminer l’enregistrement';
   if (isSendingVoice) micLabel = 'Envoi de la voix…';
 
@@ -895,7 +950,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
 
   const saveInBackground = (patch: SurveyPatch) => recordSurvey(patch);
 
-  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, pairRows, typedAnswer, transcript, intakes, currentIntake, dayPhase, aiTurns }]);
+  const pushHistory = () => setHistory(current => [...current, { phase, questionIndex, selectedOptions, parentOccupations, pairRows, typedAnswer, transcript, intakes, currentIntake, dayPhase, awaitingAnotherIntake, aiTurns }]);
 
   const finishIntakes = (finished: IntakeEntry[]) => {
     clearCurrentAnswer();
@@ -903,11 +958,74 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setIntakes(finished);
     setCurrentIntake(emptyIntake());
     setDayPhase('early');
+    setAwaitingAnotherIntake(false);
+    setPendingActivityAcknowledgment(null);
     setPhase('questions');
     setQuestionIndex(stepIndexById.get('10') ?? 0);
   };
 
-  const settleIntake = (entry: IntakeEntry, outcome: IntakeOutcome) => {
+  const recordCompletedIntake = (entry: IntakeEntry, askForAnother: boolean) => {
+    const finished = [...intakes, { ...entry, phase: intakeSegment }];
+    saveInBackground({ yesterdayIntakes: finished.map((item, index) => serializeIntake(item, index, aiEnabled)), currentIntake: null });
+    if (finished.length >= INTAKE_MAX) {
+      finishIntakes(finished);
+      return;
+    }
+    setIntakes(finished);
+    setCurrentIntake(emptyIntake());
+    setDayPhase(intakeSegment);
+    setAwaitingAnotherIntake(askForAnother && aiEnabled);
+    setPendingActivityAcknowledgment(null);
+  };
+  const completedIntakeRef = useRef(recordCompletedIntake);
+  completedIntakeRef.current = recordCompletedIntake;
+
+  useEffect(() => {
+    const pending = pendingActivityAcknowledgment;
+    if (!pending) return;
+    let cancelled = false;
+    let finished = false;
+    const controller = new AbortController();
+    const complete = () => {
+      if (cancelled || finished) return;
+      finished = true;
+      setAiReply('');
+      completedIntakeRef.current(pending.entry, pending.askForAnother);
+    };
+
+    setConversationState('speaking');
+    setAiReply(pending.speech);
+    setIsLoadingNarration(true);
+    speechCleanupRef.current = () => {
+      controller.abort();
+      stopAudio(audioRef);
+    };
+    loadNarration(pending.speech, 'fr', voiceMascot, authToken, controller.signal)
+      .then(audio => {
+        if (cancelled) return;
+        setIsLoadingNarration(false);
+        playBlob(audio, audioRef, complete, () => {
+          if (cancelled) return;
+          setIsLoadingNarration(false);
+          setError('La synthèse vocale a échoué. Tu peux lire la réponse.');
+          complete();
+        });
+      })
+      .catch(error => {
+        if (cancelled) return;
+        setIsLoadingNarration(false);
+        setError(speechFailureMessage(error, 'La synthèse vocale a échoué. Tu peux lire la réponse.'));
+        complete();
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      stopAudio(audioRef);
+    };
+  }, [authToken, pendingActivityAcknowledgment, voiceMascot]);
+
+  const settleIntake = (entry: IntakeEntry, outcome: IntakeOutcome, askForAnother = false) => {
     if (outcome === 'clarify') {
       setCurrentIntake(entry);
       return;
@@ -921,15 +1039,18 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
     clearCurrentAnswer();
     if (outcome === 'complete') {
-      const finished = [...intakes, { ...entry, phase: intakeSegment }];
-      saveInBackground({ yesterdayIntakes: finished.map((item, index) => serializeIntake(item, index, aiEnabled)), currentIntake: null });
-      if (finished.length >= INTAKE_MAX) {
-        finishIntakes(finished);
+      const acknowledgment = activityAcknowledgmentSpeech(entry);
+      if (askForAnother && aiEnabled && acknowledgment) {
+        setCurrentIntake(entry);
+        setPendingActivityAcknowledgment({
+          entry,
+          askForAnother,
+          question: currentQuestion,
+          speech: acknowledgment,
+        });
         return;
       }
-      setIntakes(finished);
-      setCurrentIntake(emptyIntake());
-      setDayPhase(intakeSegment);
+      recordCompletedIntake(entry, askForAnother && aiEnabled);
       return;
     }
     saveInBackground({ currentIntake: serializeIntake(entry, intakes.length, aiEnabled) });
@@ -937,7 +1058,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   };
 
   // The next question of the occasion is asked, or the occasion is recorded when every question has been answered.
-  const advanceIntake = (entry: IntakeEntry) => settleIntake(entry, pendingField(entry) ? 'continue' : 'complete');
+  const advanceIntake = (entry: IntakeEntry) => settleIntake(entry, pendingField(entry) ? 'continue' : 'complete', aiEnabled);
 
   // The text typed for a question: foods and drinks are sent to be checked, the name of the moment is kept as it is.
   const handleSubmitDraft = (id: IntakeFieldId) => {
@@ -951,7 +1072,19 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     advanceIntake(settleField(withField(currentIntake, id, text), id));
   };
 
-  const handleConfirmChoices = (id: IntakeFieldId) => advanceIntake(settleField(currentIntake, id));
+  const handleConfirmChoices = (id: IntakeFieldId, value?: string) => {
+    const entry = value === undefined ? currentIntake : withField(currentIntake, id, value);
+    advanceIntake(settleField(entry, id));
+  };
+
+  const handleSkipIntakeField = (id: IntakeFieldId) => {
+    setIntakeDrafts(current => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    advanceIntake(skipField(currentIntake, id));
+  };
 
   const sendIntake = async (audio: Blob | null, text: string, stage: IntakeStage = intakeStage) => {
     if (!authToken) {
@@ -1007,8 +1140,59 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       const keptDrafts = outcome === 'continue' && stage.kind !== 'opening'
         ? Object.fromEntries(Object.entries(intakeDrafts).filter(([id]) => id !== stage.field && answerableFields(entry).includes(id as IntakeFieldId)))
         : {};
-      settleIntake(entry, outcome);
+      settleIntake(entry, outcome, outcome === 'complete' && aiEnabled);
       setIntakeDrafts(keptDrafts);
+    } catch (requestError) {
+      let message = 'Impossible de traiter cette réponse. Réessaie.';
+      if (axios.isAxiosError(requestError)) {
+        message = requestError.code === 'ECONNABORTED' ? 'Le serveur met trop de temps à répondre. Réessaie.' : requestError.response?.data?.error || message;
+      }
+      setError(message);
+      setConversationState('listening');
+    }
+  };
+
+  const startAnotherIntake = () => {
+    pushHistory();
+    interruptNarration();
+    clearCurrentAnswer();
+    setIntakeHeard('');
+    setCurrentIntake(emptyIntake());
+    setAwaitingAnotherIntake(false);
+    setConversationState('listening');
+  };
+
+  const sendAnotherIntakeDecision = async (audio: Blob) => {
+    if (!authToken) {
+      setError('Ta session a expiré. Reconnecte-toi pour répondre.');
+      setConversationState('listening');
+      return;
+    }
+
+    let extension = 'webm';
+    if (audio.type.includes('ogg')) extension = 'ogg';
+    else if (audio.type.includes('mp4')) extension = 'mp4';
+    else if (audio.type.includes('wav')) extension = 'wav';
+    const formData = new FormData();
+    formData.append('audio', audio, `another-intake.${extension}`);
+    formData.append('language', 'fr');
+    formData.append('mascot', voiceMascot);
+    formData.append('payload', JSON.stringify({ stage: 'anotherIntake', record: {}, fields: [] }));
+    setConversationState('thinking');
+    setError('');
+
+    try {
+      const response = await api.post('/api/ai/intake', formData, { headers: { Authorization: `Bearer ${authToken}` }, timeout: 60000 });
+      const result = response.data as { transcript: string; decision: 'yes' | 'no' | 'unclear' };
+      setIntakeHeard(result.transcript);
+      if (result.decision === 'yes') {
+        startAnotherIntake();
+      } else if (result.decision === 'no') {
+        handleNothingInPhase();
+      } else {
+        setError('Je n’ai pas compris. Réponds oui ou non, ou touche un bouton.');
+        setConversationState('listening');
+      }
     } catch (requestError) {
       let message = 'Impossible de traiter cette réponse. Réessaie.';
       if (axios.isAxiosError(requestError)) {
@@ -1022,7 +1206,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const handleNoMoreIntakes = () => settleIntake(currentIntake, 'endOfDay');
 
   // The occasion is kept as it is and a new one starts in the same part of the day.
-  const handleAddIntake = () => settleIntake(completeEarly(currentIntake), 'complete');
+  const handleAddIntake = () => {
+    if (pendingField(currentIntake) || !intakeHasContent(currentIntake)) return;
+    settleIntake(currentIntake, 'complete');
+  };
 
   // Nothing eaten or drunk in this part of the day: go on with the next one, or end the recall after the evening.
   const handleNothingInPhase = () => {
@@ -1036,6 +1223,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     clearCurrentAnswer();
     setIntakeHeard('');
     setCurrentIntake(emptyIntake());
+    setAwaitingAnotherIntake(false);
     setDayPhase(next);
   };
 
@@ -1142,7 +1330,9 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         stream.getTracks().forEach(track => track.stop());
         mediaStreamRef.current = null;
         const recorded = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-        const request = phase === 'intake' ? sendIntake(recorded, '') : transcribeAnswer(recorded, previous);
+        const request = phase === 'intake'
+          ? awaitingAnotherIntake ? sendAnotherIntakeDecision(recorded) : sendIntake(recorded, '')
+          : transcribeAnswer(recorded, previous);
         void request.finally(() => setIsSendingVoice(false));
       };
       recorder.start();
@@ -1185,6 +1375,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     setIntakes(entry.intakes);
     setCurrentIntake(entry.currentIntake);
     setDayPhase(entry.dayPhase);
+    setAwaitingAnotherIntake(entry.awaitingAnotherIntake);
     setIntakeHeard('');
     setRequiresRepeat(false);
     setFollowUpsDone(0);
@@ -1209,6 +1400,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
       setIntakes([]);
       setCurrentIntake(emptyIntake());
       setDayPhase('early');
+      setAwaitingAnotherIntake(false);
       setPhase('intake');
       return;
     }
@@ -1262,6 +1454,8 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     }
     if (!aiEnabled) {
       finishFormIntakes();
+    } else if (awaitingAnotherIntake) {
+      handleNothingInPhase();
     } else if (intakeStage.kind === 'opening') {
       handleNoMoreIntakes();
     } else {
@@ -1312,7 +1506,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
     questionLabel = `Question ${shownNumber(step.number)} sur ${displayTotal}`;
     kicker = `Question ${shownLabel(step.label)}`;
   } else if (phase === 'intake') {
-    questionLabel = `Question ${shownNumber(INTAKE_QUESTION_NUMBER)} sur ${displayTotal} · prise ${intakes.length + 1}`;
+    questionLabel = `Question ${shownNumber(INTAKE_QUESTION_NUMBER)} sur ${displayTotal} · ${awaitingAnotherIntake ? `après la prise ${intakes.length}` : `prise ${intakes.length + 1}`}`;
     kicker = `Question ${shownNumber(INTAKE_QUESTION_NUMBER)} · Rappel de la journée d’hier`;
   } else if (phase === 'saving') {
     questionLabel = 'Enregistrement du questionnaire…';
@@ -1337,7 +1531,7 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
   const nextDisabled = !hasCurrentAnswer || missingRequired || requiresRepeat || !['speaking', 'ready', 'listening'].includes(conversationState);
 
   // Before the child clicks on the first moment of the day, there is nothing to answer yet.
-  const showVoiceControls = aiEnabled && !prepActive;
+  const showVoiceControls = aiEnabled && !prepActive && !pendingActivityAcknowledgment;
 
   let intros: string[] = [];
   if (phase === 'questions') intros = step.intro ? [step.intro] : [];
@@ -1349,11 +1543,11 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
         <QuestionCard
           kicker={kicker}
           intros={intros}
-          question={phase === 'questions' ? step.text : (prepActive ? (prepInvited ? recallInviteSpeech : '') : stageQuestion(currentIntake, recordedInPhase === 0, intakeSegment))}
+          question={phase === 'questions' ? step.text : (prepActive ? (prepInvited ? recallInviteSpeech : '') : pendingActivityAcknowledgment?.question ?? (awaitingAnotherIntake ? 'Est-ce que tu as mangé ou bu autre chose ?' : stageQuestion(currentIntake, recordedInPhase === 0, intakeSegment)))}
           image={phase === 'questions' ? step.image : undefined}
           repeatLabel={isLoadingNarration ? 'Préparation de la lecture…' : '🔊 Réécouter la question'}
-          repeatDisabled={isLoadingNarration}
-          onRepeat={aiEnabled && !prepActive ? () => void handleRepeatQuestion() : undefined}
+          repeatDisabled={isLoadingNarration || Boolean(pendingActivityAcknowledgment)}
+          onRepeat={aiEnabled && !prepActive && !pendingActivityAcknowledgment ? () => void handleRepeatQuestion() : undefined}
         />
         <div onChangeCapture={interruptNarration}>
           {presetAnswers}
@@ -1382,10 +1576,10 @@ const VoiceSurveyPage: React.FC<VoiceSurveyPageProps> = ({ authToken, selectedMa
             <FaCircleArrowLeft size={ICON_SIZE} aria-hidden="true" style={styles.buttonIcon} />
             Précédent
           </button>
-                    <button type="button" onClick={handleSkip} disabled={busy} style={styles.skipButton}>
+                    {!awaitingAnotherIntake && <button type="button" onClick={handleSkip} disabled={busy} style={styles.skipButton}>
                       {phase === 'intake' && !aiEnabled ? 'Aucune autre prise' : 'Passer cette question'}
                       <FaForwardStep size={ICON_SIZE} aria-hidden="true" style={styles.buttonIcon} />
-                    </button>
+                    </button>}
                     <NextButton label={nextLabel} disabled={nextDisabled} onClick={handleNext} />
         </div>
     </SurveyPageLayout>

@@ -160,6 +160,20 @@ export const applyExtraction = (entry: IntakeEntry, stage: IntakeStage, result: 
   return { entry: next, outcome: pendingField(next) ? 'continue' : 'complete' };
 };
 
+// Skipping an active field discards any unconfirmed choice or draft.
+export const skipField = (entry: IntakeEntry, id: IntakeFieldId): IntakeEntry => {
+  if (isDone(entry, id)) return entry;
+  const next = { ...entry, details: withoutDetail(entry.details, id) };
+  if (isFoodField(id) && hasValue(entry.fields[id]) && entry.details[id]) return settleField(next, id);
+  const fields = { ...entry.fields };
+  delete fields[id];
+  return {
+    ...next,
+    fields,
+    skipped: [...entry.skipped, id],
+  };
+};
+
 // The field being asked is left as it is when it has a value (a precision is then no longer expected), otherwise recorded as not given.
 export const skipPending = (entry: IntakeEntry): IntakeEntry => {
   const id = pendingField(entry);
